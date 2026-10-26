@@ -55,7 +55,9 @@ export default function JournalShell() {
                       padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 11 }}>
           {Array.from({ length: 13 }).map((_, i) => <Bone key={i} w="100%" h={16} dark={!light} />)}
         </div>
-        <div style={{ flex: 1, padding: '14px 16px 32px', minWidth: 0, display: 'flex',
+        {/* THE GUTTER IS EQUAL ON ALL FOUR SIDES. It was 32 at the bottom against 16 at the
+            sides, which reads as a gap rather than a margin once the panels reach down to it. */}
+        <div style={{ flex: 1, padding: '14px 16px 16px', minWidth: 0, display: 'flex',
                       flexDirection: 'column', gap: G.splitGapPx, overflow: 'hidden' }}>
           {/* SIX KPI TILES, each a caption above a value — the shape of `KpiCardSkeleton`. */}
           <div className="ls-kpi" style={{ display: 'grid', gap: G.kpiGapPx }}>
@@ -68,7 +70,12 @@ export default function JournalShell() {
             ))}
           </div>
           {/* THE EQUITY CURVE BESIDE THE PERFORMANCE MIX, at the real 7fr/5fr. */}
-          <div className="ls-split" style={{ display: 'grid', gap: G.splitGapPx }}>
+          {/* ⚠ IT STRETCHES TO THE BOTTOM. Without `flex: 1` this row took its own minimum height
+              and stopped there, leaving a band of bare ground under the panels — his words,
+              2026-10-26: *"the skeleton does not reach the bottom so it looks hanging so i wanted
+              it to be full page top to bottom and side to side."* The floor stays as a floor so a
+              short viewport still gets a sensibly sized panel instead of a squashed one. */}
+          <div className="ls-split" style={{ display: 'grid', gap: G.splitGapPx, flex: 1, minHeight: G.panelMinHeight }}>
             <div style={{ ...card, background: T.bg, padding: G.panelPadPx, minHeight: G.panelMinHeight,
                           display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
