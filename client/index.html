@@ -187,9 +187,29 @@
       <div class="bj-top"></div>
       <div class="bj-nav"></div>
       <div class="bj-body">
+        <!-- THIRTEEN NAV ROWS, THE SAME SHAPE THE REACT PLACEHOLDER DRAWS. Each one is a 16px
+             icon square and a label bar at that label's MEASURED width in the page's own face
+             (Montserrat 700, 15.5px): Dashboard 92, Sessions 72, Accounts 79, Journal 63,
+             Trade Vault 96, Calendar 75, Drawdown 91, Analytics 78, Audit 46, Trader AI 76,
+             FX Copier 81, Assets 55, Leaderboard 103 (clamped from 107 to the space a label gets).
+             ⚠ WRITTEN OUT BY HAND BECAUSE THIS BLOCK RUNS BEFORE ANY JAVASCRIPT — it can import
+             nothing. `JournalShellSkeleton.tsx` holds the same thirteen numbers; if they ever
+             disagree, the reload flashes one shape and then the other, which is the report that
+             led here. -->
         <div class="bj-rail">
-          <div></div><div></div><div></div><div></div><div></div><div></div><div></div>
-          <div></div><div></div><div></div><div></div><div></div><div></div>
+          <div><span></span><span style="width:92px"></span></div>
+          <div><span></span><span style="width:72px"></span></div>
+          <div><span></span><span style="width:79px"></span></div>
+          <div><span></span><span style="width:63px"></span></div>
+          <div><span></span><span style="width:96px"></span></div>
+          <div><span></span><span style="width:75px"></span></div>
+          <div><span></span><span style="width:91px"></span></div>
+          <div><span></span><span style="width:78px"></span></div>
+          <div><span></span><span style="width:46px"></span></div>
+          <div><span></span><span style="width:76px"></span></div>
+          <div><span></span><span style="width:81px"></span></div>
+          <div><span></span><span style="width:55px"></span></div>
+          <div><span></span><span style="width:103px"></span></div>
         </div>
         <div class="bj-main">
           <div class="bj-kpi">
@@ -245,18 +265,47 @@
       .bj-nav { height: 60px; background: rgba(255,255,255,.05);
                 border-bottom: 1px solid rgba(255,255,255,.06); }
       .bj-body { display: flex; height: calc(100% - 92px); }
-      .bj-rail { width: 185px; min-width: 185px; padding: 14px 12px; display: flex;
-                 flex-direction: column; gap: 11px; background: rgba(255,255,255,.04); }
-      .bj-rail > div { height: 16px; border-radius: 8px; background: rgba(255,255,255,.07);
-                       animation: bsPulse 1.5s ease-in-out infinite; }
-      .bj-main { flex: 1; min-width: 0; padding: 14px 16px; display: flex;
+      /* ⚠ THESE NUMBERS MIRROR `JournalShellSkeleton.tsx`, AND THAT IS THE WHOLE POINT. This block
+         paints the FIRST frame and the React one paints a moment later; where they disagree, the
+         reload shows one shape and then jumps to the other. His report, 2026-10-26: *"there are
+         remnants of that hanging skeleton we were removing and it appears shortly before the fix
+         you made of a full skeleton takes over."* It was this copy, left on the old geometry.
+         The rail's edge line is the real page's own value (`Journal.tsx:163`) — without it the
+         column is invisible against the page on Midnight (a difference of 2 in 255) and reads as
+         stopping wherever its last item does. */
+      /* ⚠ BORDER-BOX, EXPLICITLY. This block paints BEFORE the app's stylesheet, so it does not
+         inherit the `box-sizing: border-box` that Tailwind's reset gives every element in the
+         React placeholder. Without it the rail measured 210px here against 185px there — the
+         padding and border added on top — so the sidebar visibly jumped 25px narrower at the
+         swap. MEASURED at 1366x768 before the fix: railWidth 210. */
+      #boot-journal, #boot-journal * { box-sizing: border-box; }
+      .bj-rail { width: 185px; min-width: 185px; padding: 16px 12px 8px; display: flex;
+                 flex-direction: column; overflow: hidden; background: rgba(255,255,255,.04);
+                 border-right: 1px solid rgba(255,255,255,.04); }
+      /* One nav row: 16px of padding above and below a 19px line of 15.5px Montserrat
+         (`Journal.tsx:133`, `:144`), 4px between rows (`:124`). Thirteen of those run past the
+         bottom of a short window, exactly as the real rail does — it scrolls, this one clips. */
+      .bj-rail > div { height: 51px; box-sizing: border-box; flex-shrink: 0; margin-bottom: 4px;
+                       padding: 0 14px; display: flex; align-items: center; gap: 14px; }
+      .bj-rail > div > span { border-radius: 3px; background: rgba(255,255,255,.07);
+                              animation: bsPulse 1.5s ease-in-out infinite; }
+      .bj-rail > div > span:first-child { width: 16px; height: 16px; border-radius: 4px;
+                                          flex-shrink: 0; }
+      .bj-rail > div > span:last-child  { height: 11px; }
+      /* The gutter is equal on all four sides — it was 14 at the bottom against 16 at the sides,
+         which reads as a gap rather than a margin once the panels reach down to it. */
+      .bj-main { flex: 1; min-width: 0; padding: 14px 16px 16px; display: flex;
                  flex-direction: column; gap: 6px; }
       .bj-kpi { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 4px; }
       .bj-kpi > div { height: 80px; border-radius: 8px; background: rgba(255,255,255,.05);
                       border: 1px solid rgba(255,255,255,.08);
                       animation: bsPulse 1.5s ease-in-out infinite; }
-      .bj-split { display: grid; grid-template-columns: minmax(0,1fr); gap: 6px; }
-      .bj-split > div { height: 302px; border-radius: 8px; background: rgba(255,255,255,.05);
+      /* IT STRETCHES TO THE BOTTOM. With a fixed 302px height this row stopped where its own
+         height ran out and left a band of bare ground under the panels — the original "it looks
+         hanging". 302 stays as a FLOOR so a short window still gets a sensibly sized panel. */
+      .bj-split { display: grid; grid-template-columns: minmax(0,1fr); gap: 6px; flex: 1;
+                  min-height: 302px; }
+      .bj-split > div { min-height: 302px; border-radius: 8px; background: rgba(255,255,255,.05);
                         border: 1px solid rgba(255,255,255,.08);
                         animation: bsPulse 1.5s ease-in-out infinite; }
       /* The journal's OWN breakpoints (AppShellSkeleton BONE_CSS): 2/3/6 tiles at 768 and 1024,
@@ -271,8 +320,11 @@
       html.boot-theme-light .bj-top { background: rgba(15,23,42,.03); }
       html.boot-theme-light .bj-nav { background: rgba(15,23,42,.05);
                                       border-bottom-color: rgba(15,23,42,.08); }
-      html.boot-theme-light .bj-rail { background: rgba(15,23,42,.04); }
-      html.boot-theme-light .bj-rail > div,
+      html.boot-theme-light .bj-rail { background: rgba(15,23,42,.04);
+                                       border-right-color: rgba(0,0,0,.07); }
+      /* The bones are the SPANS now, not the rows — the rows became the spacing. Leaving this
+         selector on `> div` would paint thirteen full-width slabs down the Light rail. */
+      html.boot-theme-light .bj-rail > div > span,
       html.boot-theme-light .bj-kpi > div,
       html.boot-theme-light .bj-split > div { background: rgba(15,23,42,.07);
                                               border-color: rgba(15,23,42,.10); }
