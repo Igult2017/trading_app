@@ -9,6 +9,30 @@ import { THEMES, storedJournalTheme } from '@/hooks/useJournalSettings';
 // `.journal-root` and its `--jr-*` variables exist.
 import { DASH_GEOMETRY } from '@/components/skeletons/DashboardSkeletons';
 
+/** ⚠ THE RAIL IS FILLED BY MATCHING THE REAL NAV'S RHYTHM, not by adding invented filler.
+ *  His report, 2026-10-26, with the empty half of the sidebar ticked: *"That space i have ticked
+ *  should be filled in the skeleton."* The bones were 16px tall and 11px apart — 354px of a 676px
+ *  column, so the list stopped halfway and the rest was bare ground.
+ *
+ *  A real nav row is 51px: 16px of padding above and below a line of 15.5px Montserrat
+ *  (`Journal.tsx:133`, `:144`), with 4px between rows (`:124`). Thirteen of those is 727px, which
+ *  fills the column on his screen and runs past the bottom on a short one — exactly as the real
+ *  sidebar does, which scrolls (`Journal.tsx:191`). So the placeholder now ends where the page's
+ *  own nav ends, rather than above it. */
+const NAV_ROW_H = 51;
+/** Each row's label bar — the MEASURED width of that nav label, in the order the sidebar lists
+ *  them (`Journal.tsx:71-89`), rendered in the page's own face and size (Montserrat 700, 15.5px,
+ *  0.02em tracking) rather than estimated from a characters-times-a-guess sum:
+ *
+ *    Dashboard 92 · Sessions 72 · Accounts 79 · Journal 63 · Trade Vault 96 · Calendar 75
+ *    Drawdown 91 · Analytics 78 · Audit 46 · Trader AI 76 · FX Copier 81 · Assets 55
+ *    Leaderboard 107 → 103
+ *
+ *  103 is all a label gets (185 rail − 24 rail padding − 28 row padding − 16 icon − 14 gap), so
+ *  Leaderboard is clamped to it, exactly as the real one is. They vary because thirteen bars of
+ *  one length read as a pattern rather than as a list of words. */
+const NAV_BAR_WIDTHS = [92, 72, 79, 63, 96, 75, 91, 78, 46, 76, 81, 55, 103];
+
 /** The journal dashboard's shape. Verified against the live page: KPI row top/left/width
  *  106/201/1149, six columns at 4px with an 8px radius, cards 80 tall, panels at top 192 running
  *  302 tall, split columns 666.75 / 476.25 — identical on both. */
@@ -58,10 +82,22 @@ export default function JournalShell() {
             *"Its sidebar doesnt [reach the bottom]."*
             The real page draws a hairline on that edge and the placeholder did not. These are the
             page's own values, copied rather than chosen (Journal.tsx:163, :176). */}
+        {/* ⚠ `overflow: hidden`, NOT a scrollbar. Thirteen real rows are taller than a short
+            viewport, so the last one is cut by the bottom edge — which is what the real rail looks
+            like before you scroll it, and it is what makes the column read as full rather than as
+            a list that gave up. */}
         <div className="ls-rail" style={{ width: 185, flexShrink: 0, background: T.sidebarBg,
                       borderRight: '1px solid ' + (light ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.04)'),
-                      padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 11 }}>
-          {Array.from({ length: 13 }).map((_, i) => <Bone key={i} w="100%" h={16} dark={!light} />)}
+                      padding: '16px 12px 8px', display: 'flex', flexDirection: 'column',
+                      overflow: 'hidden' }}>
+          {NAV_BAR_WIDTHS.map((w, i) => (
+            <div key={i} style={{ height: NAV_ROW_H, boxSizing: 'border-box', flexShrink: 0,
+                                  marginBottom: 4, padding: '0 14px', display: 'flex',
+                                  alignItems: 'center', gap: 14 }}>
+              <Bone w={16} h={16} r={4} dark={!light} />
+              <Bone w={w} h={11} r={3} dark={!light} />
+            </div>
+          ))}
         </div>
         {/* THE GUTTER IS EQUAL ON ALL FOUR SIDES. It was 32 at the bottom against 16 at the
             sides, which reads as a gap rather than a margin once the panels reach down to it. */}
