@@ -7,6 +7,7 @@
 import { db, pool } from '../db';
 import { brokerAccounts } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
+import { RUNNING_API_ACCOUNT } from '../lib/accountFilters';
 import { fetchTradesForAccount, API_PLATFORMS } from './brokerAdapters/index';
 import { processIncomingTrades } from './brokerSyncService';
 import { safeDecrypt, safeEncrypt } from '../lib/crypto';
@@ -66,7 +67,14 @@ const DEEP_EVERY       = 4;                    // every 4th sweep — every 4th 
 const PROACTIVE_MS     = 5 * 60 * 1_000; // refresh if token expires within 5 min
 
 async function getAllApiAccounts(): Promise<BrokerAccount[]> {
-  return db.select().from(brokerAccounts).where(eq(brokerAccounts.connectionType, 'api'));
+  // ⚠ AND SWITCHED ON. An account he has LOGGED OUT keeps its row, its trades and its journal on
+  // purpose (`accountDisconnect.ts`) — so the only thing that stops the sweep picking it back up
+  // is this line. Without it, logging out would clear the tokens and the sweep would keep trying
+  // the account every 15 minutes and filing the failures as errors.
+  //
+  // `coalesce`, not `= true`: `is_active` has a default but older rows can hold NULL, and a plain
+  // comparison against NULL is NULL — which would silently drop real accounts from the sweep.
+  return db.select().from(brokerAccounts).where(RUNNING_API_ACCOUNT);
 }
 
 // Coalesce concurrent refreshes for the SAME account into ONE /apps/token call. cTrader
@@ -281,6 +289,17 @@ export async function syncAccount(account: BrokerAccount,
   if (account.loginId?.startsWith('pending_')) {
     console.log(`[AutoSync] ${tag}: skipped — OAuth never completed (loginId still 'pending_')`);
     return { ok: false, skipped: 'this account never finished connecting (OAuth incomplete)' };
+  }
+  // ⚠ AND ONE HE HAS LOGGED OUT OF — THE LINE THAT PROTECTS THE LOG-OUT STATE ITSELF. The sweep
+  // no longer offers such an account (`lib/accountFilters.RUNNING_API_ACCOUNT`), but this function
+  // is also called directly: by the Sync button, by Sync All, and by the missed-close watcher.
+  // Without this, pressing Sync on a logged-out account would run with no credentials, fail, and
+  // write `sync_status = 'error'` over `'disconnected'` — so the row would stop saying it was
+  // logged out and start claiming it was broken.
+  if (account.isActive === false) {
+    console.log(`[AutoSync] ${tag}: skipped — logged out; its trades and journal are kept and it `
+              + `resumes from ${account.lastSyncAt ? account.lastSyncAt.toISOString() : 'the start'}`);
+    return { ok: false, skipped: 'this account is logged out — reconnect it to resume syncing' };
   }
 
   await db.update(brokerAccounts).set({ syncStatus: 'syncing' }).where(eq(brokerAccounts.id, account.id));

@@ -21,6 +21,7 @@ import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
 import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, refreshAccessToken, newConnectApp } from "./services/brokerAdapters/ctrader";
 import { addCTraderAccount, removeCTraderAccount } from "./services/ctraderRealtime";
+import { disconnectAccount, findAccountToAdopt } from "./services/accountDisconnect";
 import { sessionAt } from "./lib/forexSession";
 import { syncAccount, refreshCTraderToken } from "./services/autoSyncService";
 import { createTokenRecord } from "./services/ctraderTokenStore";
@@ -4622,6 +4623,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   /** Delete a broker account (cascades to synced trades). */
+  /**
+   * LOG AN ACCOUNT OUT — and keep everything it has recorded.
+   *
+   * His instruction, 2026-10-26: *"when i logout account, its data is not errased and when i log
+   * it back in it is not autosynced from scratch, the data is restored from where we left and only
+   * new data or trades that were made when it was logged out are journaled."*
+   *
+   * This is NOT the delete below, and the two must stay apart: delete is for getting rid of an
+   * account, this is for signing out of one. The reasoning and the exact list of what survives is
+   * in `services/accountDisconnect.ts`.
+   */
+  app.post("/api/broker-accounts/:id/disconnect", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const account = await storage.getBrokerAccountById(req.params.id);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
+
+    try {
+      const out = await disconnectAccount(req.params.id);
+      if (!out.ok) return res.status(404).json({ error: "Account not found" });
+      // SAY WHAT WAS KEPT, rather than leaving him to trust it. The client shows this, and it is
+      // also the line that makes a broken log-out visible instead of silent.
+      return res.json({
+        success: true,
+        resumeFrom: out.keptLastSyncAt,
+        message: out.keptLastSyncAt
+          ? `Logged out. Your trades and journal are kept — reconnecting picks up from ${out.keptLastSyncAt}.`
+          : `Logged out. Your trades and journal are kept.`,
+      });
+    } catch (e: any) {
+      console.error("[broker-disconnect] failed:", e);
+      return res.status(500).json({ error: e?.message || "Failed to log the account out" });
+    }
+  });
+
   app.delete("/api/broker-accounts/:id", async (req: Request, res: Response) => {
     const user = await verifyToken(req.headers.authorization);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
@@ -5081,16 +5118,32 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       // ONE SIGN-IN, ONE SHARED TOKEN RECORD. Even with a single account today, the record is
       // what a LATER sign-in attaches its siblings to — and it is the only thing that renews.
       const owner = (await storage.getBrokerAccountById(resolvedAccountId))?.userId ?? '';
+
+      // ⚠ SIGN BACK INTO THE ACCOUNT THAT ALREADY HOLDS THE HISTORY, rather than making a second
+      // one. Pressing Reconnect already passes the existing account's id, so this is for the other
+      // route in: using "Add account" again for a login he already has. Without it that login gets
+      // a brand-new row — no synced trades, no `last_sync_at` — and the first sweep re-imports the
+      // whole history and journals it a second time (`autoSyncService.ts:301-302`). The old row
+      // and everything attached to it would just sit there, stranded.
+      let targetId = resolvedAccountId;
+      const adopt = owner ? await findAccountToAdopt(owner, 'ctrader', traderLogin, resolvedAccountId) : null;
+      if (adopt) {
+        targetId = adopt.id;
+        console.log(`[cTrader OAuth] login ${traderLogin} already exists — signing back into that `
+                  + `account (${adopt.id.slice(0, 8)}) and keeping its history. Last sync `
+                  + `${adopt.lastSyncAt ? adopt.lastSyncAt.toISOString() : 'never'}.`);
+      }
+
       if (owner) {
         const made = await createTokenRecord(owner, oauthApp, {
           accessToken: tokens.accessToken, refreshToken: tokens.refreshToken,
           tokenExpiresAt: Date.now() + (tokens.expiresIn * 1000),
-        }, [resolvedAccountId]);
+        }, [targetId]);
         if (!made) console.warn('[cTrader OAuth] could not create the shared token record — the '
                               + 'account still works from its own copy, but siblings will not share it');
       }
 
-      await storage.updateBrokerAccount(resolvedAccountId, {
+      await storage.updateBrokerAccount(targetId, {
         loginId:     traderLogin,
         // THIS IS THE MOMENT THE ACCOUNT BECOMES API-CONNECTED, AND IT WAS NEVER RECORDED.
         // `connection_type` defaults to 'webhook' (shared/schema.ts) and nothing in the whole
@@ -5107,9 +5160,22 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         currency:    ct.currency || undefined,
         syncStatus:  'pending',
         lastSyncError: null as any,
+        // SWITCHED BACK ON. Logging out sets this false so the sweep, the live feed and the
+        // missed-close watcher all leave the account alone; signing in is what turns it back on.
+        // Without this line a reconnected account would look connected and record nothing.
+        // ⚠ `lastSyncAt` is NOT reset here — it is what makes the sweep fetch only the stretch he
+        // was logged out for instead of the whole history.
+        isActive: true,
       });
 
-      const freshAccount = await storage.getBrokerAccountById(resolvedAccountId);
+      // If a second row was created just to run this sign-in, it has served its purpose and must
+      // not be left behind as a duplicate account in his list.
+      if (targetId !== resolvedAccountId) {
+        try { await storage.deleteBrokerAccount(resolvedAccountId); }
+        catch (e: any) { console.error('[cTrader OAuth] could not clear the placeholder row: ' + (e?.message ?? e)); }
+      }
+
+      const freshAccount = await storage.getBrokerAccountById(targetId);
       if (freshAccount) {
         // Fetch balance first (PT_ACCOUNTS_RES never includes it), then sync.
         // Sequential — not concurrent — so both don't race on the same WS rate limit.
@@ -5134,7 +5200,9 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
         addCTraderAccount(freshAccount.id);
       }
 
-      return ctReturn(res, isPopup, 'connected', resolvedAccountId);
+      // The id the client is told about is the one that now holds the account — which, after an
+      // adoption, is NOT the row the sign-in started on.
+      return ctReturn(res, isPopup, 'connected', targetId);
     } catch (err: any) {
       const cause = (err.cause as any)?.code ?? (err.cause as any)?.message ?? '';
       console.error('[cTrader OAuth]', err.message, cause, err.cause ?? '');
@@ -5188,13 +5256,29 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
     // and attaching them here is what lets a later renewal keep them alive instead of each one
     // being refused in turn. Accounts he has not linked yet simply have no row to attach, which is
     // why this matches on the cTrader id he already has rows for.
+    // ⚠ SAME RULE AS THE SINGLE-ACCOUNT PATH: sign back into the account that already holds the
+    // history instead of starting a second one for the same login. Leaving it out here would mean
+    // the fix worked for a one-account sign-in and silently did not for a multi-account one —
+    // which is the shape of bug this codebase has been bitten by before.
+    //
+    // It is settled BEFORE the shared token record, because the record has to name the account
+    // that will actually be renewed — naming a row that is about to be deleted would leave the
+    // real account covered by nothing.
+    const chosenLogin = String(chosen.traderLogin ?? chosen.ctidTraderAccountId);
+    const adopt = await findAccountToAdopt(user.id, 'ctrader', chosenLogin, token);
+    const targetId = adopt?.id ?? token;
+    if (adopt) {
+      console.log(`[cTrader OAuth] login ${chosenLogin} already exists — signing back into that `
+                + `account (${adopt.id.slice(0, 8)}) and keeping its history. Last sync `
+                + `${adopt.lastSyncAt ? adopt.lastSyncAt.toISOString() : 'never'}.`);
+    }
     const siblingRows = await pool.query<{ id: string; password_enc: string }>(
       "SELECT id, password_enc FROM broker_accounts WHERE user_id = $1 AND platform = 'ctrader'",
       [user.id]);
     const coveredCtids = new Set((pending.accounts as any[]).map(a => String(a.ctidTraderAccountId)));
-    const attachIds = [token];
+    const attachIds = [targetId];
     for (const row of siblingRows.rows) {
-      if (row.id === token) continue;
+      if (row.id === token || row.id === targetId) continue;
       try {
         const c = JSON.parse(safeDecrypt(row.password_enc) ?? '{}');
         if (c?.ctraderId && coveredCtids.has(String(c.ctraderId))) attachIds.push(row.id);
@@ -5209,8 +5293,8 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       console.log(`[cTrader OAuth] one sign-in now covers ${attachIds.length} linked account(s) — `
                 + `renewing any one of them keeps the rest alive`);
     }
-    await storage.updateBrokerAccount(token, {
-      loginId:     String(chosen.traderLogin ?? chosen.ctidTraderAccountId),
+    await storage.updateBrokerAccount(targetId, {
+      loginId:     chosenLogin,
       connectionType: 'api',      // see the note in the OAuth callback — this was the missing line
       passwordEnc: safeEncrypt(credJson),
       accountType: chosen.isLive ? 'live' : 'demo',
@@ -5218,8 +5302,15 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       currency:    chosen.currency || undefined,
       syncStatus:  'pending',
       lastSyncError: null as any,
+      // Switched back on — see the note on the same line in the single-account path. `lastSyncAt`
+      // is left exactly as it was, so the sweep fetches only the stretch he was logged out for.
+      isActive: true,
     });
-    const freshAccount = await storage.getBrokerAccountById(token);
+    if (targetId !== token) {
+      try { await storage.deleteBrokerAccount(token); }
+      catch (e: any) { console.error('[cTrader OAuth] could not clear the placeholder row: ' + (e?.message ?? e)); }
+    }
+    const freshAccount = await storage.getBrokerAccountById(targetId);
     if (freshAccount) {
       syncAccount(freshAccount).catch(() => {});
       addCTraderAccount(freshAccount.id);   // start instant live feed for the chosen account

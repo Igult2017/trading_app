@@ -9,6 +9,7 @@ import { useDelayedLoading } from "@/lib/useDelayedLoading";
 import { TableSkeleton } from "@/components/skeletons/DashboardSkeletons";
 import { useTranslation } from "react-i18next";
 import { winRate as winRateOf } from "@/lib/tradeStats";
+import { newestTradeFirst } from "@/lib/tradeOrder";
 
 const CircleDownloadIcon = ({ success }: { success: boolean }) => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -497,7 +498,15 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
 
   // Coerce defensively: a poisoned cache (e.g. a prefetch that stored null on a
   // transient error) must never reach .map() — show empty, then the refetch fixes it.
-  const trades: Trade[] = (Array.isArray(journalEntries) ? journalEntries : []).map(journalEntryToTrade);
+  //
+  // ⚠ NEWEST TRADE AT THE TOP, AND IT IS SORTED HERE RATHER THAN TAKEN ON TRUST. His instruction,
+  // 2026-10-26: *"The tradevault should also record trades from the latest at the top to the
+  // oldest at the bottom."* The server hands the list over ordered by `created_at`
+  // (`server/storage.ts:519`) — when the ROW was written, which for an imported trade is when the
+  // sweep ran, not when he traded. `newestTradeFirst` orders on the same date the row prints; its
+  // reasoning and its trade-offs are in `lib/tradeOrder.ts`.
+  const trades: Trade[] = newestTradeFirst(Array.isArray(journalEntries) ? journalEntries : [])
+    .map(journalEntryToTrade);
 
   // "Loading" = a fetch is in flight AND we have nothing to show yet. With
   // refetchOnMount:"always" every open refetches; if the cache momentarily holds []

@@ -1,5 +1,5 @@
 import { useState, useEffect, CSSProperties } from "react";
-import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2, DollarSign } from "lucide-react";
+import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2, DollarSign, LogOut, Plug } from "lucide-react";
 import { SiBinance, SiBuiltbybit, SiCoinbase } from "react-icons/si";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -55,15 +55,31 @@ async function authHeaders(): Promise<HeadersInit> {
 }
 
 // ── Sync status badge ─────────────────────────────────────────────────────────
+/** An account he has logged out of. Its row, its trades and its journal are all still there —
+ *  `server/services/accountDisconnect.ts` says exactly what is kept and why. */
+export const DISCONNECTED = "disconnected";
+
 function SyncBadge({ status, lastSyncAt, lastSyncError }: { status: string; lastSyncAt: string | null; lastSyncError?: string | null }) {
-  const color = status === "ok" ? "#4ade80" : status === "error" ? "#ef4444" : status === "syncing" ? "#facc15" : "#64748b";
-  const label = status === "ok" && lastSyncAt
+  const out = status === DISCONNECTED;
+  const color = out ? "#94a3b8"
+    : status === "ok" ? "#4ade80" : status === "error" ? "#ef4444" : status === "syncing" ? "#facc15" : "#64748b";
+  const label = out ? "Logged out"
+    : status === "ok" && lastSyncAt
     ? new Date(lastSyncAt).toLocaleDateString()
     : status === "error" ? "Error" : status === "syncing" ? "Syncing…" : "Pending";
   return (
-    <span title={status === "error" && lastSyncError ? lastSyncError : undefined}
-          style={{ color, fontWeight: 600, fontSize: 15.5, cursor: status === "error" && lastSyncError ? "help" : "default" }}>
+    <span title={out
+            ? (lastSyncAt
+                ? `Signed out. Your trades and journal are kept — reconnecting picks up from ${new Date(lastSyncAt).toLocaleString()}.`
+                : "Signed out. Your trades and journal are kept.")
+            : status === "error" && lastSyncError ? lastSyncError : undefined}
+          style={{ color, fontWeight: 600, fontSize: 15.5, cursor: out || (status === "error" && lastSyncError) ? "help" : "default" }}>
       {label}
+      {out && lastSyncAt && (
+        <span style={{ display: "block", color: "#64748b", fontWeight: 400, fontSize: 12.5 }}>
+          resumes from {new Date(lastSyncAt).toLocaleDateString()}
+        </span>
+      )}
       {status === "error" && lastSyncError && (
         <span style={{ display: "block", color: "#94a3b8", fontWeight: 400, fontSize: 12.5, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {lastSyncError}
@@ -611,7 +627,11 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
   // releases the busy state however the sync ends — a lock with no release is a trap.
   async function handleSyncAll() {
     if (syncing.size) return;
-    const api = accounts.filter(a => a.connectionType === "api");
+    // A logged-out account is deliberately left out: it has no credentials to sync with, and
+    // asking anyway would just produce a failure line against an account that is working exactly
+    // as intended. The server refuses it too (`autoSyncService.syncAccount`) — this only keeps the
+    // button from reporting an error he did not cause.
+    const api = accounts.filter(a => a.connectionType === "api" && a.syncStatus !== DISCONNECTED);
     if (!api.length) {
       setSyncNote({ ok: true, text: "No API-connected accounts to sync — EA accounts send their trades on their own." });
       return;
@@ -638,6 +658,50 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     } finally {
       setSyncing(prev => { const next = new Set(prev); next.delete(account.id); return next; });
       fetchAccounts();
+    }
+  }
+
+  /**
+   * LOG OUT OF AN ACCOUNT, KEEPING EVERYTHING IT HAS RECORDED.
+   *
+   * His instruction, 2026-10-26: *"when i logout account, its data is not errased and when i log
+   * it back in it is not autosynced from scratch."* This is NOT the Delete button beside it —
+   * delete still removes the trades and the journal, and its warning still says so.
+   *
+   * No confirmation box: nothing is lost, and reconnecting is one click away. The server's own
+   * answer is shown instead, so he can see what was kept rather than take it on trust.
+   */
+  async function handleDisconnect(account: BrokerAccount) {
+    setSyncNote(null);
+    try {
+      const res  = await fetch(`/api/broker-accounts/${account.id}/disconnect`,
+                               { method: "POST", headers: await authHeaders() });
+      const data = await res.json();
+      setSyncNote({ ok: res.ok, text: label(account) + ": " + (data.message ?? data.error ?? "Logged out.") });
+    } catch (e: any) {
+      setSyncNote({ ok: false, text: label(account) + ": " + (e?.message ?? "Could not log out") });
+    } finally {
+      fetchAccounts();
+    }
+  }
+
+  /**
+   * SIGN BACK IN — ON THE SAME ACCOUNT ROW.
+   *
+   * It passes this account's own id, so the sign-in writes the new tokens into the row that
+   * already holds the trades, the journal and `last_sync_at`. That last one is what makes the
+   * first sweep afterwards fetch only the stretch he was logged out for
+   * (`server/services/autoSyncService.ts:301-303`) instead of the whole history.
+   */
+  async function handleReconnect(account: BrokerAccount) {
+    setSyncNote(null);
+    try {
+      const res  = await fetch(`/api/broker/ctrader/connect?accountId=${account.id}`, { headers: await authHeaders() });
+      const data = await res.json();
+      if (data.url) { window.location.href = data.url; return; }
+      setSyncNote({ ok: false, text: label(account) + ": " + (data.error ?? "Could not start the cTrader sign-in") });
+    } catch (e: any) {
+      setSyncNote({ ok: false, text: label(account) + ": " + (e?.message ?? "Could not start the cTrader sign-in") });
     }
   }
 
@@ -846,6 +910,22 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                         title={syncing.has(a.id) ? "Syncing…" : "Sync"} disabled={syncing.has(a.id)} onClick={() => handleSync(a)}>
                         <RefreshCw size={14} color="#94a3b8" className={syncing.has(a.id) ? "acct-spin" : undefined} />
                       </button>
+                      {/* LOG OUT / RECONNECT — the non-destructive pair, sitting before Delete so
+                          the safe action is the one nearest to hand. Only cTrader accounts have a
+                          sign-in to come back through; an EA account has no tokens to clear. */}
+                      {a.platform?.toLowerCase() === "ctrader" && (
+                        a.syncStatus === DISCONNECTED
+                          ? <button style={s.actionBtn as CSSProperties}
+                              title={`Sign back in to ${a.name}. Its trades and journal are still here — only what happened while it was logged out will be added.`}
+                              onClick={() => handleReconnect(a)}>
+                              <Plug size={14} color="#4ade80" />
+                            </button>
+                          : <button style={s.actionBtn as CSSProperties}
+                              title={`Log out of ${a.name}. Nothing is deleted — its synced trades, journal entries and dashboard all stay, and signing back in carries on from where it left off.`}
+                              onClick={() => handleDisconnect(a)}>
+                              <LogOut size={14} color="#facc15" />
+                            </button>
+                      )}
                       <button style={s.actionBtn as CSSProperties} title="Edit" onClick={() => setEditAccount(a)}><Pencil size={14} color="#38bdf8" /></button>
                       <button style={s.actionBtn as CSSProperties} title="Delete account" onClick={() => { setDelErr(""); setConfirmDel(a); }}><Trash2 size={14} color="#ef4444" /></button>
                     </div>
@@ -942,6 +1022,14 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
             </div>
             <p style={{ fontSize: 15.5, color: '#cbd5e1', lineHeight: 1.6, marginBottom: delErr ? 12 : 20 }}>
               Everything tied to this account — all its <strong style={{ color: '#f1f5f9' }}>synced trades</strong>, <strong style={{ color: '#f1f5f9' }}>journal entries</strong> and its <strong style={{ color: '#f1f5f9' }}>performance dashboard</strong> — will be permanently removed. <span style={{ color: '#fca5a5' }}>This cannot be undone.</span>
+              {/* SAY THE SAFE OPTION EXISTS, HERE. This modal is where he decides, and until now
+                  deleting was the only way to take an account off the platform — which is how the
+                  history kept getting thrown away and re-imported. */}
+              {confirmDel.platform?.toLowerCase() === 'ctrader' && (
+                <span style={{ display: 'block', marginTop: 10, color: '#94a3b8' }}>
+                  If you only want to sign out, use <strong style={{ color: '#facc15' }}>Log out</strong> instead — it keeps every trade and journal entry, and signing back in carries on from where it left off.
+                </span>
+              )}
             </p>
             {delErr && <div style={{ fontSize: 14.5, color: '#fca5a5', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 8, padding: '8px 12px', marginBottom: 18 }}>{delErr}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>

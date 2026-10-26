@@ -68,7 +68,10 @@ check('...and still stores the credentials that make it one',
       /passwordEnc:\s*safeEncrypt\(credJson\)/.test(cb), true);
 
 // The multi-account chooser: POST /api/broker/ctrader/select-account
-const sel = oauthUpdateBlock('loginId:     String(chosen.traderLogin');
+// The anchor changed on 2026-10-26 when the picker path started signing back into an account the
+// user already has (`chosenLogin` is now worked out before the update, so it can also be used to
+// find that account). The check itself is unchanged — only the text it hangs on.
+const sel = oauthUpdateBlock('loginId:     chosenLogin,');
 check('select-account records the account as API-connected',
       /connectionType:\s*'api'/.test(sel), true);
 
@@ -78,10 +81,34 @@ check('select-account records the account as API-connected',
 const auto = read('server/services/autoSyncService.ts');
 const feed = read('server/services/ctraderRealtime.ts');
 
-check('the sweep still selects only API-connected accounts',
-      /connectionType,\s*'api'/.test(auto), true);
+// ⚠ THE RULE MOVED, IT DID NOT GO (2026-10-26). "Which accounts are still running" used to be
+// written out separately in three runners; it is now one definition in `lib/accountFilters.ts`,
+// because logging an account out keeps its row and a log-out that reached only two of the three
+// would look like it worked. The check follows it there rather than being dropped.
+const filters = read('server/lib/accountFilters.ts');
+check('the running-account rule still selects only API-connected accounts',
+      /connectionType,\s*'api'/.test(filters), true);
+check('...and now also excludes an account the user logged out of',
+      /coalesce\([\s\S]{0,60}isActive[\s\S]{0,30}true\)\s*=\s*true/.test(filters), true);
 check('the live feed still requires an API-connected account',
       /account\.connectionType\s*!==\s*'api'/.test(feed), true);
+
+// EVERY RUNNER USES THE ONE DEFINITION. A fourth one written with its own copy of the condition
+// is how the log-out would quietly stop working for one path only — the exact shape of the bug
+// that made `connection_type` a day-long outage. Named here so adding a runner without it is a
+// red test rather than a discovery weeks later.
+for (const f of ['server/services/autoSyncService.ts',
+                 'server/services/ctraderRealtime.ts',
+                 'server/services/missedCloseWatch.ts']) {
+  check(`${f.split('/').pop()} uses the shared running-account rule`,
+        /RUNNING_API_ACCOUNT/.test(read(f)), true);
+}
+// AND THE SYNC ITSELF REFUSES A LOGGED-OUT ACCOUNT. `syncAccount` is called directly by the Sync
+// button, by Sync All and by the missed-close watcher, none of which go through the rule above.
+// Without this guard a manual sync would run with no credentials, fail, and write
+// `sync_status = 'error'` over `'disconnected'` — the row would stop saying it was logged out.
+check('a manual sync refuses an account that is logged out',
+      /account\.isActive\s*===\s*false/.test(auto), true);
 
 // ── 3. AND THE FEED NO LONGER REFUSES IN SILENCE ───────────────────────────
 // The refusal was a bare `return`. A defect that produces no output cannot be found from a log,

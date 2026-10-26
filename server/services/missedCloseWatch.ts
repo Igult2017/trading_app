@@ -1,6 +1,7 @@
 import { db, pool } from '../db';
 import { brokerAccounts } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
+import { RUNNING_API_ACCOUNT } from '../lib/accountFilters';
 import { openPositionIds, isAttached } from './ctraderHub';
 import { syncAccount } from './autoSyncService';
 import { record } from './autoJournal';
@@ -86,8 +87,11 @@ async function checkAccount(accountId: string): Promise<void> {
 
 async function tick(): Promise<void> {
   try {
-    const accounts = await db.select().from(brokerAccounts)
-      .where(eq(brokerAccounts.connectionType, 'api'));
+    // AND SWITCHED ON. In practice the `isAttached` test below already excludes an account he has
+    // logged out, because logging out tears its feed down — but that makes the rule a side effect
+    // of something else. Said here, a logged-out account cannot be journaled by this watcher even
+    // if a feed is attached to it for some other reason.
+    const accounts = await db.select().from(brokerAccounts).where(RUNNING_API_ACCOUNT);
     for (const a of accounts) {
       if (a.platform.toLowerCase() !== 'ctrader' || !isAttached(a.id)) continue;
       // One account at a time, on purpose: this runs every five minutes and has all the time it needs,

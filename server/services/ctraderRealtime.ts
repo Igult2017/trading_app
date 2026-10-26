@@ -26,6 +26,7 @@
  * on the PRIMARY worker only (cluster-safe).
  */
 import { eq } from 'drizzle-orm';
+import { RUNNING_API_ACCOUNT } from '../lib/accountFilters';
 import { db } from '../db';
 import { brokerAccounts } from '../../shared/schema';
 import type { BrokerAccount } from '../../shared/schema';
@@ -228,7 +229,11 @@ function onTrade(member: Member, payload: any): void {
 
 /** Connect newly-added cTrader accounts and drop feeds whose account was deleted. */
 async function reconcile(): Promise<void> {
-  const all = await db.select().from(brokerAccounts).where(eq(brokerAccounts.connectionType, 'api'));
+  // ⚠ AND SWITCHED ON — this is what makes a log-out stick. `reconcile` runs on a timer, so
+  // tearing the feed down at the moment he logs out is not enough on its own: the next pass would
+  // see the account in this list and connect it straight back. A logged-out account keeps its row
+  // deliberately (`accountDisconnect.ts`), so the row has to be filtered here rather than removed.
+  const all = await db.select().from(brokerAccounts).where(RUNNING_API_ACCOUNT);
   const wanted = new Set(all.filter(a => a.platform.toLowerCase() === 'ctrader').map(a => a.id));
   // AWAITED, so that whoever called reconcile can report what is actually attached. The first
   // production boot logged "live feeds active for 0 account(s) on 0 socket(s)" and then printed two
