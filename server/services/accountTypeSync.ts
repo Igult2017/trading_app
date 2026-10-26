@@ -69,7 +69,19 @@ export async function refreshAccountType(
     }
 
     const actual = isLive ? 'live' : 'demo';
-    if ((account.accountType ?? '').toLowerCase() === actual) return account;
+    if ((account.accountType ?? '').toLowerCase() === actual) {
+      // ⚠ SAY IT EVEN WHEN NOTHING CHANGED — CHANGED FROM THE PLAN, DELIBERATELY. The plan said
+      // to log only on a change. The first production sweep after shipping then printed nothing
+      // at all, because his four accounts were already labelled right — and "it asked and agreed"
+      // looked exactly like "it never ran". That is the failure this file's own neighbours keep
+      // recording: a step with no output cannot be told from a step that was skipped.
+      //
+      // Four lines per sweep is a price worth paying for being able to answer "is it actually
+      // asking cTrader?" from the log instead of from my word.
+      console.log(`[AccountType] ${account.id.slice(0, 8)}: cTrader says ${actual.toUpperCase()} `
+                + `— unchanged`);
+      return account;
+    }
 
     // ⚠ LOUD, BECAUSE OF WHAT IT CHANGES. Every later call now goes to a different cTrader server,
     // and the autotrade demo-only guard reads this as the account's environment. A quiet change
