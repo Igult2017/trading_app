@@ -745,5 +745,49 @@ ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS ctrader_token_id VARCHAR;
 CREATE INDEX IF NOT EXISTS broker_accounts_ctrader_token_idx
     ON broker_accounts (ctrader_token_id) WHERE ctrader_token_id IS NOT NULL;
 
+-- ── ONE SPELLING PER TRADING SESSION (2026-10-26) ────────────────────────────
+-- His question: is session recording accurate "in the trade vault and in other datapoints where it
+-- is required". It was not. The same session was stored under different names depending on how the
+-- trade got in:
+--
+--   synced cTrader trades   SYDNEY · TOKYO · LONDON · NEW YORK · LONDON/NY OVERLAP
+--   the journal form        London · New York · Tokyo · Sydney · Overlap
+--   the Trade Vault         free text - whatever was typed
+--
+-- The per-session win rate groups on the raw stored text (server/python/metrics_calculator.py:836
+-- is groups[str(val)]), so a London trade he typed and a London trade from his broker counted as
+-- TWO SEPARATE SESSIONS - on Analytics, on the Drawdown loss bars, in the timeframe metrics, and
+-- in what the Trader AI was told about his performance.
+--
+-- ⚠ ONLY THE SPELLINGS LISTED HERE ARE TOUCHED. Anything else is left exactly as it is and shows up
+-- in the count below, so an unexpected value is reported rather than silently rewritten.
+-- ⚠ IDEMPOTENT: after the first run every WHERE matches nothing. It is keyed on lower(), so it also
+-- catches a stray capitalisation rather than only the two known writers' output.
+UPDATE journal_entries SET session_name = 'Sydney'
+ WHERE lower(trim(session_name)) = 'sydney'          AND session_name <> 'Sydney';
+UPDATE journal_entries SET session_name = 'Tokyo'
+ WHERE lower(trim(session_name)) IN ('tokyo', 'asian', 'asia') AND session_name <> 'Tokyo';
+UPDATE journal_entries SET session_name = 'London'
+ WHERE lower(trim(session_name)) IN ('london', 'frankfurt')    AND session_name <> 'London';
+UPDATE journal_entries SET session_name = 'New York'
+ WHERE lower(trim(session_name)) IN ('new york', 'newyork', 'ny', 'us') AND session_name <> 'New York';
+UPDATE journal_entries SET session_name = 'Overlap'
+ WHERE lower(trim(session_name)) IN ('overlap', 'london/ny overlap', 'london/ny', 'london/new york')
+   AND session_name <> 'Overlap';
+
+-- Say what is LEFT that nobody recognises, so it is a line in the boot log rather than a surprise
+-- on the Analytics page.
+DO $$
+DECLARE odd TEXT;
+BEGIN
+  SELECT string_agg(DISTINCT session_name, ', ') INTO odd
+    FROM journal_entries
+   WHERE session_name IS NOT NULL AND trim(session_name) <> ''
+     AND session_name NOT IN ('Sydney', 'Tokyo', 'London', 'New York', 'Overlap');
+  IF odd IS NOT NULL THEN
+    RAISE NOTICE 'session labels not recognised and left untouched: %', odd;
+  END IF;
+END $$;
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

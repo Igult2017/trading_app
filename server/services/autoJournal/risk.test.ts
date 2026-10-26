@@ -198,7 +198,11 @@ check('...and the stop the entry order really carried', e.manualFields.actualSL,
 check('the stop SHOWN is the one it was placed with', e.stopLoss, '1.34939');
 check('...and the stop it closed on is kept beside it', e.manualFields.closingStopLoss, '1.34880');
 check('held 76 minutes', e.tradeDuration, '76');
-check('in the LONDON session', e.sessionName, 'LONDON');
+// The spelling changed on 2026-10-26, not the session: synced trades used to be written in an
+// uppercase set of their own while the journal form wrote `London`, and the per-session win rate
+// counted the two as different sessions. One list now (`shared/sessions.ts`). The check follows
+// the rule rather than being dropped.
+check('in the London session', e.sessionName, 'London');
 
 // TEETH — remove the original stop and the entry degrades exactly as it used to.
 const oldEntry: any = buildJournalEntry(

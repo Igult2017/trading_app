@@ -91,25 +91,19 @@ BROKER CHART TIMEZONE — AUTHORITATIVE (do not guess or override)
 The trader's broker charts are set to UTC+${brokerTimezone} (${TZ_LABELS[brokerTimezone] ?? `UTC+${brokerTimezone}`}).
 Every timestamp shown on this chart is in UTC+${brokerTimezone} — NOT UTC.
 
-SESSION AND SESSION PHASE — derive directly from the entry time you read off the chart:
-  Step 1: Convert the chart time to UTC:  UTC hour = (chart hour) − ${brokerTimezone}
-  Step 2: Map the UTC hour to the correct session + phase using these exact rules:
-    UTC 21:00–23:59 or 00:00–00:59  →  sessionName: "Sydney",   sessionPhase: "Open"
-    UTC 01:00–02:59                 →  sessionName: "Tokyo",    sessionPhase: "Open"
-    UTC 03:00–05:59                 →  sessionName: "Tokyo",    sessionPhase: "Mid"
-    UTC 06:00–06:59                 →  sessionName: "Tokyo",    sessionPhase: "Close"
-    UTC 07:00–09:59                 →  sessionName: "London",   sessionPhase: "Open"
-    UTC 10:00–12:59                 →  sessionName: "London",   sessionPhase: "Mid"
-    UTC 13:00–15:59                 →  sessionName: "Overlap",  sessionPhase: "Open"
-    UTC 16:00–18:59                 →  sessionName: "New York", sessionPhase: "Mid"
-    UTC 19:00–20:59                 →  sessionName: "New York", sessionPhase: "Close"
-  Example: chart shows 10:30 and timezone is UTC+2 → UTC = 08:30 → London Open.
+SESSION AND SESSION PHASE — DO NOT WORK THESE OUT. Return null for both.
+  The server derives them from the entry time you read plus this timezone, using the same
+  daylight-saving-aware session windows the rest of the app uses, so a value from you would only
+  be thrown away — and before 2026-10-26 a fixed hour table lived here that disagreed with those
+  windows at 07:00-08:00, 16:00-17:00 and 21:00-22:00 UTC in winter, and more in summer.
+  WHAT MATTERS INSTEAD IS THE ENTRY TIME: read it exactly as the chart shows it, to the minute.
   Set brokerTimezone to ${brokerTimezone} (the value you have been told — do not change it).
 ` : `
-SESSION AND SESSION PHASE — if you can read the entry time and identify the broker timezone from
-the chart (e.g. MT4/MT5 servers default to UTC+2 winter / UTC+3 summer; TradingView shows the
-timezone in the chart footer), derive sessionName and sessionPhase using the same UTC-conversion
-rules above. If you cannot determine the timezone with confidence, return null for both.
+SESSION AND SESSION PHASE — return null for both. You have not been told this chart's timezone,
+so the entry time cannot be converted to UTC reliably, and a session worked out from the wrong
+timezone is worse than no session: it is a confident label nobody can tell is wrong. Identify the
+broker timezone if the chart shows it (MT4/MT5 servers default to UTC+2 winter / UTC+3 summer;
+TradingView shows it in the chart footer) and report it — the server does the rest.
 Set brokerTimezone to the UTC offset integer you identified (e.g. 2 for UTC+2), or null if unknown.
 `;
 

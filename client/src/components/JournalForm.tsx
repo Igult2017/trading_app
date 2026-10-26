@@ -7,6 +7,7 @@ import { prefetchAllPanels } from "@/lib/prefetchPanels";
 import { calcDollarRisk, deriveAchievedRR, outcomeFromPrices } from "@/lib/tradeCalculations";
 import { useTranslation } from "react-i18next";
 import { JF_READABLE_CSS } from "@/components/journal-form/jfReadable";
+import { SESSION_NAMES, SESSION_PHASES } from "@shared/sessions";
 
 // ─── Commission estimator ─────────────────────────────────────────────────────
 // Returns an estimated round-trip commission in USD based on instrument type,
@@ -883,8 +884,8 @@ function Step3({ d, set, direction, regimeTouchedRef, trendTouchedRef, hiddenPan
           <Sel label="Volatility"       options={["Low","Normal","High"]}                   value={d.volatilityState} onChange={f("volatilityState")} />
           <Sel label="Liquidity"        options={["Low","Normal","High"]}                   value={d.liquidity}      onChange={f("liquidity")} />
           <Sel label="News Environment" options={["Clear","Minor","Major"]}                 value={d.newsEnvironment} onChange={f("newsEnvironment")} />
-          <Sel label="Session"          options={["London","New York","Tokyo","Sydney","Overlap"]} value={d.sessionName}  onChange={f("sessionName")} />
-          <Sel label="Session Phase"    options={["Open","Mid","Close"]}                    value={d.sessionPhase}   onChange={f("sessionPhase")} />
+          <Sel label="Session"          options={[...SESSION_NAMES]}                        value={d.sessionName}  onChange={f("sessionName")} />
+          <Sel label="Session Phase"    options={[...SESSION_PHASES]}                       value={d.sessionPhase}   onChange={f("sessionPhase")} />
           <Inp label="ATR at Entry" type="number" placeholder="0.0045"                     value={d.atrAtEntry}     onChange={f("atrAtEntry")} />
         </div>
       </section>

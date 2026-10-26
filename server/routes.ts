@@ -13,6 +13,7 @@ import { cacheGet, cacheSet, cacheDel, userSessionKey,
 import { EDIT_LOCK_KEY, EDIT_LOCKABLE_ALL } from "./services/autoJournal";
 import { deleteJournalEntryFully } from "./lib/journalDelete";
 import { accountTypeEdit } from "./lib/accountFilters";
+import { canonicalSession } from "../shared/sessions";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking,
          platformHeartbeat, platformDowntime } from "@shared/schema";
@@ -1516,13 +1517,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (f.takeProfitDistancePips == null && f.takeProfitPips != null) f.takeProfitDistancePips = f.takeProfitPips;
         f.entryTime = normTs(f.entryTime);
         f.exitTime  = normTs(f.exitTime);
-        // Override session/phase with authoritative timezone when available
+        // ⚠ THE SERVER OWNS THE SESSION WHEN IT KNOWS THE TIMEZONE, INCLUDING WHEN THE ANSWER IS
+        // "none" (2026-10-26). This used to keep whatever the image reader said if the derivation
+        // came back empty — so an unrecognised time left a confident label on the trade that
+        // nothing here had checked. The reader is now told to return null for both and leave it
+        // to this, which uses the same daylight-saving-aware windows as the synced-trade path.
         if (sessionBrokerTz !== null && f.entryTime) {
-          const override = deriveSessionFromTime(f.entryTime, sessionBrokerTz);
-          if (override.sessionName) {
-            f.sessionName  = override.sessionName;
-            f.sessionPhase = override.sessionPhase;
-          }
+          const derived = deriveSessionFromTime(f.entryTime, sessionBrokerTz);
+          f.sessionName  = canonicalSession(derived.sessionName) ?? null;
+          f.sessionPhase = derived.sessionPhase ?? null;
+        } else {
+          // No timezone means the time cannot be placed, so nothing is claimed. Folding whatever
+          // the reader returned keeps a stray spelling out of the per-session win rate.
+          f.sessionName = canonicalSession(f.sessionName) ?? null;
         }
         return f;
       };
@@ -4899,6 +4906,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       await storage.updateBrokerAccount(account.id, { syncStatus: 'error', lastSyncError: (err.message ?? 'Sync failed').slice(0, 255) });
       return res.status(500).json({ error: err.message ?? 'Sync failed' });
+    }
+  });
+
+  /**
+   * RE-SYNC EVERYTHING — the whole history, ignoring the last-sync mark.
+   *
+   * His ask, 2026-10-26: *"a functioning button that enables one to sync the entire data from
+   * ctrader account again if for some reasons that is required. That button bypasses account sync
+   * memory that discards data that had been deleted from the journal."*
+   *
+   * ⚠ IT IS A SEPARATE ROUTE FROM `/sync` ON PURPOSE. The everyday Sync looks back a week; this
+   * one fetches two years and rebuilds journal entries he deleted. Sharing one endpoint behind a
+   * flag would mean the heavy behaviour was one forgotten parameter away from the ordinary button.
+   *
+   * ⚠ `manual: true` IS WHAT BYPASSES THE DELETED-TRADE MEMORY, and the everyday Sync already sets
+   * it (`brokerSyncService.ts` clears the "deleted on purpose" mark when it is set). What is new
+   * here is only `full: true` — the reach. Said plainly because the two are easy to confuse.
+   *
+   * Nothing is duplicated: trades are matched on the broker's own ticket, so one already in the
+   * journal is left exactly as it is.
+   */
+  app.post("/api/broker-accounts/:id/resync-all", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+
+    const account = await storage.getBrokerAccountById(req.params.id);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
+
+    if (account.connectionType === 'webhook') {
+      return res.status(400).json({ error: "This account's trades are pushed by its EA, so there is "
+                                        + "no history to fetch back." });
+    }
+    if (!API_PLATFORMS.has(account.platform.toLowerCase())) {
+      return res.status(400).json({ error: `No API adapter for platform: ${account.platform}` });
+    }
+    if (account.isActive === false) {
+      return res.status(400).json({ error: "This account is logged out — reconnect it first." });
+    }
+
+    try {
+      // Same bounded wait as the everyday Sync: two years of history is the slowest thing this
+      // app asks a broker for, and a request held open indefinitely is worse than one that says
+      // honestly that the work continues without it.
+      const outcome = await Promise.race([
+        syncAccount(account, { full: true, manual: true, deep: true }),
+        new Promise<null>(r => setTimeout(() => r(null), 30_000)),
+      ]);
+
+      if (outcome === null) {
+        return res.json({ pending: true, platform: account.platform,
+                          message: 'Still fetching two years of history — it is running in the '
+                                 + 'background and your journal will fill in as it goes.' });
+      }
+      if (outcome.skipped) {
+        return res.status(400).json({ error: outcome.skipped, platform: account.platform });
+      }
+      if (!outcome.ok) {
+        return res.status(500).json({ error: outcome.error ?? 'Re-sync failed', platform: account.platform });
+      }
+      return res.json({
+        platform: account.platform, ...outcome,
+        message: outcome.fetched
+          ? `Re-synced two years: ${outcome.fetched} closed trade(s) from the broker — `
+            + `${outcome.created} newly recorded, ${outcome.duplicates} already had`
+            + (outcome.journaled ? `, ${outcome.journaled} written into your journal` : '')
+            + (outcome.healed ? `, ${outcome.healed} repaired` : '')
+            + '.'
+          : 'Re-synced two years — the broker reported no closed trades at all in that window.',
+      });
+    } catch (err: any) {
+      await storage.updateBrokerAccount(account.id,
+        { syncStatus: 'error', lastSyncError: (err.message ?? 'Re-sync failed').slice(0, 255) });
+      return res.status(500).json({ error: err.message ?? 'Re-sync failed' });
     }
   });
 

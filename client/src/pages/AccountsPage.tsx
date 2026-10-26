@@ -1,5 +1,5 @@
 import { useState, useEffect, CSSProperties } from "react";
-import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2, DollarSign, LogOut, Plug } from "lucide-react";
+import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2, DollarSign, LogOut, Plug, History } from "lucide-react";
 import { SiBinance, SiBuiltbybit, SiCoinbase } from "react-icons/si";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -531,6 +531,10 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
   const [ctSelectBusy,     setCtSelectBusy]     = useState(false);
   const [editAccount,      setEditAccount]      = useState<BrokerAccount | null>(null);
   const [confirmDel,       setConfirmDel]       = useState<BrokerAccount | null>(null);
+  // The account awaiting a "re-sync everything" confirm. A separate piece of state from the delete
+  // confirm so the two modals can never be open at once or mistaken for one another.
+  const [confirmResync,    setConfirmResync]    = useState<BrokerAccount | null>(null);
+  const [resyncing,        setResyncing]        = useState<Set<string>>(new Set());
   const [deleting,         setDeleting]         = useState(false);
   const [delErr,           setDelErr]           = useState<string>("");
 
@@ -728,6 +732,34 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
    * first sweep afterwards fetch only the stretch he was logged out for
    * (`server/services/autoSyncService.ts:301-303`) instead of the whole history.
    */
+  /**
+   * RE-SYNC EVERYTHING — fetch the account's whole history again.
+   *
+   * His ask, 2026-10-26: *"a functioning button that enables one to sync the entire data from
+   * ctrader account again if for some reasons that is required. That button bypasses account sync
+   * memory that discards data that had been deleted from the journal."*
+   *
+   * The everyday Sync beside it looks back a week and already rebuilds deleted trades; this one is
+   * about REACH — two years. It can run well past the 30-second reply, so the message distinguishes
+   * "finished" from "still going" rather than claiming either.
+   */
+  async function handleResyncAll(account: BrokerAccount) {
+    setConfirmResync(null);
+    setResyncing(prev => new Set(prev).add(account.id));
+    setSyncNote(null);
+    try {
+      const res  = await fetch(`/api/broker-accounts/${account.id}/resync-all`,
+                               { method: 'POST', headers: await authHeaders() });
+      const data = await res.json();
+      setSyncNote({ ok: res.ok, text: label(account) + ': ' + (data.message ?? data.error ?? 'Re-sync finished.') });
+    } catch (e: any) {
+      setSyncNote({ ok: false, text: label(account) + ': ' + (e?.message ?? 'Re-sync failed') });
+    } finally {
+      setResyncing(prev => { const next = new Set(prev); next.delete(account.id); return next; });
+      fetchAccounts();
+    }
+  }
+
   async function handleReconnect(account: BrokerAccount) {
     setSyncNote(null);
     try {
@@ -942,9 +974,21 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
                       </button>
                       <button style={s.actionBtn as CSSProperties} title="Webhook / Settings" onClick={() => setWebhookAcc(a)}><Wrench size={14} color="#f59e0b" /></button>
                       <button style={{ ...s.actionBtn, ...(syncing.has(a.id) ? { cursor: "wait" } : {}) } as CSSProperties}
-                        title={syncing.has(a.id) ? "Syncing…" : "Sync"} disabled={syncing.has(a.id)} onClick={() => handleSync(a)}>
+                        title={syncing.has(a.id) ? "Syncing…" : "Sync — fetch the last week's closed trades"} disabled={syncing.has(a.id)} onClick={() => handleSync(a)}>
                         <RefreshCw size={14} color="#94a3b8" className={syncing.has(a.id) ? "acct-spin" : undefined} />
                       </button>
+                      {/* RE-SYNC EVERYTHING. Only for accounts the app fetches from — an EA
+                          account pushes its own trades and has no history to ask for. */}
+                      {a.connectionType === "api" && (
+                        <button style={{ ...s.actionBtn, ...(resyncing.has(a.id) ? { cursor: "wait" } : {}) } as CSSProperties}
+                          title={resyncing.has(a.id)
+                            ? "Re-syncing the whole history…"
+                            : `Re-sync everything — fetch ${a.name}'s full two-year history again, including trades you deleted from the journal`}
+                          disabled={resyncing.has(a.id)}
+                          onClick={() => { setSyncNote(null); setConfirmResync(a); }}>
+                          <History size={14} color={resyncing.has(a.id) ? "#64748b" : "#38bdf8"} className={resyncing.has(a.id) ? "acct-spin" : undefined} />
+                        </button>
+                      )}
                       {/* LOG OUT / RECONNECT — the non-destructive pair, sitting before Delete so
                           the safe action is the one nearest to hand. Only cTrader accounts have a
                           sign-in to come back through; an EA account has no tokens to clear. */}
@@ -1041,6 +1085,45 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 
       {/* Webhook Info Modal */}
       {webhookAcc && <WebhookModal account={webhookAcc} onClose={() => setWebhookAcc(null)} />}
+
+      {/* RE-SYNC EVERYTHING — CONFIRM FIRST. It rebuilds journal entries he deleted on purpose,
+          which is what he asked for and exactly why it is not a single click. The wording says what
+          will happen in his own terms rather than asking "are you sure". */}
+      {confirmResync && (
+        <div style={s.overlay as CSSProperties} onClick={() => setConfirmResync(null)}>
+          <div style={{ ...(s.modal as CSSProperties), width: 470, padding: 28 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <History size={18} color="#38bdf8" />
+              </div>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#f1f5f9' }}>Re-sync everything for &ldquo;{confirmResync.name}&rdquo;?</div>
+                <div style={{ fontSize: 14.5, color: '#94a3b8', marginTop: 2 }}>{(confirmResync.platform || '').toUpperCase()} &middot; {confirmResync.loginId}</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 15, color: '#cbd5e1', lineHeight: 1.6, marginBottom: 20 }}>
+              This fetches <strong style={{ color: '#f1f5f9' }}>two years</strong> of closed trades from the broker again, instead of the last week.
+              <span style={{ display: 'block', marginTop: 10, color: '#fcd34d' }}>
+                It will also bring back any trades you <strong>deleted from your journal</strong> for this account &mdash; that is what makes it a full re-sync.
+              </span>
+              <span style={{ display: 'block', marginTop: 10, color: '#94a3b8' }}>
+                Nothing is duplicated: a trade already in your journal is left as it is. It can take a while, and will carry on in the background.
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConfirmResync(null)}
+                style={{ background: 'none', border: '1px solid #334155', color: '#94a3b8', padding: '9px 18px', cursor: 'pointer', fontSize: 15, borderRadius: 6 }}>
+                Cancel
+              </button>
+              <button onClick={() => handleResyncAll(confirmResync)}
+                style={{ background: '#0ea5e9', border: 'none', color: 'white', padding: '9px 18px', cursor: 'pointer', fontSize: 15, fontWeight: 700, borderRadius: 6, display: 'flex', alignItems: 'center', gap: 7 }}
+                data-testid="button-confirm-resync">
+                <History size={14} /> Re-sync everything
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Proper styled delete-confirmation modal (replaces the native confirm dialog) */}
       {confirmDel && (

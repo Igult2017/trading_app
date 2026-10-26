@@ -10,6 +10,7 @@ import { TableSkeleton } from "@/components/skeletons/DashboardSkeletons";
 import { useTranslation } from "react-i18next";
 import { winRate as winRateOf } from "@/lib/tradeStats";
 import { newestTradeFirst } from "@/lib/tradeOrder";
+import { SESSION_NAMES, canonicalSession } from "@shared/sessions";
 
 const CircleDownloadIcon = ({ success }: { success: boolean }) => (
   <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -61,7 +62,6 @@ const VaultCell = ({ label, value, color, isMobile, first = false }: { label: st
   </div>
 );
 
-const SESSIONS = ["LONDON", "NEW YORK", "ASIAN", "FRANKFURT"];
 const ASSETS = ["EURUSD", "NAS100", "GBPUSD", "XAUUSD", "US30", "BTCUSD"];
 
 type Trade = {
@@ -293,16 +293,25 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
             />
           </div>
 
+          {/* ⚠ A LIST, NOT A TEXT BOX (2026-10-26). This was free text with a placeholder, so any
+              spelling he typed became its own session: the per-session win rate groups on the raw
+              stored text (`server/python/metrics_calculator.py:836`), and "london", "London " and
+              "LDN" would each be a separate row on Analytics beside the real ones.
+
+              An older value that is not one of these (a synced trade still saying "LONDON") is
+              shown on its matching option by `canonicalSession`, so opening the editor does not
+              silently blank a session he never touched. */}
           <div style={styles.formGroup}>
             <label style={styles.label}>Session</label>
-            <input
-              type="text"
-              value={form.session}
+            <select
+              value={canonicalSession(form.session) ?? ""}
               onChange={(e) => handleChange("session", e.target.value)}
-              placeholder="e.g. London"
               style={styles.input}
               data-testid="input-session"
-            />
+            >
+              <option value="">—</option>
+              {SESSION_NAMES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
 
           <div style={styles.formGroup}>

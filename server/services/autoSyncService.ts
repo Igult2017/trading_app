@@ -278,7 +278,9 @@ export async function syncAccount(account: BrokerAccount,
                                   // `manual` — HE pressed Sync, so a trade whose journal entry he
                                   // deleted is rebuilt rather than skipped (his 2026-09-06 rule).
                                   // Absent = a timer, which respects the deletion.
-                                  opts: { deep?: boolean; manual?: boolean } = {},
+                                  // `full` — HE pressed "Re-sync everything", so the window is the
+                                  // whole history rather than a step back from the last sync.
+                                  opts: { deep?: boolean; manual?: boolean; full?: boolean } = {},
                                  ): Promise<SyncOutcome> {
   const tag = `${account.platform}(${account.id.slice(0, 8)})`;
   // THESE TWO SKIPS WERE SILENT, and silence is why this could go a day without anyone noticing
@@ -329,11 +331,24 @@ export async function syncAccount(account: BrokerAccount,
     _syncCount.set(account.id, n);
     const deep = opts.deep === true || (n % DEEP_EVERY === 1);
 
-    const fromMs = isNew
-      ? now - HISTORY_DAYS * 86_400_000                      // first ever sync: the full history
+    // ⚠ THE FULL HISTORY USED TO BE REACHABLE ONLY BY ACCIDENT (2026-10-26). It applied when an
+    // account had never synced, and in no other case — so once an account had a last-sync mark
+    // there was no way to say "fetch everything again". His ask: *"a functioning button that
+    // enables one to sync the entire data from ctrader account again if for some reasons that is
+    // required."* `full` is that button, and it ignores the mark rather than clearing it.
+    const full   = opts.full === true || isNew;
+    const fromMs = full
+      ? now - HISTORY_DAYS * 86_400_000                      // the whole history
       : Math.max(account.lastSyncAt!.getTime() - (deep ? DEEP_LOOKBACK_MS : OVERLAP_MS), 0);
-    const window = isNew ? 'first sync, 2y'
-                         : `${deep ? 'DEEP 7d' : '2h'} back from the last sync`;
+    // THE LABEL IS COMPUTED, NOT TYPED. It read a hardcoded '2h' while the window is
+    // `OVERLAP_MS` — 36 hours on the daily timer (see the note on LOOKBACK_RATIO). A log line
+    // that misreports the window is worse than none, because it is the line anyone diagnosing a
+    // missing trade reads first.
+    const incremental = `${Math.round(OVERLAP_MS / 3_600_000)}h back from the last sync`;
+    const window = isNew ? 'first sync, FULL 2y'
+                 : full  ? 'FULL 2y — re-sync everything'
+                 : deep  ? 'DEEP 7d back from the last sync'
+                         : incremental;
     console.log(`[AutoSync] ${tag}: fetching ${new Date(fromMs).toISOString()} -> `
                 + `${new Date(now).toISOString()} (${window})`);
 

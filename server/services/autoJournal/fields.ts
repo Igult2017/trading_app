@@ -21,6 +21,7 @@
  */
 import type { InsertJournalEntry, SyncedTrade } from '../../../shared/schema';
 import { sessionAt } from '../../lib/forexSession';
+import { canonicalSession, type SessionName } from '../../../shared/sessions';
 import { toPips } from '../../lib/pipMath';
 import { computeRisk } from './risk';
 import { classifyOutcome } from './outcome';
@@ -30,19 +31,26 @@ import { marketContextFor, type TradeContext } from './context';
 import { exitReasonFor } from './exitReason';
 
 // ── Session detection ─────────────────────────────────────────────────────────
-type SessionName = 'SYDNEY' | 'TOKYO' | 'LONDON' | 'NEW YORK' | 'LONDON/NY OVERLAP';
-
-// DST-aware via the shared session source (same logic as the screenshot/manual
-// journaller). Keeps the existing uppercase label format so stored data and
-// session-grouped views stay consistent.
-function detectSession(at: Date | null): { session: SessionName; phase: string } {
+/**
+ * DST-aware via the shared session source — the same labeller the manual and screenshot paths use
+ * (`routes.ts` `deriveSessionFromTime`), so a typed trade and a synced one are read by one rule.
+ *
+ * ⚠ IT NO LONGER TRANSLATES THE NAMES (2026-10-26). This used to convert the labeller's own output
+ * into an UPPERCASE set of its own — `LONDON`, `LONDON/NY OVERLAP` — while the journal form wrote
+ * `London` and `Overlap`. The per-session win rate groups on the raw stored text
+ * (`server/python/metrics_calculator.py:836`), so a London trade he typed and a London trade from
+ * his broker were counted as TWO SEPARATE SESSIONS, on Analytics, on the Drawdown loss bars, in
+ * the timeframe metrics, and in what the Trader AI was told. The shared list in `shared/sessions.ts`
+ * is now the only spelling.
+ *
+ * ⚠ AN UNKNOWN SESSION IS BLANK, NOT SYDNEY. This returned SYDNEY whenever the labeller had no
+ * answer — a confidently wrong label on a trade nobody could tell was mislabelled. The manual path
+ * already left it blank in the same case (`routes.ts` returns null), so this now agrees with it.
+ */
+function detectSession(at: Date | null): { session: SessionName | undefined; phase: string | undefined } {
   const r = at ? sessionAt(at) : null;
-  if (!r) return { session: 'SYDNEY', phase: 'Open' };
-  const MAP: Record<string, SessionName> = {
-    Sydney: 'SYDNEY', Tokyo: 'TOKYO', London: 'LONDON',
-    'New York': 'NEW YORK', Overlap: 'LONDON/NY OVERLAP',
-  };
-  return { session: MAP[r.sessionName] ?? 'SYDNEY', phase: r.sessionPhase };
+  if (!r) return { session: undefined, phase: undefined };
+  return { session: canonicalSession(r.sessionName) ?? undefined, phase: r.sessionPhase };
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

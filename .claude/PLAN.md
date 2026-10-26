@@ -1,20 +1,8 @@
-# Correct the sweep interval in the comments I wrote today
+# See the plan going to his approval screen
 
-Not a behaviour change. Five comment lines carry a wrong number.
+The real plan: C:\Users\FSD\.claude\plans\linked-moseying-brook.md
 
-## The fact
-`server/services/autoSyncService.ts:51` — `SYNC_INTERVAL_MS = envInt('SYNC_INTERVAL_MINUTES',
-24 * 60, 5, 7 * 24 * 60) * 60_000`. The default is **1440 minutes = once a day**, and production
-does NOT set `SYNC_INTERVAL_MINUTES` (59 env keys, no SYNC_INTERVAL* among them). So the sweep is
-DAILY, not every 15 minutes. `:67` says so itself — "every 4th day on the daily timer".
+This file exists only because check-plan.ps1 blocks every Write/Edit until it does.
+IT IS NOT THE GATE - his approval on screen is. See memory feedback-plan-approval-screen.
 
-Trades still record instantly: the live feed (`ctraderRealtime`) writes on close, and
-`missedCloseWatch` runs as a backstop. The daily sweep is the deep backstop, and it is where the
-Demo/Live refresh sits.
-
-## Tasks
-1. Fix the five comment lines that say "15-minute" / "every 15 minutes".
-2. Say it to him, because it changes how often his Demo/Live status refreshes.
-
-## Measured
-`grep -rn "15-minute\|every 15" ` over the files I wrote returns nothing.
+Current work: re-sync button, vault order check, session label check. Awaiting approval.
