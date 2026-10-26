@@ -636,11 +636,6 @@ export default function TradingCalendar({ sessionId, darkMode = true }: { sessio
         </div>
       </div>
 
-      {!isMobile && (
-        <div style={{ marginTop: 8, textAlign: "right" as const, fontSize: 11.5, fontWeight: 800, letterSpacing: "0.12em", color: "var(--jr-ink-dim)", paddingRight: 8 }}>
-          SEARCH: TYPE <span style={{ color: "var(--jr-ink-dim)" }}>MMM YYYY</span> OR <span style={{ color: "var(--jr-ink-dim)" }}>MM/YYYY</span> AND PRESS ENTER
-        </div>
-      )}
     </div>
   );
 }

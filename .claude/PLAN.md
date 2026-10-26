@@ -1,8 +1,10 @@
-# See the plan going to his approval screen
+# Remove the duplicate calendar search hint
 
-The real plan: C:\Users\FSD\.claude\plans\linked-moseying-brook.md
+He circled the "SEARCH: TYPE MMM YYYY OR MM/YYYY AND PRESS ENTER" line at the bottom of the
+calendar and asked for it removed.
 
-This file exists only because check-plan.ps1 blocks every Write/Edit until it does.
-IT IS NOT THE GATE - his approval on screen is. See memory feedback-plan-approval-screen.
+It is a standalone desktop-only block (TradingCalendar.tsx:639-643). The search it describes is
+a real input (NavSearch, rendered at :531 and :559) whose own placeholder already says
+"e.g. Mar 2025" - so the line is a duplicate and deleting it costs no function.
 
-Current work: re-sync button, vault order check, session label check. Awaiting approval.
+Task: delete the block. Measured: the hint is gone, the search box still renders and still works.
