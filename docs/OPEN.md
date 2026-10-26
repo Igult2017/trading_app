@@ -1596,6 +1596,42 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
+### D61 - Log out / reconnect works in the code and in a real Postgres, but has NOT been run end to end
+
+**Opened 2026-10-26, with the change that added it (commit `662605f9`).**
+
+**What he asked for.** *"when i logout account, its data is not errased and when i log it back in it
+is not autosynced from scratch, the data is restored from where we left and only new data or trades
+that were made when it was logged out are journaled."*
+
+**What is built.** A Log out button that keeps the account row, its synced trades, its session, its
+journal entries and - the part the whole thing turns on - `last_sync_at`
+(`server/services/accountDisconnect.ts`). Reconnect signs back into the SAME row. One shared rule
+decides which accounts keep running (`server/lib/accountFilters.ts`), used by the sweep, the live
+feed and the missed-close watcher, plus a guard inside `syncAccount` because the Sync button calls
+it directly.
+
+**What IS measured.** 18 checks in `server/lib/accountFilters.test.ts` against a real Postgres
+engine, including that a log-out never touches `last_sync_at` and that a legacy row with no
+`is_active` value still counts as switched on - the plain `is_active = true` returns 0 accounts
+there instead of 1. And in production right after the deploy, the sweep still reported
+**4 API-connected account(s) to check** and the feed **4 cTrader account(s)**, so nothing was
+silently excluded.
+
+**What is NOT measured, and this is the open part.** Nobody has pressed Log out and then Reconnect
+on a real account yet. The things that could still be wrong and would not show up in any of the
+above:
+
+- whether the cTrader sign-in, started from an account that is already in the list, returns to the
+  right place in the UI
+- whether a trade closed WHILE the account was logged out is journaled exactly once on return
+- whether a long logged-out stretch outruns the broker's own history limit
+
+**The proof line to look for** after a reconnect, in the production log: the sweep must print
+`back from the last sync`. If it ever prints `first sync, 2y` for an account that has synced
+before, the resume has failed and the history is about to be re-journaled.
+
+
 ### D60 — The LIVE socket route's commission is UNVERIFIED. The one-leg bug is fixed; which route caused it is not known
 
 **Opened 2026-10-07, while fixing the "$2 win on a $4.38 loss" defect (commit `5cabbafc`).**
