@@ -51,7 +51,15 @@ export default function JournalShell() {
       </div>
       <div style={{ display: 'flex', width: '100%', flex: 1, minHeight: 0 }}>
         {/* THIRTEEN items, one flat list — counted on the page, not estimated. */}
+        {/* ⚠ THE EDGE LINE IS WHAT MAKES THE RAIL READ TO THE BOTTOM. Measured: the rail already
+            reached the full height (bottom 768 of a 768 viewport, gap 0) — but on Midnight its
+            background is rgb(4,6,16) against a page of rgb(6,7,15), a difference of two, so below
+            the last nav item there was nothing to see and the column appeared to stop. His report:
+            *"Its sidebar doesnt [reach the bottom]."*
+            The real page draws a hairline on that edge and the placeholder did not. These are the
+            page's own values, copied rather than chosen (Journal.tsx:163, :176). */}
         <div className="ls-rail" style={{ width: 185, flexShrink: 0, background: T.sidebarBg,
+                      borderRight: '1px solid ' + (light ? 'rgba(0,0,0,0.07)' : 'rgba(255,255,255,0.04)'),
                       padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 11 }}>
           {Array.from({ length: 13 }).map((_, i) => <Bone key={i} w="100%" h={16} dark={!light} />)}
         </div>
