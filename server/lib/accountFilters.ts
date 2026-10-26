@@ -59,3 +59,31 @@ export function loggedOutFields() {
 
 /** The fields a log-out must NEVER touch. Named here so the rule is testable rather than a habit. */
 export const KEPT_BY_LOGOUT = ['lastSyncAt', 'defaultSessionId', 'tradeCount'] as const;
+
+/**
+ * MAY THIS PERSON SET THE ACCOUNT'S DEMO/LIVE, OR DOES THE BROKER OWN IT?
+ *
+ * His instruction, 2026-10-26: *"request ctrader for account status as Demo or Live. This will
+ * prevent users from editing but display real status."*
+ *
+ * ⚠ IT IS A NAMED FUNCTION SO THAT THE RULE CAN BE TESTED. It used to be a condition written
+ * inline inside the edit route, which can only be reached with a running server and a logged-in
+ * user — so the one thing he actually asked for, that the field cannot be edited, had no way of
+ * being checked at all. The plan for that change listed this as something to measure and it was
+ * not measured; this is what makes it measurable.
+ *
+ * ⚠ 'ignore' IS NOT 'refuse'. A form that sends the value back unchanged is not trying to edit
+ * anything, and refusing it would make a rename fail for a field the person never touched.
+ */
+export type AccountTypeEdit = 'apply' | 'refuse' | 'ignore';
+
+export function accountTypeEdit(
+  platform: string, stored: string | null | undefined, incoming: string | null | undefined,
+): AccountTypeEdit {
+  if (!incoming) return 'ignore';                       // not being set at all
+  // ONLY cTRADER. An EA or manually-added account has no API to ask, so the person entering it is
+  // the only source there is and the field stays theirs.
+  if ((platform || '').toLowerCase() !== 'ctrader') return 'apply';
+  if (incoming.toLowerCase() === (stored ?? '').toLowerCase()) return 'ignore';
+  return 'refuse';
+}

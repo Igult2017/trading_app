@@ -12,6 +12,7 @@ import { cacheGet, cacheSet, cacheDel, userSessionKey,
 // `record` is aliased: in a file this size a bare `record` says nothing about what it records.
 import { EDIT_LOCK_KEY, EDIT_LOCKABLE_ALL } from "./services/autoJournal";
 import { deleteJournalEntryFully } from "./lib/journalDelete";
+import { accountTypeEdit } from "./lib/accountFilters";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking,
          platformHeartbeat, platformDowntime } from "@shared/schema";
@@ -4668,14 +4669,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     //
     // ONLY cTRADER. An EA or manually-added account has no API to ask, so there the person
     // entering it is the only source there is and the field stays theirs.
-    const isCTrader = account.platform.toLowerCase() === 'ctrader';
-    if (accountType && isCTrader && accountType.toLowerCase() !== (account.accountType ?? '').toLowerCase()) {
+    const verdict = accountTypeEdit(account.platform, account.accountType, accountType);
+    if (verdict === 'refuse') {
       return res.status(400).json({
         error: "Demo or Live comes from cTrader itself and cannot be changed here. "
              + "It is re-read from the broker on every sync.",
       });
     }
-    if (accountType && !isCTrader) updates.accountType = accountType;
+    if (verdict === 'apply') updates.accountType = accountType;
 
     const updated = await storage.updateBrokerAccount(req.params.id, updates as any);
     const { passwordEnc: _, ...safe } = updated!;

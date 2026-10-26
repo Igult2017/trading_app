@@ -28,7 +28,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { eq } from 'drizzle-orm';
 import { brokerAccounts } from '../../shared/schema';
-import { KEPT_BY_LOGOUT, RUNNING_API_ACCOUNT, loggedOutFields } from './accountFilters';
+import { KEPT_BY_LOGOUT, RUNNING_API_ACCOUNT, accountTypeEdit, loggedOutFields } from './accountFilters';
 
 let pass = 0, fail = 0;
 function check(name: string, got: unknown, want: unknown) {
@@ -116,6 +116,60 @@ async function main() {
   const resumed = (await db.select().from(brokerAccounts).where(eq(brokerAccounts.id, 'live')))[0];
   check('...still carrying the mark the sweep resumes from',
         resumed.lastSyncAt?.toISOString(), '2026-10-20T10:00:00.000Z');
+
+  // ── 5. HIS COPY SETUP SURVIVES THE LOG-OUT ───────────────────────────────────────────
+  // ⚠ PROMISED IN THE PLAN AND NOT MEASURED AT THE TIME. His instruction, 2026-10-26: *"when one
+  // logs out ctrader account that was followed or following, when they log back in, the previous
+  // settings and setups are restored."* The reasoning was that the rows point at the account and
+  // the account row survives — true, but reasoning is not a measurement, and the one thing that
+  // would quietly break it is a future log-out that also tidies these rows away.
+  await pg.exec(`CREATE TABLE copy_masters (
+                   id VARCHAR PRIMARY KEY, user_id VARCHAR, broker_account_id VARCHAR,
+                   is_active BOOLEAN DEFAULT TRUE, is_public BOOLEAN DEFAULT FALSE);`);
+  await pg.exec(`CREATE TABLE copy_followers (
+                   id VARCHAR PRIMARY KEY, user_id VARCHAR, broker_account_id VARCHAR,
+                   master_id VARCHAR, lot_mode TEXT, lot_multiplier NUMERIC,
+                   is_active BOOLEAN DEFAULT TRUE, dropped_at TIMESTAMP);`);
+  await pg.exec(`INSERT INTO copy_masters (id, user_id, broker_account_id)
+                 VALUES ('m1', 'u1', 'legacy');`);
+  await pg.exec(`INSERT INTO copy_followers (id, user_id, broker_account_id, master_id, lot_mode, lot_multiplier)
+                 VALUES ('f1', 'u1', 'legacy', 'm1', 'mult', 2.5);`);
+
+  const copyState = async () => (await pg.query<{ masters: number; followers: number;
+                                                  dropped: number; paused: number }>(`
+    SELECT (SELECT count(*)::int FROM copy_masters   WHERE broker_account_id = 'legacy') AS masters,
+           (SELECT count(*)::int FROM copy_followers WHERE broker_account_id = 'legacy') AS followers,
+           (SELECT count(*)::int FROM copy_followers WHERE dropped_at IS NOT NULL)       AS dropped,
+           (SELECT count(*)::int FROM copy_followers WHERE is_active = false)            AS paused`)).rows[0];
+
+  const beforeCopy = await copyState();
+  await db.update(brokerAccounts).set(loggedOutFields()).where(eq(brokerAccounts.id, 'legacy'));
+  const afterCopy = await copyState();
+
+  check('the account he was COPYING is still set up after logging out', afterCopy.masters, beforeCopy.masters);
+  check('...and the one that was FOLLOWING it too', afterCopy.followers, beforeCopy.followers);
+  check('...none of them was retired', afterCopy.dropped, 0);
+  check('...none of them was paused', afterCopy.paused, 0);
+  const settings = (await pg.query<{ lot_mode: string; lot_multiplier: string }>(
+    `SELECT lot_mode, lot_multiplier FROM copy_followers WHERE id = 'f1'`)).rows[0];
+  check('...and the settings themselves are untouched',
+        [settings.lot_mode, String(Number(settings.lot_multiplier))], ['mult', '2.5']);
+
+  // ── 6. DEMO/LIVE CANNOT BE EDITED ON A cTRADER ACCOUNT ───────────────────────────────
+  // Also promised and not measured. This is the whole of what he asked for — *"This will prevent
+  // users from editing but display real status."*
+  check('changing it on a cTrader account is refused',
+        accountTypeEdit('ctrader', 'demo', 'live'), 'refuse');
+  check('...whatever the spelling',
+        accountTypeEdit('cTrader', 'demo', 'LIVE'), 'refuse');
+  check('sending back the value it already has is NOT a refusal — a rename must still save',
+        accountTypeEdit('ctrader', 'live', 'live'), 'ignore');
+  check('not sending it at all is nothing to do',
+        accountTypeEdit('ctrader', 'live', undefined), 'ignore');
+  check('an EA account keeps the field — there is no broker to ask',
+        accountTypeEdit('mt5', 'demo', 'live'), 'apply');
+  check('...and a funded one can still be marked as such',
+        accountTypeEdit('mt4', 'demo', 'funded'), 'apply');
 
   await pg.close();
   console.log();
