@@ -42,10 +42,45 @@ import {
   attach, detach, isAttached, attachedIds, hubStats, logRoutingEvidence,
   ACCOUNTS_PER_CONN, type Member,
 } from './ctraderHub';
+import {
+  classify, endAttempt, forget as forgetBackoff, guardStats, isStandingDown, mayAttempt,
+  noteRateLimited, noteSuccess, nextRetryMs, standDownRemainingMs,
+} from './ctraderRateGuard';
 
-const RECONNECT_MS = 15_000;
 const RECONCILE_MS = 60_000;
 const connecting = new Set<string>();    // ids mid-handshake (blocks double-connect)
+/**
+ * ONE PENDING RETRY PER ACCOUNT — and this map is the whole of that guarantee (docs/OPEN.md D63).
+ *
+ * ⚠ WHAT WENT WRONG WITHOUT IT. Every failure called `setTimeout` and nothing remembered the timer, so
+ * each failed attempt started a FRESH independent retry chain — and `reconcile` added another one every
+ * 60 seconds on top. The chains never merged, so attempts per minute climbed the longer an account
+ * stayed broken. That is why 94% of one production log was a single repeating line at ~39 a second: not
+ * one retry loop, but dozens of them running in parallel for the same four accounts.
+ *
+ * Holding the handle and clearing it before setting another makes a retry IDEMPOTENT: asking twice
+ * schedules once, so `reconcile` can be as eager as it likes without breeding anything.
+ */
+const retryTimer = new Map<string, NodeJS.Timeout>();
+
+/**
+ * WHAT WAS LAST WRITTEN DOWN FOR THIS ACCOUNT, so a long outage does not flood the record.
+ *
+ * ⚠ THE FLOOD IS A MISTAKE THIS PROJECT HAS ALREADY PAID FOR ONCE. `autoJournal/events.ts` says it
+ * plainly: a row per tick per item becomes "an audit trail filling with notes about something he was
+ * told is gone". Backoff caps a failing account at one attempt every 5 minutes, which is still ~288
+ * rows a day, times four accounts. So a refusal is recorded when it is NEW — first failure, or the
+ * reason changed — and then at most hourly while it keeps saying the same thing.
+ */
+const lastRecorded = new Map<string, { reason: string; at: number }>();
+const RE_RECORD_MS = 60 * 60_000;
+
+function worthRecording(id: string, reason: string, now = Date.now()): boolean {
+  const seen = lastRecorded.get(id);
+  if (seen && seen.reason === reason && now - seen.at < RE_RECORD_MS) return false;
+  lastRecorded.set(id, { reason, at: now });
+  return true;
+}
 // Feeds live only on the primary worker (mirrors index.ts) so PM2 cluster mode can't open duplicate
 // sockets; non-primary workers no-op and the primary's reconcile loop adopts any account they
 // connect/delete within RECONCILE_MS.
@@ -56,8 +91,34 @@ async function loadAccount(id: string): Promise<BrokerAccount | null> {
   return a ?? null;
 }
 
-function scheduleReconnect(id: string): void {
-  setTimeout(() => { connect(id).catch(() => {}); }, RECONNECT_MS);
+/**
+ * Try this account again later — ONCE, after a wait that grows.
+ *
+ * Replaces a flat 15-second retry that never slowed down and never merged with the other retries for
+ * the same account. The wait now comes from `ctraderRateGuard`: it doubles per consecutive failure, is
+ * capped, is spread out so four accounts do not come back in lockstep, and is never shorter than the
+ * shared stand-down (docs/OPEN.md D63).
+ */
+function scheduleReconnect(id: string, explicitWaitMs?: number): void {
+  const existing = retryTimer.get(id);
+  if (existing) clearTimeout(existing);          // one pending retry per account, never two
+  // ⚠ AN EXPLICIT WAIT DOES NOT COUNT AS A FAILURE. When an account is merely waiting its turn behind
+  // the shared brake it never reached the broker, so charging it a backoff step would punish it for
+  // someone else's refusal and inflate its wait to the cap without a single request being made.
+  const waitMs = explicitWaitMs ?? nextRetryMs(id);
+  const t = setTimeout(() => {
+    retryTimer.delete(id);
+    connect(id).catch(() => {});
+  }, waitMs);
+  // Do not hold the process open for a retry — matters to tests and to a clean shutdown.
+  t.unref?.();
+  retryTimer.set(id, t);
+}
+
+/** Stop trying this account (it attached, or it is gone). */
+function cancelReconnect(id: string): void {
+  const t = retryTimer.get(id);
+  if (t) { clearTimeout(t); retryTimer.delete(id); }
 }
 
 /**
@@ -95,12 +156,33 @@ function onHubLost(accountIds: string[]): void {
   accountIds.forEach(scheduleReconnect);
 }
 
-/** Idempotent connect — guards against concurrent attempts for the same account. */
+/**
+ * Idempotent connect — guards against concurrent attempts for the same account, and now against
+ * attempts the broker has already told us it will refuse.
+ *
+ * ⚠ THE BRAKE IS CHECKED BEFORE THE ATTEMPT, NOT AFTER IT FAILS. The pool refuses during a stand-down
+ * too (`ctraderConnPool.acquire`), but reaching that point still costs a database read and still
+ * produces a log line per account per try — which is precisely the 94%-of-the-log symptom. Asking here
+ * means a standing-down account makes no request and writes no line; it simply comes back later.
+ */
 async function connect(id: string, attempt = 0): Promise<void> {
   if (isAttached(id) || connecting.has(id)) return;
+  if (!mayAttempt(id)) {
+    // Either everything is standing down, or another account is testing the water on everyone's
+    // behalf. Come back when the window ends — plus a spread, so four accounts do not all return on
+    // the same tick.
+    //
+    // ⚠ THE 5-SECOND FLOOR IS FOR THE SECOND CASE. While one account probes, the stand-down has
+    // already expired, so without a floor the other three would re-check every few hundred
+    // milliseconds — silently, and cheaply, but pointlessly: the answer cannot change until the
+    // prober gets one.
+    const wait = Math.max(5_000, standDownRemainingMs()) + Math.floor(Math.random() * 5_000);
+    scheduleReconnect(id, wait);
+    return;
+  }
   connecting.add(id);
   try { await openFeed(id, attempt); }
-  finally { connecting.delete(id); }
+  finally { connecting.delete(id); endAttempt(id); }
 }
 
 async function openFeed(id: string, attempt: number): Promise<void> {
@@ -122,6 +204,13 @@ async function openFeed(id: string, attempt: number): Promise<void> {
 
   try {
     await attach(account, creds, onTrade, onHubLost, onAccountLost);
+    // THE BRAKE COMES OFF — a connection demonstrably works, so whatever the broker was refusing has
+    // passed. Only a real success clears it; letting the window expire on its own deliberately does
+    // not (`ctraderRateGuard.noteSuccess`).
+    noteSuccess();
+    forgetBackoff(id);
+    cancelReconnect(id);
+    lastRecorded.delete(id);                   // a later failure is news again, not a repeat
     console.log(`[cTraderRT] live feed attached — account ${id} (ctid ${creds.ctraderId})`);
     // CATCH UP ON WHAT HAPPENED WHILE WE WERE NOT LISTENING (docs/OPEN.md D55).
     //
@@ -136,13 +225,47 @@ async function openFeed(id: string, attempt: number): Promise<void> {
     void catchUp(account);
   } catch (err: any) {
     const msg = String(err?.message ?? '');
-    if (attempt === 0 && /2142|token|auth/i.test(msg)) {       // expired token → refresh once
+    // WHAT KIND OF "NO" WAS THAT? Three refusals that look alike in a log need three different
+    // answers, and treating them as one is what turned a transient limit into a permanent storm
+    // (docs/OPEN.md D63).
+    const kind = classify(msg);
+
+    // ── ASKED TOO OFTEN → EVERYTHING STANDS DOWN TOGETHER ──────────────────────────────────────────
+    //
+    // ⚠ NOT A TOKEN REFRESH. The old test (`/2142|token|auth/i`) did not match these words, which was
+    // lucky: refreshing here would rotate the ticket every sibling account shares and break the ones
+    // that still worked (docs/ctrader-open-api-apps.md:91). Asking too often is cured by asking less.
+    if (kind === 'rate-limited') {
+      const { waitMs, step, fresh } = noteRateLimited();
+      if (fresh) {
+        console.warn(`[cTraderRT] cTrader is rate limiting us — every cTrader connection in this ` +
+                     `process stands down for ${Math.round(waitMs / 1000)}s (trip ${step}). ` +
+                     `Reason given: ${msg}`);
+        void record({ brokerAccountId: id, stage: 'rate-limited',
+                      detail: `cTrader refused a live-feed attach for asking too often — standing ` +
+                              `down ${Math.round(waitMs / 1000)}s (trip ${step}). Broker said: ${msg}` });
+      }
+      scheduleReconnect(id);
+      return;
+    }
+
+    // ── THE LOGIN ITSELF WAS REJECTED → ONE FRESH LOGIN, ONCE ──────────────────────────────────────
+    if (kind === 'login-rejected' && attempt === 0) {
       const fresh = await refreshCTraderToken(account).catch(() => null);
       if (fresh) { await openFeed(id, 1); return; }
     }
+
     // A pool refusal reads the same as any other failure here: log it and retry later, rather than
     // give up on an account whose trades would then never be recorded.
     console.error(`[cTraderRT] could not attach account ${id}: ${msg}`);
+    // RECORDED, NOT JUST LOGGED. The container log holds ~50 seconds, so a refusal that repeats for
+    // hours is invisible in it — which is how D63 went unnoticed until 94% of a log was one line.
+    // Throttled per account so the record stays readable rather than becoming the flood itself.
+    if (worthRecording(id, kind)) {
+      void record({ brokerAccountId: id,
+                    stage: kind === 'login-rejected' ? 'login-rejected' : 'attach-failed',
+                    detail: `live feed could not attach (${kind}): ${msg}` });
+    }
     scheduleReconnect(id);
   }
 }
@@ -241,9 +364,17 @@ async function reconcile(): Promise<void> {
   // read the counters. That summary is the evidence line for the whole pooling design, so a version
   // of it that reports zeros while two feeds are opening is worse than no line at all.
   // Failures stay per-account: one account that cannot connect must not stop the others.
-  await Promise.all(
-    [...wanted].filter(id => !isAttached(id)).map(id => connect(id).catch(() => {}))
-  );
+  //
+  // ⚠ THE SECOND ENFORCEMENT POINT FOR THE BRAKE, and it has to be here as well as in `connect`
+  // (docs/OPEN.md D63). This sweep is the OTHER retry driver: it re-tries every unattached account
+  // every 60 seconds regardless of why the last attempt failed. A brake fitted only to the per-account
+  // retry path would be walked straight past by this loop once a minute, for every account, for ever —
+  // which is one of the two drivers that made the storm grow instead of settling.
+  if (!isStandingDown()) {
+    await Promise.all(
+      [...wanted].filter(id => !isAttached(id)).map(id => connect(id).catch(() => {}))
+    );
+  }
   attachedIds().forEach(id => { if (!wanted.has(id)) removeCTraderAccount(id); });
 }
 
@@ -279,10 +410,17 @@ export async function startCTraderRealtime(): Promise<void> {
     await reconcile();
     // ACCOUNTS AND SOCKETS ARE REPORTED SEPARATELY. They were the same number before the hub, and
     // the whole point is that they stop being — a line that conflates them cannot show it working.
-    const h = hubStats(), p = stats();
+    const h = hubStats(), p = stats(), g = guardStats();
+    // ⚠ "0 accounts" NOW CARRIES ITS REASON. The old line reported zero feeds identically whether
+    // there were no accounts to connect or the broker was refusing every one of them — so the boot
+    // line could not tell a quiet system from a broken one (docs/OPEN.md D63).
     console.log(`[cTraderRT] live feeds active for ${h.accounts} cTrader account(s) on ` +
                 `${h.hubs} socket(s) (max ${ACCOUNTS_PER_CONN}/socket) — ` +
-                `pool ${p.held}/${p.max}`);
+                `pool ${p.held}/${p.max}` +
+                (g.standingDown
+                  ? ` — ⚠ STANDING DOWN for ${Math.round(g.standDownMs / 1000)}s: cTrader is rate `
+                    + `limiting us (trip ${g.standDownStep}), ${g.accountsBackingOff} account(s) waiting`
+                  : ''));
     setInterval(() => { reconcile().catch(() => {}); }, RECONCILE_MS);
     setInterval(() => { logUtilisation(); void persistRoutingEvidence(); }, 60_000);
   } catch (e: any) {
@@ -293,5 +431,18 @@ export async function startCTraderRealtime(): Promise<void> {
 /** Start a feed for a freshly connected account (call right after OAuth completes). */
 export function addCTraderAccount(id: string): void { if (IS_PRIMARY) connect(id).catch(() => {}); }
 
-/** Stop and drop a feed (call on account disconnect/delete). */
-export function removeCTraderAccount(id: string): void { detach(id); }
+/**
+ * Stop and drop a feed (call on account disconnect/delete).
+ *
+ * ⚠ THE PENDING RETRY HAS TO GO TOO. Detaching alone left a timer still armed, and when it fired it
+ * called the ordinary connect path — which checks the platform and the connection type but NOT whether
+ * the account is still switched on (`openFeed` above). So a logged-out account could be put back on a
+ * socket by a timer set before it was logged out, minutes later, with nothing saying so. `reconcile`
+ * filters the logged-out row out of its list, but a timer already armed never consults that list.
+ */
+export function removeCTraderAccount(id: string): void {
+  cancelReconnect(id);
+  forgetBackoff(id);
+  lastRecorded.delete(id);
+  detach(id);
+}

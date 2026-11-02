@@ -25,6 +25,7 @@
  * irrelevant rather than betting on it.
  */
 import { EventEmitter } from 'events';
+import { isStandingDown, standDownRemainingMs } from './ctraderRateGuard';
 
 export type ConnKind = 'feed' | 'task';
 
@@ -107,6 +108,24 @@ function pump(): void {
  * already decided there is no room for.
  */
 export function acquire(kind: ConnKind, label = 'unnamed', timeoutMs = 60_000): Promise<Lease> {
+  // ── THE BRAKE, AT THE ONE PLACE EVERY OPENER PASSES THROUGH (docs/OPEN.md D63) ───────────────────
+  //
+  // WHY HERE AND NOT IN THE FEED. Four separate places open a cTrader connection — the live feed
+  // (`ctraderHub.ts:203`), the account list, the balance read and the trade sync
+  // (`brokerAdapters/ctrader.ts`). A brake fitted to the feed alone would be walked around by the other
+  // three, which is the "one duplicate left standing means the fix does nothing" trap. Everything that
+  // opens a connection has to ask the pool first, so the pool is the single enforcement point.
+  //
+  // WHY IT REFUSES INSTEAD OF WAITING. Waiting would hold a queue slot for up to ten minutes and leave
+  // a user's balance request hanging with no explanation. Refusing with cTrader's own reason lets the
+  // caller decide: the feed re-tries on its own growing timer, and a user-facing read fails fast and
+  // says why.
+  if (isStandingDown()) {
+    const secs = Math.ceil(standDownRemainingMs() / 1000);
+    return Promise.reject(new Error(
+      `cTrader is rate limiting us — standing down for another ${secs}s before any new connection ` +
+      `(${kind} "${label}" refused). This is Node's shared brake: see docs/OPEN.md D63.`));
+  }
   if (held < MAX_CONNECTIONS) return Promise.resolve(makeLease(kind, label));
 
   return new Promise<Lease>((resolve, reject) => {

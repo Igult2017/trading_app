@@ -134,8 +134,15 @@ export function send(ws: WebSocket, payloadType: number, payload: object) {
 export function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000,
                         match?: (payload: any) => boolean): Promise<any> {
   return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`cTrader timeout waiting for type ${targetType}`)), timeoutMs);
-    ws.on('message', function handler(raw) {
+    // ⚠ THE TIMEOUT USED TO LEAVE ITS LISTENER ATTACHED. It rejected and walked away, so every timed-out
+    // wait left a dead handler parsing every frame on that socket for the life of the connection. On a
+    // shared socket during a retry storm that is thousands of them, and Node starts warning about
+    // leaked listeners at ten. Removing it here is the other half of `clearTimeout` below.
+    const t = setTimeout(() => {
+      ws.off('message', handler);
+      reject(new Error(`cTrader timeout waiting for type ${targetType}`));
+    }, timeoutMs);
+    function handler(raw: WebSocket.RawData) {
       let msg: any;
       try { msg = JSON.parse(raw.toString()); } catch { return; }
       if (msg.payloadType === PT_OA_ERROR) {
@@ -143,6 +150,12 @@ export function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000,
         // Ignore errors about unsolicited server-push events (e.g. SymbolChangedEvent) —
         // these are not responses to our request; keep waiting for the actual reply.
         if (desc.includes('Event') || desc.toLowerCase().includes('not supported')) return;
+        // ⚠ IS THIS REFUSAL EVEN OURS? Errors were accepted by EVERY waiter on the socket regardless of
+        // `match`, so on a shared socket one account's refusal failed all of them at once — four log
+        // lines and four fresh retries from a single "no" (docs/OPEN.md D63). When the error names an
+        // account, only that account's waiter may take it; when it names none there is no way to tell,
+        // so the old behaviour stands rather than letting a real error go unreported.
+        if (match && msg.payload?.ctidTraderAccountId !== undefined && !match(msg.payload)) return;
         clearTimeout(t); ws.off('message', handler);
         reject(new Error(`cTrader: ${desc}`));
       } else if (msg.payloadType === targetType) {
@@ -151,7 +164,8 @@ export function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000,
         clearTimeout(t); ws.off('message', handler);
         resolve(msg.payload ?? {});
       }
-    });
+    }
+    ws.on('message', handler);
   });
 }
 

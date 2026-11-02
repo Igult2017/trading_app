@@ -16,8 +16,14 @@
  * observed on this JSON gateway, which is why CTRADER_ACCOUNTS_PER_CONN shipped at 1.
  *
  * MEASURED 2026-09-30, AND IT DOES: a demo trade produced 4 execution events and every one carried the
- * id. The setting is now 2 — notch one of the 1/2/5/10/20/50 ramp. The checks below are what make that
- * safe to do: with several accounts on a socket, an unlabelled fill is DROPPED, never guessed at.
+ * id. The checks below are what make sharing safe to do: with several accounts on a socket, an
+ * unlabelled fill is DROPPED, never guessed at.
+ *
+ * ⚠ THIS HEADER SAID "the setting is now 2 — notch one" UNTIL 2026-11-02, by which time the code had
+ * read 5 for a month (`ctraderHub.ts:75`, "NOTCH TWO, 2026-09-30: 2 -> 5"). A stale number here is not
+ * cosmetic: the ramp is 1/2/5/10/20/50 **verifying at each notch**, so a doc claiming a lower notch
+ * than the code makes it impossible to tell whether the current one was ever verified. That question
+ * is open — see `docs/OPEN.md` D63's closing note.
  */
 import { PT_EXECUTION_EVENT, PT_TOKEN_INVALIDATED, PT_ACCOUNT_DISCONNECT } from './brokerAdapters/ctrader';
 import { ACCOUNTS_PER_CONN, _internals, _resetForTests } from './ctraderHub';

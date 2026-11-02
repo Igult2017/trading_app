@@ -1664,6 +1664,13 @@ round trip. ⚠ Today those jobs return in ~1ms, which suggests no open position
 (modifying a shared resource). The two variables above are **not yet set** — everything here is
 measurement, not a change. Needs his go-ahead or his hand on the dashboard.
 
+**⚠ DO NOT CONFUSE THESE TWO VARIABLES WITH THE MIGRATION BLOCKERS — those are all settled.** He
+confirmed on 2026-11-02 that the **Supabase keys, `ADMIN_SECRET` and the cTrader redirect** are set,
+which closes items 1–3 of the migration note's chain (and the portal-registration caveat that was
+left open against the redirect). **What remains for D62 is only the two switches above**,
+`TRADE_WATCHER_ENABLED` and `AUTO_BREAKEVEN_ENABLED`, on app `dm96yia8e3dmg5lhjc2bu2de`, unquoted,
+production scope, then a redeploy.
+
 **What FIX still cannot do, so this is not mistaken for a cure-all:** it carries **no history**
 ([`fix_quotes.py:13-16`](../signal_platform/data/fix_quotes.py#L13-L16)). VIX.1 wants 3,000 H1 bars
 and BX-S/D 1,000 H4, from the Open API. FIX makes the momentum candle TIMELY; brand-new signals
@@ -1684,12 +1691,116 @@ retrying four accounts continuously and being refused.
 It is a **separate defect from D62** and FIX being switched on does not fix it. Recorded separately
 on purpose: calling it a FIX symptom would send the next session to the wrong file.
 
-**Not yet diagnosed.** What is known: the four account ids repeat, so it is the same four accounts
-cycling, and the log window (~2 minutes) shows no successful `live feed attached` line. What is NOT
-known: whether the retry has any backoff, whether these are stale/dead logins left over from the
-migration, and whether the rate limit is per-app or per-account. **Start at
-`ctraderRealtime.ts` lines 76-145** (`lost its session … re-attaching it alone`) — a reconnect path
-with no backoff would produce exactly this.
+**DIAGNOSED AND FIXED IN CODE 2026-11-02 — ⚠ STILL OPEN BECAUSE IT HAS NOT BEEN MEASURED IN
+PRODUCTION.** The code is written and checked; nothing here claims the storm has stopped until the
+log says so. The measurements that would close it are at the bottom of this entry.
+
+**THE ROOT CAUSE, IN ONE SENTENCE: being refused made this code open MORE connections, not fewer — so
+the refusal fed itself and could never clear.** The rate limit was never the defect; the response to
+it was. Five separate things, each verified by reading the code:
+
+| # | What was wrong | Where it was |
+|---|---|---|
+| 1 | **The retry never slowed down.** Flat 15 seconds, for ever — no growing wait, no cap, no spreading-out | `ctraderRealtime.ts:46`, `:59-61`, `:146` |
+| 2 | **Retries bred.** Every failure called `setTimeout` and nothing held the handle, so each failed attempt started a FRESH independent retry chain — and the 60-second `reconcile` sweep added another one every minute. The chains never merged, so attempts per minute CLIMBED the longer an account stayed broken | `ctraderRealtime.ts:286`, `:244-246` |
+| 3 | **One refusal was counted four times.** All four accounts share one socket (`CTRADER_ACCOUNTS_PER_CONN=5`), and both sign-in waits passed no "is this reply mine?" test — so a single refusal frame rejected EVERY account waiting on that socket | `ctraderHub.ts:75`, `:321`, `:327`, against `waitFor`'s own warning at `brokerAdapters/ctrader.ts:126-134` |
+| 4 | **Abandoned sockets were never closed — two places, and this is what kept the limit TRIPPED.** On a failed application handshake the pool slot was returned and the error rethrown, but the WebSocket was left open — it had no owner yet, because the `hub` object carrying the heartbeat and the close handler is only built after that step succeeds. On a failed ACCOUNT sign-in (our case) the socket stayed in `hubs`, not closing, heartbeat ticking, holding a pool slot, with zero accounts on it, for the life of the process | `ctraderHub.ts:204-211`, `:213-216`, `:319-336` |
+| 5 | **An unbounded loop** (`for(;;)`) opened replacement sockets as fast as they could fail — no delay, no limit, and no log line of its own, so it added broker load invisibly | `ctraderHub.ts:179-197` |
+
+**That also explains the RATE,** which a flat 15-second retry on four accounts cannot: 39 lines a
+second needs #2 (chains accumulating) multiplied by #3 (one "no" failing four accounts). ⚠ The
+per-failure duration this rests on is **inferred from the line rate, not measured** in production.
+
+**A second defect found on the way, now fixed:** the one-shot token refresh only fired on text
+containing `2142`, `token` or `auth` (`ctraderRealtime.ts:139`). cTrader's own words for a dead login
+are *"Access denied. Make sure the credentials are valid."* — which match none of the three, so a
+genuinely expired login was never retried with a fresh one.
+
+**STILL NOT KNOWN, and the fix is built so it does not matter.** Whether this limit is counted per
+APPLICATION or per CONNECTION. Documented: 50 req/s (5/s historical) per connection; forum-only and
+unverified: ~25 connections per application (`ctrader-open-api-apps.md:85-86`). The brake is
+**application-wide**, which is correct under either answer — the same reasoning that set the
+connection cap at 8: *"Sitting at 8 makes the unknown irrelevant rather than betting on it."*
+⚠ A per-account backoff would NOT have fixed this: four accounts backing off politely on their own
+still hammer the one shared application.
+
+**THE FIX — `server/services/ctraderRateGuard.ts` (new) plus wiring:**
+
+1. **One shared brake.** A stand-down every cTrader connection in this Node process obeys: 30s on the
+   first refusal, doubling, capped at 10 minutes, cleared only by a real success (letting the window
+   lapse deliberately does NOT reset it, or the brake becomes a brake in name only). A burst of four
+   refusals counts as ONE trip.
+2. **Fitted at three enforcement points, because any one alone is walked around:** the pool's
+   `acquire` (the single choke point all four openers share — live feed, account list, balance, trade
+   sync), the per-account `connect`, and the 60-second `reconcile` sweep.
+3. **One pending retry per account**, holding the timer handle and clearing it before setting another,
+   so asking twice schedules once and `reconcile` can no longer breed chains. Waits grow, are capped
+   at 5 minutes, carry ±25% randomness so four accounts never return in lockstep, and are never
+   shorter than the stand-down.
+4. **Abandoned sockets are closed.** `terminate()` on a failed application handshake; a new
+   `closeIfDeserted` for a socket left with nobody on it. ⚠ It closes only when `members` AND
+   `pending` are both zero — one broken account must never take a socket down underneath accounts
+   that are fine, and a member only appears in `members` after its round-trip finishes.
+5. **The loop is bounded** — 2 failed socket opens, 64 rounds, then it gives up and lets the caller's
+   backoff take over.
+6. **Replies only answer the account that asked**, on both sign-in steps. Strict when the reply names
+   an account, tolerant when it does not — because this gateway has dropped a schema-required field
+   before (`closePositionDetail`: 0 of 30 real deals carried it), and a strict test against a field
+   the gateway might omit would turn a noisy bug into a total outage.
+7. **The reason is recorded, not just logged.** New `sync_events` stages `rate-limited`,
+   `login-rejected` and `attach-failed`, readable at `GET /api/admin/sync-events` — the container log
+   holds ~50 seconds, which is why this ran for hours unnoticed. ⚠ Written sparingly: `rate-limited`
+   once per stand-down rather than once per account, `attach-failed` throttled to first-occurrence
+   then hourly, because a row per attempt per account is the flood `autoJournal/events.ts` already
+   warns about.
+8. **Refusals are sorted into three kinds** — asked too often (stand down), login rejected (one fresh
+   login, once, now including `ACCESS_DENIED`), anything else (growing wait). ⚠ A rate limit must
+   never be treated as a login problem: refreshing rotates the ticket every sibling account shares.
+9. **After a stand-down, ONE account tests the water,** not four — so finding out whether the limit
+   lifted costs one request, and if the real problem is a dead login, one account says so.
+10. **A logged-out account's pending retry is now cancelled.** Detaching alone left a timer armed, and
+    the connect path it fires checks the platform and connection type but NOT whether the account is
+    still switched on — so a logged-out account could be put back on a socket minutes later by a timer
+    set before it was logged out. `reconcile` filters the row out of its list; a timer already armed
+    never consults that list.
+
+**Checked offline:** `server/services/ctraderRateGuard.test.ts` — **53 checks, all passing**
+(`DATABASE_URL="postgresql://x:x@localhost:5432/x" npx tsx server/services/ctraderRateGuard.test.ts`).
+It covers the classification, the growth/cap/burst/reset rules, the one-prober rule, the ±25% spread,
+the "never close a socket with healthy members" trap, cross-delivery on a shared socket using a fake
+socket, and the listener a timed-out wait used to leave attached. The three wirings that cannot be
+called without a database and a broker are asserted by reading the source, the same idiom
+`lib/entryParity.test.ts` uses. `npx tsc --noEmit` clean; `ctraderHub.test.ts` (33),
+`ctraderConnPool.test.ts` (26), `entryParity.test.ts` (38) and `autoSyncWiring.test.ts` (29) all
+still pass.
+
+**⚠ WHAT IS NOT COVERED BY A TEST, stated so it is not mistaken for covered:** opening a real socket
+and failing the application handshake needs a live broker, and `openHub` is not exported — mocking its
+imports would test the mock. What is checked is the RULE that path now obeys plus the source wiring.
+
+**WHAT CLOSES THIS ENTRY — measured in production, not asserted:**
+
+| Claim | Proof |
+|---|---|
+| The storm is over | that message **under 1%** of log lines (from 94%), and **not accelerating** over 10 minutes |
+| The feed works | at least one `[cTraderRT] live feed attached` line — or, per account, a visible stated reason why not |
+| Nothing leaks | `GET /api/admin/ctrader-capacity`: `connectionsHeld` flat over 10+ minutes, `sockets` ≤ accounts ÷ 5 rounded up |
+| The real cause is named | a `rate-limited` / `login-rejected` row at `GET /api/admin/sync-events` naming the actual reason for those four accounts |
+
+**⚠ THE TRIGGER IS STILL UNPROVEN.** What started it is not provable from the code, and no fix here
+claims to know. The strong suspect is the shared login: one sign-in issues ONE ticket for every account
+under that cTID, and the first to renew invalidates the copies the others hold
+(`ctrader-open-api-apps.md:91`) — which is exactly how **four** accounts lost their logins on 25 Oct
+(`:90`). Four accounts were looping here. Point 9 above is what makes the real reason say its own name
+instead of being guessed at.
+
+**⚠ ONE DECISION DEFERRED, NOT TAKEN SILENTLY.** `CTRADER_ACCOUNTS_PER_CONN` is **5**
+(`ctraderHub.ts:75`), which is why all four accounts share one socket and why #3 bit four-fold. The
+agreed ramp is 1 → 2 → 5 → 10 → 20 → 50 **verifying at each notch** (`ctrader-scaling.md` Step 5), and
+`ctraderHub.test.ts`'s own header still describes the setting as 2 — so whether 5 was ever verified at
+the notch is an open question. His call, 2026-11-02: **fix the routing properly and leave the setting
+at 5** (#6 above), with re-verifying the notch against `GET /api/admin/ctrader-capacity` as a
+follow-up once feeds are up.
 
 ### D61 - Log out / reconnect works in the code and in a real Postgres, but has NOT been run end to end
 

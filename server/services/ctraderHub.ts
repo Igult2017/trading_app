@@ -38,6 +38,12 @@ import {
 
 const HEARTBEAT_MS = 10_000;
 
+/** How many failed socket opens one `attach` will sit through before giving up and letting the
+ *  caller's own backoff take over. Low on purpose: retrying hard is what caused D63. */
+const MAX_SOCKET_FAILURES = 2;
+/** Backstop against any unforeseen spin in the search loop — rounds are cheap, infinite ones are not. */
+const MAX_ROUNDS = 64;
+
 function envInt(name: string, fallback: number, min: number, max: number): number {
   const n = Number.parseInt(String(process.env[name] ?? ''), 10);
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
@@ -176,7 +182,18 @@ async function hubWithRoom(host: string, app: string | undefined,
                            onTrade: OnTrade, onHubLost: OnHubLost,
                            onAccountLost?: OnAccountLost): Promise<Hub> {
   const key = hubKey(host, app);
-  for (;;) {
+  // ⚠ BOUNDED, AND IT USED TO BE `for(;;)` WITH NO LIMIT AT ALL (docs/OPEN.md D63).
+  //
+  // When the in-flight socket open rejected, every account waiting on it caught the error and
+  // `continue`d — straight back round to open ANOTHER socket, with no delay, no limit and no log line
+  // of its own. While the broker was refusing connections that became a tight loop opening and
+  // abandoning real connections as fast as they could fail: the invisible half of the storm, because
+  // nothing it did was ever printed.
+  //
+  // Failures are counted rather than rounds, because rounds are legitimate: with several accounts
+  // arriving at once, each full socket costs one extra round while the next one opens.
+  let failures = 0;
+  for (let round = 0; round < MAX_ROUNDS; round++) {
     const existing = hubs.find(h => hasRoom(h, key));
     if (existing) { existing.pending++; return existing; }
 
@@ -184,28 +201,59 @@ async function hubWithRoom(host: string, app: string | undefined,
     if (inFlight) {
       // Someone is already opening a socket for this key. Wait for it, then look again — it may have
       // room for this account, or may already be full, in which case the loop opens the next one.
-      try { await inFlight; } catch { /* the opener logs its own failure; just re-evaluate */ }
+      try { await inFlight; }
+      catch {
+        // The opener reports its own failure. Re-evaluating is right ONCE or twice — this account may
+        // still succeed on its own attempt — but not for ever.
+        if (++failures > MAX_SOCKET_FAILURES) {
+          throw new Error(`cTrader: gave up opening a socket for ${key} after ${failures} failed `
+                        + `attempts — not retrying here; the feed re-tries on its own backoff`);
+        }
+      }
       continue;
     }
 
     const opening = openHub(host, app, key, onTrade, onHubLost, onAccountLost)
       .finally(() => { if (creating.get(key) === opening) creating.delete(key); });
     creating.set(key, opening);
-    const hub = await opening;
-    hub.pending++;
-    return hub;
+    try {
+      const hub = await opening;
+      hub.pending++;
+      return hub;
+    } catch (err) {
+      if (++failures > MAX_SOCKET_FAILURES) throw err;
+    }
   }
+  throw new Error(`cTrader: could not get a socket for ${key} — ${MAX_ROUNDS} rounds without settling`);
 }
 
 async function openHub(host: string, app: string | undefined, key: string,
                        onTrade: OnTrade, onHubLost: OnHubLost,
                        onAccountLost?: OnAccountLost): Promise<Hub> {
   const lease = await acquire('feed', 'live-feed');
-  let ws: WebSocket;
+  // ⚠ DEFINITE-ASSIGNMENT (`!`) BECAUSE THE CATCH RETHROWS. Past the try/catch this is always a real
+  // socket; inside the catch it may be undefined, because `openWS` itself can be what failed.
+  let ws!: WebSocket;
   try {
     ws = await openWS(host);
     await appAuth(ws, app);
   } catch (err) {
+    // ── CLOSE WHAT WE OPENED. This is one of the two leaks behind D63 ───────────────────────────────
+    //
+    // The pool slot was given back here and the error rethrown, but the SOCKET was left open. It had no
+    // owner yet: the `hub` object below — which carries the heartbeat and the 'close' handler that
+    // releases everything — is only built once `appAuth` has SUCCEEDED. So a connection refused at the
+    // application handshake became a live TCP session to the broker that nothing tracked, nothing
+    // heartbeat-ed and nothing closed.
+    //
+    // THAT IS WHAT MADE THE RATE LIMIT PERMANENT. The retry loop above opened a fresh socket every few
+    // hundred milliseconds and abandoned each one, so the broker's connection budget stayed spent and
+    // every new attempt was refused for the same reason — a refusal that fed itself.
+    //
+    // `terminate`, not `close`: a graceful close waits on a handshake from a server that is already
+    // refusing us. The connection has to be gone NOW, which is the same call `openWS` makes on its own
+    // timeout (`brokerAdapters/ctrader.ts:117`).
+    try { ws?.terminate(); } catch { /* never opened, or already gone */ }
     lease.release();
     throw err;
   }
@@ -300,6 +348,27 @@ function route(hub: Hub, raw: WebSocket.RawData, onTrade: OnTrade): void {
   if (member) onTrade(member, msg.payload);
 }
 
+/**
+ * "Is this reply mine?" — strict when the reply names an account, permissive when it does not.
+ *
+ * WHY BOTH HALVES. Both sign-in steps used to accept whichever reply arrived first, so with several
+ * accounts authorising on one socket at the same moment a reply — or a REFUSAL — meant for one account
+ * was taken by another. That is how a single "You are being rate limited" became four failures and four
+ * fresh retries (docs/OPEN.md D63).
+ *
+ * ⚠ AND WHY IT TOLERATES THE FIELD BEING ABSENT. The schema marks `ctidTraderAccountId` required on
+ * both replies, but a schema is not this gateway: `closePositionDetail` is required on the execution
+ * event too and **0 of 30 real deals carried it** (`ctraderRealtime.ts:194-197`). A strict test against
+ * a field this gateway might omit would time out every attach — turning a noisy bug into a total
+ * outage. Absent means "cannot tell", which is the old behaviour and no worse than it.
+ */
+function isFor(ctid: number) {
+  return (p: any): boolean => {
+    const id = Number(p?.ctidTraderAccountId);
+    return Number.isFinite(id) ? id === ctid : true;
+  };
+}
+
 /** Put one account on a socket. Throws so the caller can retry/refresh exactly as before. */
 export async function attach(account: BrokerAccount, creds: any,
                              onTrade: OnTrade, onHubLost: OnHubLost,
@@ -318,13 +387,13 @@ export async function attach(account: BrokerAccount, creds: any,
   // reservation that is never released is capacity this socket silently stops offering for ever.
   try {
     send(hub.ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: ctid, accessToken: creds.accessToken });
-    await waitFor(hub.ws, PT_ACCT_AUTH_RES);
+    await waitFor(hub.ws, PT_ACCT_AUTH_RES, 20_000, isFor(ctid));
 
     // Execution events carry a numeric symbolId, so each account needs the id->name map. Accounts on
     // the same broker return identical lists, so one copy is SHARED rather than held per account —
     // 3,000 separate maps is real memory for no benefit.
     send(hub.ws, PT_SYMBOLS_REQ, { ctidTraderAccountId: ctid });
-    const symPayload = await waitFor(hub.ws, PT_SYMBOLS_RES, 30_000);
+    const symPayload = await waitFor(hub.ws, PT_SYMBOLS_RES, 30_000, isFor(ctid));
     const fresh: Record<number, string> = {};
     for (const s of (symPayload?.symbol ?? [])) if (s.symbolId && s.symbolName) fresh[s.symbolId] = s.symbolName;
     const symbolMap = shareSymbolMap(fresh);
@@ -333,7 +402,35 @@ export async function attach(account: BrokerAccount, creds: any,
     hubOf.set(account.id, hub);
   } finally {
     hub.pending = Math.max(0, hub.pending - 1);
+    // ── DO NOT LEAVE A SOCKET NOBODY IS ON. The second leak behind D63 ─────────────────────────────
+    //
+    // When this authorisation failed — which is exactly what "You are being rate limited" was — the
+    // only thing that happened was the reserved slot being handed back. The socket stayed in `hubs`,
+    // not closing, heartbeat ticking every 10 seconds, holding one of the eight pool slots, with ZERO
+    // accounts on it, for the life of the process. Nothing closed it: the caller's catch only logs and
+    // re-tries (`ctraderRealtime.openFeed`), and `detach` returns immediately because this account was
+    // never put in `hubOf`.
+    closeIfDeserted(hub);
   }
+}
+
+/**
+ * Close this socket when nobody is left on it and nobody is on the way.
+ *
+ * ⚠ THE "AND NOBODY IS ON THE WAY" HALF IS THE WHOLE CARE OF THIS FUNCTION. One account failing must
+ * never take a socket down underneath accounts that are fine — that is the cost-of-sharing failure
+ * this layer exists to avoid. A member only appears in `members` AFTER its authorisation round-trip
+ * finishes, so `members.size === 0` on its own would also be true of a socket three accounts are
+ * currently authorising onto; `pending` is what tells those apart.
+ *
+ * Shared by `attach`'s failure path and `detach` so there is ONE rule for when a socket dies, not two
+ * copies that can drift.
+ */
+function closeIfDeserted(hub: Hub): void {
+  if (hub.members.size > 0 || hub.pending > 0) return;
+  hub.closing = true;                       // an expected close: the 'close' handler must not re-attach
+  clearInterval(hub.hb);
+  try { hub.ws.close(); } catch { /* already gone */ }
 }
 
 /** Take one account off its socket, and close the socket when it is the last one. */
@@ -342,11 +439,10 @@ export function detach(accountId: string): void {
   if (!hub) return;
   hubOf.delete(accountId);
   hub.members.forEach((m, ctid) => { if (m.account.id === accountId) hub.members.delete(ctid); });
-  if (hub.members.size === 0) {
-    hub.closing = true;
-    clearInterval(hub.hb);
-    try { hub.ws.close(); } catch { /* noop */ }
-  }
+  // The same last-one-out rule the failed-attach path uses — one copy, so the two cannot drift. It now
+  // also spares a socket that other accounts are still authorising onto, which the inline version here
+  // did not check.
+  closeIfDeserted(hub);
 }
 
 /**
@@ -398,4 +494,4 @@ export function _resetForTests(): void {
   symbolMapCache.clear();
   sawRouted = 0; sawUnrouted = 0; reported = false;
 }
-export const _internals = { hubs, hubOf, route, hubKey, hasRoom, creating };
+export const _internals = { hubs, hubOf, route, hubKey, hasRoom, creating, closeIfDeserted, isFor };

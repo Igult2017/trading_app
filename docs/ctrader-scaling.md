@@ -487,8 +487,24 @@ once events are primary and the sweep is only a safety net, **a live path that h
 exactly like one that works** — the trade still appears, because the sweep covers for it. These two
 stages are what tell them apart.
 
-**Not built, and deliberately:** the socket id per event, and rate-limit alerts — nothing in this
-codebase reads a rate-limit response yet, so an alert would have nothing to fire on.
+**Not built, and deliberately:** the socket id per event.
+
+**~~Rate-limit alerts~~ — BUILT 2026-11-02, and the reason they were deferred has been overtaken by
+events.** This said *"nothing in this codebase reads a rate-limit response yet, so an alert would have
+nothing to fire on."* That was true when it was written and is no longer: production then produced
+**4,714 of 5,000 log lines** of `cTrader: You are being rate limited` (`docs/OPEN.md` D63). Node now
+reads the refusal, sorts it from a rejected login, and records it — new `sync_events` stages
+`rate-limited`, `login-rejected` and `attach-failed`, readable at `GET /api/admin/sync-events`.
+
+⚠ **Written sparingly, which is part of the design and not a shortcut:** `rate-limited` once per
+stand-down rather than once per refused account, and `attach-failed` throttled per account to
+first-occurrence then hourly. A row per attempt per account is the flood
+[`autoJournal/events.ts`](../server/services/autoJournal/events.ts) already warns about — *"an audit
+trail filling with notes about something he was told is gone"*.
+
+⚠ **This step's purpose is now served in a way the ramp depends on.** Step 5 raises accounts per socket
+one notch at a time and reads the result; D63 showed that a refused attach was previously invisible
+after ~50 seconds, so a notch that caused refusals could have been judged "fine". It no longer can be.
 
 **⚠ NOT YET OBSERVED IN PRODUCTION.** Both stages need a real fill to write their first row, and no fill
 has happened since the deploy. The code is live; the rows are unconfirmed.

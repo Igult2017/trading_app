@@ -66,7 +66,19 @@ export type SyncStage =
   // deleted: an audit trail filling with notes about something he was told is gone. That is the
   // mistake the copier's Drop fix already paid for. The sweep instead carries a COUNT on its own
   // per-account log line, so the skip is still visible without the flood.
-  | 'journal-deleted';
+  | 'journal-deleted'
+  // ── WHY THE LIVE FEED IS NOT UP (docs/OPEN.md D63) ─────────────────────────────────────────────
+  // 94% of one production log was a single repeating line saying the broker had refused to attach an
+  // account, and nobody could see it because the container log holds about 50 seconds — the storm had
+  // been running for hours with no record that outlived a restart. These three say which KIND of "no"
+  // it was, which is the difference between "we asked too often" and "this login is dead".
+  //
+  // ⚠ THEY ARE WRITTEN SPARINGLY ON PURPOSE. A row per failed attempt per account is the flood this
+  // file already warns about above: `rate-limited` is written once per stand-down rather than once per
+  // refused account, and `attach-failed` is throttled per account (`ctraderRealtime.ts`).
+  | 'rate-limited'        // cTrader refused us for asking too often; everything stood down
+  | 'login-rejected'      // the stored login itself was refused — a human may have to sign in again
+  | 'attach-failed';      // refused for some other reason, carried in `detail`
 
 export interface SyncEventInput {
   brokerAccountId?: string | null;
