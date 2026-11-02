@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { supabase } from '@/lib/supabase';
+import Brand from '@/components/Brand';
 
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
@@ -91,10 +92,10 @@ export default function ResetPasswordPage() {
 
       {/* Logo */}
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28 }}>
-        <span style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Montserrat',sans-serif", letterSpacing: '-0.01em' }}>
-          <span style={{ color: '#ffffff' }}>My FM</span>
-          <span style={{ color: '#3b82f6' }}> | Journal</span>
-        </span>
+        {/* THE SHARED NAME, NOT A COPY OF IT. This page still read "My FM | Journal" — a name two
+            renames out of date, missed by the 2026-10-11 change to DailyTradeBook because it was
+            written out by hand here. `Brand` is the one definition, so the next rename reaches it. */}
+        <Brand style={{ fontSize: 22, color: '#ffffff' }} />
       </div>
 
       <h1 style={{ color: '#3b82f6', fontSize: 28, fontWeight: 800, margin: '0 0 8px', textAlign: 'center', fontFamily: "'Poppins','Inter',sans-serif" }}>

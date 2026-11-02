@@ -1,4 +1,5 @@
 import { Lock } from 'lucide-react';
+import Brand from '@/components/Brand';
 
 interface Props {
   stripeConfigured: boolean;
@@ -91,7 +92,8 @@ export default function JournalPaywall({ stripeConfigured, onUpgrade }: Props) {
 
       {/* Footer brand */}
       <p style={{ color: '#1e293b', fontSize: 11, marginTop: 8 }}>
-        My FM | Journal · Your Trading Edge
+        {/* Same stale name as the reset page carried, same fix: one shared definition. */}
+        <Brand /> · Your Trading Edge
       </p>
     </div>
   );
