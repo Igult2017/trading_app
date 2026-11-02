@@ -1596,6 +1596,101 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
+### D62 — 🔴 THE LIVE FIX FEED IS OFF ON THE NEW SERVER, and one missing variable is why. Added 2026-11-02
+
+**Verified 2026-11-02 by reading the live config, the code, and the broker.** After the rebuild at
+`https://app.dorixe.com`, the signal platform runs but **the whole real-time half is switched off**.
+
+**His question was the right one: were the switches code-based?** They are. Every switch's name,
+type, default and meaning is in `signal_platform/config/settings.py`; Coolify only ever held the
+VALUE, and the old production values are recorded in A9 of this file. **Nothing needs re-deriving.**
+
+**The cause is one variable that is simply absent.** `TRADE_WATCHER_ENABLED` is not set on the new
+server, so it falls to its code default of `False`
+([`config/settings.py:195`](../signal_platform/config/settings.py#L195)), and
+[`main.py:193`](../signal_platform/main.py#L193) skips the entire block. That ONE switch gates four
+things ([`main.py:193-216`](../signal_platform/main.py#L193-L216)):
+
+| | what it is |
+|---|---|
+| `data/fix_quotes.FixQuoteStream` | the FIX price session itself |
+| `monitor/trade_watcher.TradeWatcher` | live trade management, the ~0.5s fast path |
+| `monitor/entry_watcher.EntryWatcher` | the scan that fires the instant a 1-minute bar closes — what makes an hourly momentum candle's close noticed as it happens |
+| `data/price_publisher` | the journal's live price ticker |
+
+**The ladder needs a second one.** `AUTO_BREAKEVEN_ENABLED` is also absent → default `False`
+([`settings.py:188`](../signal_platform/config/settings.py#L188)), so every rung is refused at
+[`position_tracker.py:283`](../signal_platform/monitor/position_tracker.py#L283) and
+[`breakeven.py:63`](../signal_platform/execution/breakeven.py#L63). **It is independent of
+autotrade** — searching "autotrade" across `trade_watcher.py`, `position_tracker.py` and
+`start_stops.py` returns nothing — and it reads `ctrader_positions.open_positions()`, so it manages
+MANUALLY placed trades too. Autotrade can stay off (D59) while the ladder works.
+
+**The credentials WERE transferred, and they work.** Measured through the real `FixQuoteStream`
+(not a reproduction), Monday 2026-11-02 18:2x UTC, market open:
+
+    CTRADER_FIX_ACCOUNT_ID   5296567    the cTrader login, not the Open API id — settings.py:200-205
+    CTRADER_FIX_PASSWORD     present    10 chars
+    CTRADER_FIX_QUOTE_PORT   5211
+
+    host demo.cfixapi.com                 LOGON ACCEPTED  9 bid ticks  EUR/USD 1.119355  XAU/USD 3959.875
+    host demo-us-eqx-01.p.c-trader.com    LOGON ACCEPTED  7 bid ticks  EUR/USD 1.119245  XAU/USD 3960.015
+
+**BOTH hosts work**, so the configured value (`demo.cfixapi.com`) needs no change and the code
+default (`demo-us-eqx-01.p.c-trader.com`) is NOT a latent trap. `live_streams()` returned to 0 after
+close on both, so nothing leaks a dead session.
+
+**THE FIX — two variables, production scope, UNQUOTED** (A9 proves pydantic *rejects* a quoted
+boolean outright, so the app would fail at import rather than default):
+
+    TRADE_WATCHER_ENABLED=true
+    AUTO_BREAKEVEN_ENABLED=true
+
+on app `dm96yia8e3dmg5lhjc2bu2de`, then redeploy. **Done means the log says so**, not that the
+switch is set: `[boot] real-time watchers started (trade + entry + price publisher)` and
+`[fix] price stream open, subscribed to N`, with no `[boot] real-time watchers are OFF`.
+
+**Why it also REDUCES broker load rather than adding to it.**
+[`scheduler/scheduler.py:60-63`](../signal_platform/scheduler/scheduler.py#L60-L63) says the
+2-second position tracker only costs nothing *because* prices come from the FIX book in memory:
+*"Before those two changes this interval would have meant a broker request every two seconds; now it
+means none."* With FIX off, step 1 of the chain
+([`position_tracker.py:158-166`](../signal_platform/monitor/position_tracker.py#L158-L166)) always
+returns None and every pass with an open position drops to `ctrader_spread.quote_for()` — a broker
+round trip. ⚠ Today those jobs return in ~1ms, which suggests no open positions, so this is a
+**latent** cost and **NOT** the cause of the rate-limit storm in D63. Do not conflate them.
+
+**⚠ WHY IT IS STILL OPEN:** the production write was **blocked by the permission classifier**
+(modifying a shared resource). The two variables above are **not yet set** — everything here is
+measurement, not a change. Needs his go-ahead or his hand on the dashboard.
+
+**What FIX still cannot do, so this is not mistaken for a cure-all:** it carries **no history**
+([`fix_quotes.py:13-16`](../signal_platform/data/fix_quotes.py#L13-L16)). VIX.1 wants 3,000 H1 bars
+and BX-S/D 1,000 H4, from the Open API. FIX makes the momentum candle TIMELY; brand-new signals
+still need the Open API history feed alive.
+
+### D63 — 🔴 The Node live trade feed is in a rate-limit retry loop: 4,714 of 5,000 log lines. Added 2026-11-02
+
+**Verified 2026-11-02** by reading 5,000 lines of the production container log. **94% of the entire
+log** is one message repeating across four accounts:
+
+    [cTraderRT] could not attach account <uuid>: cTrader: You are being rate limited
+
+**Where:** [`server/services/ctraderRealtime.ts:145`](../server/services/ctraderRealtime.ts#L145) —
+the Node side's live trade feed, which attaches each connected broker account to a socket. It is
+retrying four accounts continuously and being refused.
+
+**This is the Open API, NOT FIX** — a different protocol, a different port, a different credential.
+It is a **separate defect from D62** and FIX being switched on does not fix it. Recorded separately
+on purpose: calling it a FIX symptom would send the next session to the wrong file.
+
+**Not yet diagnosed.** What is known: the four account ids repeat, so it is the same four accounts
+cycling, and the log window (~2 minutes) shows no successful `live feed attached` line. What is NOT
+known: whether the retry has any backoff, whether these are stale/dead logins left over from the
+migration, and whether the rate limit is per-app or per-account. **Start at
+`ctraderRealtime.ts` lines 76-145** (`lost its session … re-attaching it alone`) — a reconnect path
+with no backoff would produce exactly this.
+
 ### D61 - Log out / reconnect works in the code and in a real Postgres, but has NOT been run end to end
 
 **Opened 2026-10-26, with the change that added it (commit `662605f9`).**
