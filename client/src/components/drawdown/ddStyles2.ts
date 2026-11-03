@@ -47,10 +47,12 @@ const DD_SECTIONS = `
   font-family:var(--dd-sans); font-weight:500;
 }
 .dp .dd-tab:hover{ color:var(--ink-strong); }
+/* ⚠ THE SELECTED TAB KEEPS DARK TEXT IN BOTH THEMES, and briefly did not. A light-mode override to
+   white measured 3.19:1 on the amber chip — a selected tab nobody could read. Dark text on the same
+   chip is 6.33:1. Measured, not eyeballed. */
 .dp .dd-tab[aria-selected="true"]{
   background:var(--amber-mid); color:#020617; font-weight:700;
 }
-.journal-light .dp .dd-tab[aria-selected="true"]{ color:#ffffff; }
 .dp .dd-tab:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
 
 /* ── CHART ──────────────────────────────────────────────────────────────────── */
@@ -103,10 +105,16 @@ const DD_SECTIONS = `
   width:100%; background:var(--surface-deep); height:20px; border-radius:8px;
   overflow:hidden; border:1px solid var(--line); display:flex;
 }
+/* ⚠ THE LABEL COLOUR IS A TOKEN, NOT A FIXED NEAR-BLACK. The segment fills are mid-tone in light
+   mode so they stand out against a white card, and dark text on the lightest of them measured
+   4.29:1 — under the floor. --bar-ink flips to white there, where every fill clears 4.5:1. The fill
+   colour itself comes from --bar-1..5 (ddTokens) for the same reason.
+   (This comment lost its backticks after they ended the template literal and broke the build —
+   the very trap the file header warns about.) */
 .dp .dd-bigbar > i{
-  background:linear-gradient(to right,var(--rose-mid),var(--amber-mid)); height:100%;
+  height:100%;
   display:flex; align-items:center; justify-content:flex-end; padding:0 8px;
-  font-size:10px; font-family:var(--dd-mono); font-weight:700; color:#020617;
+  font-size:10px; font-family:var(--dd-mono); font-weight:700; color:var(--bar-ink);
 }
 .dp .dd-scale{
   display:flex; justify-content:space-between; font-size:10px;

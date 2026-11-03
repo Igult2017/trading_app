@@ -17,7 +17,12 @@ import React from 'react';
  * losing-trade count and no money at all, so the money is omitted rather than reconstructed from a
  * starting balance the panel would have to guess at.
  */
-const RAMP = ['var(--rose-mid)', 'var(--rose)', 'var(--amber-mid)', 'var(--amber)', 'var(--blue)'];
+/**
+ * ⚠ THESE ARE FILL TOKENS, NOT THE TEXT TOKENS. A colour chosen to read as text on a card is the
+ * wrong colour for a solid bar carrying a label — the light theme needs darker fills so the bar is
+ * visible on white, and then the label on top has to flip to white. Both live in `ddTokens`.
+ */
+const RAMP = ['var(--bar-1)', 'var(--bar-2)', 'var(--bar-3)', 'var(--bar-4)', 'var(--bar-5)'];
 
 function Side({ title, rows }: { title: string; rows: any[] }) {
   const data = (rows ?? []).filter((r) => Number(r?.share) > 0);

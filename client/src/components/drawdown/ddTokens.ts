@@ -88,6 +88,11 @@ export const DD_TOKENS_DARK = `
   --t-line-soft:rgba(30,41,59,0.60);
   --warn-grad:linear-gradient(to right,rgba(76,5,25,0.40),rgba(69,26,3,0.20),#0f172a);
   --insight-ink:#bfdbfe;
+  /* The loss-share bar segments and the text sitting ON them. Separate from the text tokens above
+     because a colour that reads well AS text on a card is not the same as one that works as a FILL
+     with a label on top — see the note in ddStyles2. */
+  --bar-1:#f43f5e; --bar-2:#fb7185; --bar-3:#f59e0b; --bar-4:#fbbf24; --bar-5:#60a5fa;
+  --bar-ink:#020617;
   ${ALIASES}
 `;
 
@@ -138,5 +143,10 @@ export const DD_TOKENS_LIGHT = `
   --t-line-soft:#eef2f7;
   --warn-grad:linear-gradient(to right,rgba(190,18,60,0.10),rgba(180,83,9,0.06),#ffffff);
   --insight-ink:#1e3a8a;
+  /* Mid-tone fills so a solid bar still reads against a WHITE card (4.70-6.70:1), with white text on
+     top (the same 4.70-6.70:1). The dark theme's lighter fills with dark text would have given a
+     bar you could barely see and a label at 4.29:1. */
+  --bar-1:#e11d48; --bar-2:#be123c; --bar-3:#b45309; --bar-4:#1d4ed8; --bar-5:#047857;
+  --bar-ink:#ffffff;
   ${ALIASES}
 `;
