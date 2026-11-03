@@ -62,6 +62,33 @@ export function similarity(a: Set<string>, b: Set<string>): number {
   return shared / Math.min(a.size, b.size);
 }
 
+/**
+ * The same shared words over the LONGER title — i.e. how little is left over.
+ *
+ * ⚠ THIS EXISTS BECAUSE `similarity` ALONE CANNOT TELL AN EXACT MATCH FROM A SUBSET, and that cost
+ * seven of ten real values on 2026-11-03:
+ * *"released values: 3 filled, 3 no same-day event, 7 refused (no confident match)"*.
+ *
+ * Dividing by the SHORTER title is right for the problem it solves — a vendor's extra branding must
+ * not sink a correct match — but it makes a short title score a perfect 1.0 against every longer
+ * title that happens to contain its words. From that day's production data:
+ *
+ *     Trading Economics  "S&P Global Manufacturing PMI Final"  ->  {manufacturing, pmi}
+ *       vs ForexFactory  "Final Manufacturing PMI"             ->  {manufacturing, pmi}  = 1.0
+ *       vs ForexFactory  "ISM Manufacturing PMI"               ->  {ism, ...}            = 1.0
+ *
+ * Both score 1.0, `pickMatch` sees a tie and — correctly, given what it could measure — refuses
+ * both. The second is plainly the worse fit though: it carries a word the release never mentions.
+ * Scoring that leftover separates them (1.00 against 0.67). It is consulted ONLY to break a tie, so
+ * the MIN_SCORE threshold and every refusal that rests on it behave exactly as before.
+ */
+function coverage(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let shared = 0;
+  a.forEach(w => { if (b.has(w)) shared += 1; });
+  return shared / Math.max(a.size, b.size);
+}
+
 
 /** Which of `candidates` a released title lands on, or null when it refuses to choose.
  *
@@ -73,11 +100,18 @@ export function similarity(a: Set<string>, b: Set<string>): number {
 export function pickMatch<T extends { title: string }>(released: string, candidates: T[]): T | null {
   const want = titleTokens(released);
   const scored = candidates
-    .map(c => ({ c, score: similarity(want, titleTokens(c.title)) }))
-    .sort((x, y) => y.score - x.score);
+    .map(c => {
+      const t = titleTokens(c.title);
+      return { c, score: similarity(want, t), cover: coverage(want, t) };
+    })
+    // Best score first; where scores tie, the one with least left over wins.
+    .sort((x, y) => (y.score - x.score) || (y.cover - x.cover));
   const best = scored[0], runnerUp = scored[1];
   if (!best || best.score < MIN_SCORE) return null;
-  if (runnerUp && runnerUp.score >= best.score) return null;
+  // ⚠ REFUSE ONLY WHEN THE RUNNER-UP IS INDISTINGUISHABLE ON BOTH MEASURES. The refusal is still the
+  // important half — it is what stops a real number being filed beside the wrong event — but it must
+  // fire on genuine ambiguity, not on the measurement's inability to see a difference that is there.
+  if (runnerUp && runnerUp.score >= best.score && runnerUp.cover >= best.cover) return null;
   return best.c;
 }
 

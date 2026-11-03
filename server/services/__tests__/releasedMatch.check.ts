@@ -139,5 +139,39 @@ check('...and the inflation row is left EMPTY rather than given a coin-flip',
       landed['Revised UoM Inflation Expectations'], undefined);
 
 
+// ── A SHORT TITLE IS NOT A PERFECT MATCH FOR EVERY LONGER ONE (2026-11-03) ──────────────────────
+//
+// Production: `released values: 3 filled, 3 no same-day event, 7 refused (no confident match)`.
+// `similarity` divides by the SHORTER title, so a two-word release scored a perfect 1.0 against
+// every stored row containing both words — a tie, and `pickMatch` refused them all:
+//
+//     "S&P Global Manufacturing PMI Final" -> {manufacturing, pmi}
+//        vs "Final Manufacturing PMI"      -> 1.0
+//        vs "ISM Manufacturing PMI"        -> 1.0   (and yet it has a word the release never says)
+//
+// The tie is now broken by how little is left over. These are the real titles from that day.
+console.log('\n4. a short title does not tie with every longer one that contains it:');
+const SAME_DAY = ['Final Manufacturing PMI', 'ISM Manufacturing PMI', 'ISM Manufacturing Prices'];
+check('"S&P Global Manufacturing PMI Final" takes the Final, not the ISM',
+      m.pick('S&P Global Manufacturing PMI Final', SAME_DAY), 'Final Manufacturing PMI');
+check('"ISM Manufacturing PMI" takes the ISM, not the Final',
+      m.pick('ISM Manufacturing PMI', SAME_DAY), 'ISM Manufacturing PMI');
+check('"ISM Manufacturing Prices" is unaffected by either',
+      m.pick('ISM Manufacturing Prices', SAME_DAY), 'ISM Manufacturing Prices');
+
+// ⚠ AND THE REFUSAL STILL FIRES WHEN THE AMBIGUITY IS REAL. Two stored rows that are genuinely
+// indistinguishable to this measurement must still produce nothing — the tie-break is for
+// differences that exist, not a licence to guess.
+check('a release that fits two identical stored titles still refuses',
+      m.pick('ISM Manufacturing PMI', ['ISM Manufacturing PMI', 'ISM Manufacturing PMI']), null);
+
+// All three land together, which is the end-to-end form of the production failure.
+const sameDayResolved = resolveClaims(
+  [{ event: 'S&P Global Manufacturing PMI Final' }, { event: 'ISM Manufacturing PMI' },
+   { event: 'ISM Manufacturing Prices' }],
+  SAME_DAY.map(title => ({ title })));
+check('all three of that bucket now land instead of being refused', sameDayResolved.size, 3);
+
+
 console.log(`\n${fail === 0 ? 'ALL PASS' : `${fail} FAILED`}  (${pass + fail} checks)`);
 process.exit(fail === 0 ? 0 : 1);
