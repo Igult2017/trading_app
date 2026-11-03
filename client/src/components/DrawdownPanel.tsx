@@ -4,160 +4,83 @@ import { authFetch } from '@/lib/queryClient';
 import { TrendingDown } from 'lucide-react';
 import { useDelayedLoading } from '@/lib/useDelayedLoading';
 import { DrawdownSkeleton } from '@/components/skeletons/DrawdownSkeleton';
-import { DiveProfile } from '@/components/drawdown/diveProfile';
-import { DP_CSS } from '@/components/drawdown/dpStyles';
-import { LossBars } from '@/components/drawdown/lossBars';
-import { MonthDays, monthDayCells } from '@/components/drawdown/monthDays';
+import { ddPanelCss } from '@/components/drawdown/ddStyles2';
+import { DdHeader, type SessionOption } from '@/components/drawdown/ddHeader';
+import { DdBanner } from '@/components/drawdown/ddBanner';
+import { DdKpis } from '@/components/drawdown/ddKpis';
+import { DdProfile } from '@/components/drawdown/ddProfile';
+import { DdBreakdown, type DirKey, type GroupKey } from '@/components/drawdown/ddBreakdown';
+import { DdRiskCards } from '@/components/drawdown/ddRiskCards';
+import { DdLossShare } from '@/components/drawdown/ddLossShare';
+import { DdStructural, type DiagKey } from '@/components/drawdown/ddStructural';
+import { DdStreaks } from '@/components/drawdown/ddStreaks';
+import { DdRR } from '@/components/drawdown/ddRR';
+import { DdMonthly } from '@/components/drawdown/ddMonthly';
+import { periodQuery, type PeriodKey } from '@/components/drawdown/ddPeriods';
+import { EMPTY_DRAWDOWN } from '@/components/drawdown/ddEmpty';
 
 /**
- * DrawdownPanel — "Dive Profile" layout.
- * Wired 1-to-1 to /api/drawdown/compute (server/python/drawdown). Every section
- * is real data: KPIs, the underwater hero chart, the strategy/instrument
- * leaderboard split by BULLISH/BEARISH direction, edge/Monte-Carlo/recovery model,
- * loss contribution by instrument and by session (two bar graphs), structural diagnostics, sessions, loss
- * streaks + timeline, R:R distribution and the monthly drawdown table.
+ * DrawdownPanel — rebuilt to his design of 2026-11-03.
+ *
+ * WHAT CHANGED AND WHAT DID NOT. The presentation is entirely his new mock-up; the data wiring is
+ * untouched. Every figure still comes from ONE call to `/api/drawdown/compute`
+ * (server/python/drawdown/core.py), which already returned all eleven blocks this page shows — so
+ * nothing here is new maths, and the Python was not opened.
+ *
+ * THE PANEL IS NOW A THIN ORCHESTRATOR. It owns the queries, the four pieces of view state and the
+ * empty-state path; each section of the page is its own file under `components/drawdown/`. The old
+ * version was 609 lines in one file, well past the 200-line limit, which is why the rebuild split it
+ * rather than editing in place.
+ *
+ * ⚠ FONT ROLES, AND A DELIBERATE DEPARTURE. His 2026-08-29 instruction was *"it should inherit font
+ * type from journal"*, and on 14 Sep he reverted a change of mine that italicised titles. This design
+ * hardcodes an italic serif for titles, a mono for columnar data and a sans for body, and he
+ * introduced it with "I also adopted a better font type" — so the titles and figures now use HIS
+ * faces, and the journal font picker still drives the body text through `--disp`. Said out loud
+ * because it reverses a correction I was given.
+ *
+ * ⚠ THE SCOPE CLASS IS STILL `.dp`. Journal.tsx exempts exactly that selector from the rule that
+ * forces a font on every descendant of `.journal-root`; renaming it would let the journal clobber
+ * every face above.
  */
-
-// ── helpers ─────────────────────────────────────────────────────────────────
-function fmtDd(v?: number | null): string {
-  if (v == null) return '—';
-  if (v === 0) return '0.00%';
-  return `${v.toFixed(2)}%`;
-}
-
-const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-function fmtRange(start?: string | null, end?: string | null): string {
-  if (!start) return '';
-  try {
-    const s = new Date(start);
-    if (!end || end === start) return `${MONTH_ABBR[s.getMonth()]} ${s.getDate()}`;
-    const e = new Date(end);
-    if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear())
-      return `${MONTH_ABBR[s.getMonth()]} ${s.getDate()}–${e.getDate()}`;
-    return `${MONTH_ABBR[s.getMonth()]} ${s.getDate()} – ${MONTH_ABBR[e.getMonth()]} ${e.getDate()}`;
-  } catch { return ''; }
-}
-
-function sevTone(avgDdPct: number): string {
-  const abs = Math.abs(avgDdPct);
-  if (abs < 1.0) return 'gain';
-  if (abs < 2.5) return 'warn';
-  return 'loss';
-}
-function toneVar(tone: string): string {
-  return tone === 'loss' ? 'var(--loss)' : tone === 'warn' ? 'var(--warn)' : tone === 'gain' ? 'var(--gain)' : 'var(--ink2)';
-}
-
-/**
- * WINS / LOSSES / BREAKEVENS as coloured figures — his instruction, 2026-08-29:
- *
- *   "dont write loses as 8L and wins are 7W. Instead, write wins in green and losses in red like
- *    9/10. Breakevens are written in orange."
- *
- * So the letter suffixes are gone and the counts read as a slash-separated split: wins green,
- * losses red, breakevens orange. A group with no breakevens shows just `7/3` rather than `7/3/0`,
- * because a zero adds nothing and the orange would be misleading.
- *
- * `title` carries the words for anyone hovering, so the colour is not the only thing conveying
- * meaning — colour alone fails for a colour-blind reader.
- */
-function WLB({ wins, losses, breakevens, size = 12 }: {
-  wins?: number; losses?: number; breakevens?: number; size?: number;
+export default function DrawdownPanel({
+  sessionId, dispFont, bodyFont, sessions = [], onSessionChange,
+}: {
+  sessionId?: string | null;
+  dispFont?: string;
+  bodyFont?: string;
+  /** The journal's own session list, so the new account selector is not a second source of truth. */
+  sessions?: SessionOption[];
+  onSessionChange?: (id: string) => void;
 }) {
-  const w = wins ?? 0, l = losses ?? 0, b = breakevens ?? 0;
-  return (
-    <span className="wlb" style={{ fontSize: size }}
-          title={`${w} win${w === 1 ? '' : 's'}, ${l} loss${l === 1 ? '' : 'es'}` +
-                 (b > 0 ? `, ${b} breakeven${b === 1 ? '' : 's'}` : '')}>
-      <span className="gain">{w}</span>
-      <span className="sl">/</span>
-      <span className="loss">{l}</span>
-      {b > 0 && <><span className="sl">/</span><span className="warn">{b}</span></>}
-    </span>
-  );
-}
-
-function Rule({ label, sub, right }: { label: string; sub?: string; right?: React.ReactNode }) {
-  return (
-    <div className="rule">
-      <div className="lab">
-        <span className="pin" />
-        <span className="t">{label}</span>
-        {sub && <span className="sub">{sub}</span>}
-      </div>
-      {right}
-    </div>
-  );
-}
-function Seg({ options, value, onChange, accents }: {
-  options: string[]; value: string; onChange: (v: string) => void; accents?: Record<string, string>;
-}) {
-  return (
-    <div className="seg">
-      {options.map((o) => {
-        const ac = accents && accents[o];
-        return (
-          <button key={o} className={value === o ? 'on' : ''} onClick={() => onChange(o)}
-            style={value === o && ac ? { color: ac, borderBottomColor: ac } : undefined}>{o}</button>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── component ───────────────────────────────────────────────────────────────
-/**
- * `dispFont` is the journal's selected font stack, passed in from Journal (it owns that state, so
- * passing it keeps this panel live when the font changes instead of re-reading a stale copy).
- *
- * It drives BOTH of this panel's font roles: `--disp` (headings, section titles, labels) and, since
- * 2026-07-29, `--mono` (numeric readouts and chart axes) — the user asked for numbers and letters
- * alike in the journal face. `--mono` previously stayed DM Mono so figures kept tabular alignment;
- * `dpStyles` now sets `font-variant-numeric: tabular-nums` on `.dp` to preserve that instead.
- *
- * Needed because `.dp` is exempted from Journal's global font rule (it owns its typography), which
- * is why a new journal default does NOT reach this page on its own.
- */
-export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
-  { sessionId?: string | null; dispFont?: string; bodyFont?: string }) {
-  // TWO ROLES. `--disp` is headings and section titles; `--mono` is everything meant to be READ —
-  // labels, table cells, figures, chart axes — because dpStyles sets `.dp{font-family:var(--mono)}`
-  // and the whole panel inherits from it.
-  //
-  // Both used to be the journal face outright: he asked on 2026-07-29 for numbers and letters alike,
-  // rather than DM Mono figures beside Playfair words, and dpStyles keeps the digits aligned with
-  // tabular-nums instead. That request is UNCHANGED and still satisfied — numbers and letters here
-  // are always the same face as each other.
-  //
-  // What changed (2026-09-05, on his "in production text look so dim and horrible"): when the
-  // journal face is a DISPLAY one, the read-text role takes that font's `bodyStack` companion
-  // instead. Only Playfair declares one; the other eight are sans or mono and are untouched, so the
-  // font picker still means exactly what it says for them.
+  // `--disp` feeds the SANS role in ddStyles; `--mono` is kept for the reused month-grid CSS.
   const dpStyle = dispFont
-    ? ({ ['--disp' as any]: dispFont,
-         ['--mono' as any]: bodyFont ?? dispFont } as React.CSSProperties)
+    ? ({ ['--disp' as any]: dispFont, ['--mono' as any]: bodyFont ?? dispFont } as React.CSSProperties)
     : undefined;
-  const [ddView, setDdView] = useState('STRATEGY');
-  const [dir,    setDir]    = useState('BULLISH');
-  const [diag,   setDiag]   = useState('CONTEXT');
-  // WHICH MONTH IS OPEN in the Monthly Drawdown table, as "year-month" (month 1-12), or null.
+
+  const [period, setPeriod] = useState<PeriodKey>('ALL');
+  const [dir, setDir] = useState<DirKey>('ALL');
+  const [group, setGroup] = useState<GroupKey>('STRATEGY');
+  const [diag, setDiag] = useState<DiagKey>('CONTEXT');
   const [openMonth, setOpenMonth] = useState<string | null>(null);
 
+  const pq = periodQuery(period);
+
   const { data: result, isLoading, isError, error } = useQuery<any>({
-    queryKey: ['/api/drawdown/compute', sessionId],
+    // The period is part of the key, so switching it refetches rather than showing the last range's
+    // numbers under the new label.
+    queryKey: ['/api/drawdown/compute', sessionId, period],
     enabled: !!sessionId,
-    // Always pull fresh on open: treat cached data as stale and refetch every mount, so a
-    // redeploy (or any recompute fix) shows up on the next visit with NO manual cache-bust.
-    // keepPreviousData (global default) shows the cached result instantly while the fresh
-    // one loads in the background, so there's no loading flash. The server still caches the
-    // heavy Python compute for 5 min, so these refetches stay cheap.
+    // Always pull fresh on open: treat cached data as stale and refetch every mount, so a redeploy
+    // (or any recompute fix) shows up on the next visit with NO manual cache-bust. The server still
+    // caches the heavy Python compute, so these refetches stay cheap.
     staleTime: 0,
     refetchOnMount: 'always',
-    gcTime:   30 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
     retry: 2,
     retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
     queryFn: async () => {
-      const r = await authFetch(`/api/drawdown/compute?sessionId=${sessionId}`);
+      const r = await authFetch(`/api/drawdown/compute?sessionId=${sessionId}${pq}`);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
       const json = await r.json();
       if (!json.success) throw new Error(json.error || 'Drawdown computation failed');
@@ -166,24 +89,14 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
   });
 
   // ── THE DAY-BY-DAY OUTCOMES BEHIND EACH MONTH ───────────────────────────────────
-  //
-  // His instruction: *"Drawdown by month should have a drop that shows all traded dates and outcome
-  // just like the calendar does but not with money ... L for loss ... W for win ... BE for
-  // breakeven."*
-  //
-  // ⚠ THE SAME CALL THE CALENDAR MAKES, ON PURPOSE — same URL, same query key, so React Query
-  // serves it from cache when he has already opened the calendar, and so the two screens can never
-  // be looking at different numbers for the same day. `/api/calendar/compute` already returns EVERY
-  // month, keyed "{year}-{month}" with a real 1-12 month, each holding day-of-month -> { pnl, ... }
-  // (server/python/calendar_calculator.py). No new endpoint was needed.
-  //
-  // Fetched only once a month has actually been opened, so a user who never expands a row pays
-  // nothing for it.
+  // The SAME call the calendar makes, on purpose — same URL, same query key — so React Query serves
+  // it from cache when the calendar has already been opened, and the two screens can never disagree
+  // about the same day. Fetched only once a month has actually been expanded.
   const { data: calResult } = useQuery<any>({
     queryKey: ['/api/calendar/compute', sessionId],
     enabled: !!sessionId && openMonth !== null,
     staleTime: 2 * 60 * 1000,
-    gcTime:   30 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
     retry: 2,
     queryFn: async () => {
       const r = await authFetch(`/api/calendar/compute?sessionId=${sessionId}`);
@@ -192,416 +105,68 @@ export default function DrawdownPanel({ sessionId, dispFont, bodyFont }:
     },
   });
 
-  // When the session has no logged trades the API returns no analysis. Rather than one
-  // blank screen, render the full page STRUCTURE with a zeroed placeholder so every panel
-  // shows (each with its own "no X yet" row). Only the Monthly table stays hidden — it's
-  // unavoidable without dated trades.
-  const EMPTY_DRAWDOWN = {
-    topStats: { maxDrawdown: 0, avgDrawdown: 0, recoveryFactor: 0, trendAlignment: 0 },
-    intelligence: {
-      current: { ddPct: 0, inDrawdown: false, tradesSincePeak: 0, daysSincePeak: null, peakEquity: 0, currentEquity: 0 },
-      underwater: { longestTrades: 0, longestDays: 0, avgRecoveryTrades: 0, currentUnderwaterTrades: 0, episodes: 0 },
-      series: [], byStrategy: [], byInstrument: [],
-      byDirection: { bullish: { byStrategy: [], byInstrument: [] }, bearish: { byStrategy: [], byInstrument: [] } },
-    },
-    riskModel: { winRate: 0, payoff: 0, kellyPct: 0, expectedMaxLossStreak: 0, actualMaxLossStreak: 0, streakWithinExpectation: true, mae: { hasData: false, avgWinnerMae: 0, avgLoserMae: 0, ratio: 0, count: 0 } },
-    monteCarlo: { hasData: false, runs: 0, actualMaxDd: 0, expectedMaxDd: 0, worstCase95: 0, worstCase99: 0, actualPercentile: 0, riskOfRuinPct: 0, ruinThreshold: -50, breach20Pct: 0 },
-    recovery: { hasData: false, underwaterAvgSize: 0, baselineAvgSize: 0, sizeRatio: 0, underwaterCount: 0, baselineCount: 0, verdict: '' },
-    lossShare: { byPair: [], bySession: [] }, structural: { context: [], entry: [] },
-    sessions: [], streaks: { maxLossStreak: { length: 0, startDate: null, endDate: null }, avgLossStreak: 0, revengeRate: 0, bestWinStreak: { length: 0, startDate: null, endDate: null }, timeline: [] },
-    rrBuckets: [], monthly: [],
-  };
-  const hasData  = !!(result && result.topStats && result.intelligence);
-  const d: any   = hasData ? result : EMPTY_DRAWDOWN;
-  const ts       = d.topStats;
-  const intel    = d.intelligence;
-  const risk     = d.riskModel;
-  const mc       = d.monteCarlo;
-  const recovery = d.recovery;
-
-  // ── states ────────────────────────────────────────────────────────────────
   const showLoader = useDelayedLoading(!!sessionId && isLoading);
-  // The loading screen draws this page's own sections inside its own `.dp` wrapper and stylesheet, with
-  // the same font settings, so nothing moves when the figures arrive (DrawdownSkeleton).
   if (showLoader) return <DrawdownSkeleton style={dpStyle} />;
 
-  const centered = (icon: React.ReactNode, title: string, subtitle: string, titleColor = 'text-[var(--jr-ink-dim)]') => (
-    <div className="dp" style={dpStyle}><style>{DP_CSS}</style>
-      <div style={{ minHeight: 420, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-        {icon}
-        <p className={`${titleColor}`} style={{ fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', fontWeight: 600, color: 'var(--ink2)' }}>{title}</p>
-        <p style={{ fontSize: 10, color: 'var(--ink3)' }}>{subtitle}</p>
+  const centered = (tone: string, title: string, subtitle: string) => (
+    <div className="dp" style={dpStyle}><style>{ddPanelCss()}</style>
+      <div style={{ minHeight: 420, display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+        <TrendingDown style={{ width: 30, height: 30, color: tone }} />
+        <p style={{ fontSize: 12, letterSpacing: '.18em', textTransform: 'uppercase',
+                    fontWeight: 600, color: 'var(--ink-dim)' }}>{title}</p>
+        <p style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{subtitle}</p>
       </div>
     </div>
   );
 
   if (!sessionId)
-    return centered(<TrendingDown style={{ width: 30, height: 30, color: 'var(--ink3)' }} />, 'No session selected', 'Select or create a session to view drawdown analysis');
+    return centered('var(--ink-faint)', 'No session selected',
+                    'Select or create a session to view drawdown analysis');
   if (isError)
-    return centered(<TrendingDown style={{ width: 30, height: 30, color: 'var(--loss)' }} />, 'Failed to load drawdown data', (error as Error)?.message || 'Check server logs or try refreshing');
-  // No blanket "no data" screen — when hasData is false we render the full panel layout
-  // with the zeroed EMPTY_DRAWDOWN placeholder above (each panel shows its own empty row).
+    return centered('var(--rose)', 'Failed to load drawdown data',
+                    (error as Error)?.message || 'Check server logs or try refreshing');
 
-  // ── derive ──────────────────────────────────────────────────────────────────
+  // When the session has no logged trades the API returns no analysis. Rather than one blank screen,
+  // render the full page STRUCTURE with a zeroed placeholder so every section shows, each with its
+  // own "nothing yet" row.
+  const hasData = !!(result && result.topStats && result.intelligence);
+  const d: any = hasData ? result : EMPTY_DRAWDOWN;
+  const intel = d.intelligence ?? {};
   const cur = intel.current ?? {};
-  const uw  = intel.underwater ?? {};
-  const inDd = !!cur.inDrawdown;
+  const series: number[] = intel.series ?? [];
+  const tradeCount = (d.streaks?.timeline ?? []).length;
 
-  const kpis = [
-    { k: 'Max Drawdown',    v: fmtDd(ts.maxDrawdown), c: 'loss' },
-    { k: 'Avg. Drawdown',   v: fmtDd(ts.avgDrawdown), c: 'warn' },
-    { k: 'Recovery Factor', v: String(ts.recoveryFactor), c: 'gain' },
-    { k: 'Trend Alignment', v: `${ts.trendAlignment}%`, c: '' },
-  ];
-
-  // Leaderboard — direction-filtered (BULLISH/BEARISH) × STRATEGY/INSTRUMENT.
-  const dirKey  = dir === 'BEARISH' ? 'bearish' : 'bullish';
-  const viewKey = ddView === 'INSTRUMENT' ? 'byInstrument' : 'byStrategy';
-  const byDir   = intel.byDirection;
-  const leaderRows: any[] = byDir
-    ? (byDir[dirKey]?.[viewKey] ?? [])
-    : ((ddView === 'INSTRUMENT' ? intel.byInstrument : intel.byStrategy) ?? []);
-  const leaderMax = Math.max(0.01, ...leaderRows.map((r: any) => Math.abs(r.totalLossPct)));
-
-  const edge = risk ? [
-    { k: 'Win Rate', v: `${risk.winRate}%`, c: '' },
-    { k: 'Payoff (avg win / loss)', v: `${risk.payoff}x`, c: '' },
-    { k: 'Kelly Optimal Risk', v: `${risk.kellyPct}%`, c: 'gain' },
-    { k: 'Loss Streak (actual / expected)', v: `${risk.actualMaxLossStreak} / ${risk.expectedMaxLossStreak}`, c: risk.streakWithinExpectation ? '' : 'loss' },
-    ...(risk.mae?.hasData ? [{ k: 'Loser vs Winner MAE', v: `${risk.mae.ratio}x deeper`, c: 'warn' }] : []),
-  ] : [];
-
-  const hasMc = mc && mc.hasData;
-  const monte = hasMc ? [
-    { k: 'Expected Max DD', v: fmtDd(mc.expectedMaxDd), c: 'warn' },
-    { k: 'Worst Case (95%)', v: fmtDd(mc.worstCase95), c: 'loss' },
-    { k: 'Worst Case (99%)', v: fmtDd(mc.worstCase99), c: 'loss' },
-    { k: 'Risk of Ruin (>50% DD)', v: `${mc.riskOfRuinPct}%`, c: mc.riskOfRuinPct > 1 ? 'loss' : 'gain' },
-  ] : [];
-
-  const recHas = recovery?.hasData;
-  const recNote = recHas
-    ? (recovery.verdict === 'increase' ? 'You trade LARGER when underwater — revenge-recovery risk.'
-      : recovery.verdict === 'reduce' ? 'You reduce size when underwater — disciplined recovery.'
-      : 'Your position sizing stays steady through drawdowns.')
-    : 'Not enough underwater trades to assess recovery sizing.';
-  const recColor = recovery?.verdict === 'increase' ? 'loss' : recovery?.verdict === 'reduce' ? 'gain' : '';
-
-  // The two loss-share bar graphs (server/python/drawdown/loss_share.py): each instrument's and each
-  // session's share of the money lost on losing trades.
-  const lossShare = d.lossShare ?? { byPair: [], bySession: [] };
-
-  const structKey = diag === 'ENTRY' ? 'entry' : 'context';
-  const structSections: any[] = d.structural?.[structKey] ?? [];
-
-  const sessions: any[] = d.sessions ?? [];
-
-  const sk = d.streaks;
-  const timeline: string[] = (sk?.timeline ?? []).map((t: any) => t.result);
-
-  const rrBuckets: any[] = d.rrBuckets ?? [];
-  const rrTone = (label: string) =>
-    label === '< 1:1' ? 'loss' : label === '1:1 – 1:2' ? 'warn' : label === '> 1:3' ? 'gain' : 'dim';
-  const belowTarget = rrBuckets
-    .filter((b: any) => b.label === '< 1:1' || b.label === '1:1 – 1:2')
-    .reduce((s: number, b: any) => s + (b.pct || 0), 0);
-
-  const monthly: any[] = d.monthly ?? [];
-  const years: number[] = monthly.map((m: any) => m.year);
-  const monthlyRange = years.length === 0 ? '' : years[0] === years[years.length - 1] ? `${years[0]}` : `${years[0]}–${years[years.length - 1]}`;
-
-  // ── Live current-month row ───────────────────────────────────────────────────────
-  // Always surface the CURRENT calendar month (even before it has any trades) so you can
-  // watch it build — month-to-date green/red plus the deficit carried INTO it — before
-  // the month closes. If you've already traded this month it IS the last real row (just
-  // flagged live); if not, append a flat live row that inherits the running deficit.
-  const _now   = new Date();
-  const curMon = _now.toLocaleString('en-US', { month: 'short' });   // matches compute_monthly labels ("Jun")
-  const curYr  = _now.getFullYear();
-  const _last  = monthly[monthly.length - 1];
-  const _hasCurrent = !!_last && _last.month === curMon && _last.year === curYr;
-  const displayMonths: any[] = (monthly.length > 0 && !_hasCurrent)
-    ? [...monthly, { month: curMon, year: curYr, equityGrowthPct: 0, totalTrades: 0,
-                     lossCount: 0, maxDdPct: 0, biggestLossPct: 0, recoveryPct: 0,
-                     dominantCauseClass: 'neutral', avgRr: 'N/A' }]
-    : monthly;
-
-  // ── Prop-firm carry-forward: running drawdown from the high-water mark ───────────
-  // Months are chronological (oldest→newest). Red months ACCUMULATE the deficit and
-  // carry it forward across as many consecutive reds as it takes; a green month pays it
-  // down, and only the surplus ABOVE the prior peak counts as that month's Return. CF is
-  // the running deficit after each month — 0 once back at a new high. The live row
-  // inherits the carried deficit (0% return, but its CF = where you START the month).
-  const cfRows: { ret: number | null; cf: number }[] = (() => {
-    let carry = 0;                       // running deficit (<= 0), starts at the high-water mark
-    return displayMonths.map((m: any) => {
-      const r = m.equityGrowthPct;
-      if (r == null) return { ret: null, cf: carry };   // no data this month; deficit unchanged
-      const combined = carry + r;
-      if (combined >= 0) { carry = 0; return { ret: combined, cf: 0 }; }  // recovered → surplus above peak
-      carry = combined;
-      return { ret: r, cf: combined };   // still underwater → show raw return, carry the deficit
-    });
-  })();
-
-  // ── render ──────────────────────────────────────────────────────────────────
   return (
     <div className="dp" style={dpStyle}>
-      <style>{DP_CSS}</style>
-      <div className="shell">
+      <style>{ddPanelCss()}</style>
+      <div className="dd-stack">
 
-        {/* ── HERO ── */}
-        <section>
-          {/* The "Tracking Drawdown: Where Are You Losing?" line and its "Status : In Drawdown" readout
-              were REMOVED 2026-09-14 — his instruction, "remove this part of the drawdown page". The
-              panel opens on the KPI row. The current drawdown still drives the chart below. */}
-          <div className="kpis">
-            {kpis.map((kp) => (
-              <div className="kpi" key={kp.k}><div className="k">{kp.k}</div><div className={`v ${kp.c}`}>{kp.v}</div></div>
-            ))}
-          </div>
+        <DdHeader sessions={sessions} sessionId={sessionId} onSessionChange={onSessionChange}
+                  period={period} onPeriodChange={setPeriod} tradeCount={tradeCount} />
 
-          {/* THE CHART SITS IN A PANEL, because that is what the Metrics page does with its equity
-              chart — same body, same title bar, same 0.5px border and radius (MetricsPanel
-              EquityChart). The KPI cards above stay OUTSIDE it, also matching Metrics, where the
-              headline strip sits above the panels rather than inside one. */}
-          <div className="panel">
-            <div className="rule">
-              <div className="lab"><span className="pin" /><span className="t">Drawdown Profile</span></div>
-              <span className={`chip ${inDd ? 'loss' : 'gain'}`}>{inDd ? `${fmtDd(cur.ddPct)} below peak` : 'At equity high'}</span>
-            </div>
-            <div className="body">
-              <div className="chart-wrap">
-                <DiveProfile series={intel.series ?? []} inDrawdown={inDd} currentDdPct={cur.ddPct ?? 0} />
-              </div>
+        <DdBanner cur={cur} uw={intel.underwater ?? {}} />
 
-          <div className="chart-foot">
-            <div className="foot"><div className="k">Since Peak</div><div className="v">{cur.tradesSincePeak ?? 0}<span className="u">trades{cur.daysSincePeak != null ? ` · ${cur.daysSincePeak}d` : ''}</span></div></div>
-            <div className="foot"><div className="k">Longest Underwater</div><div className="v">{uw.longestTrades ?? 0}<span className="u">trades{uw.longestDays ? ` · ${uw.longestDays}d` : ''}</span></div></div>
-            <div className="foot"><div className="k">Avg Recovery</div><div className="v">{uw.avgRecoveryTrades ?? 0}<span className="u">trades</span></div></div>
-            <div className="foot" style={{ marginLeft: 'auto' }}><div className="k">Deepest</div><div className="v loss">{fmtDd(ts.maxDrawdown)}</div></div>
-              </div>
-            </div>
-          </div>
+        <DdKpis ts={d.topStats ?? {}} series={series} />
+
+        <DdProfile intel={intel} topStats={d.topStats ?? {}} tradeCount={tradeCount} />
+
+        <DdBreakdown intel={intel} dir={dir} group={group} onDir={setDir} onGroup={setGroup} />
+
+        <DdRiskCards risk={d.riskModel} mc={d.monteCarlo} recovery={d.recovery} />
+
+        <DdLossShare lossShare={d.lossShare} />
+
+        <DdStructural structural={d.structural} sessions={d.sessions ?? []}
+                      diag={diag} onDiag={setDiag} />
+
+        <section className="dd-grid dd-g2">
+          <DdStreaks sk={d.streaks} />
+          <DdRR buckets={d.rrBuckets ?? []} />
         </section>
 
-        {/* ── STRATEGY LEADERBOARD ── */}
-        <section className="panel">
-          <Rule label={`Drawdown by ${ddView === 'INSTRUMENT' ? 'Instrument' : 'Strategy'}`} right={
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-              <Seg options={['BEARISH', 'BULLISH']} value={dir} onChange={setDir} accents={{ BEARISH: 'var(--loss)', BULLISH: 'var(--gain)' }} />
-              <span style={{ width: 1, height: 13, background: 'var(--line2)' }} />
-              <Seg options={['STRATEGY', 'INSTRUMENT']} value={ddView} onChange={setDdView} />
-            </div>
-          } />
-          <div className="body">
-          <div className="colh"><span /><span /><span>Loss Contribution</span><span style={{ textAlign: 'right' }}>Drawdown</span></div>
-          <div className="lead">
-            {leaderRows.length === 0 ? (
-              <div className="empty-row">No {dir.toLowerCase()} trades recorded</div>
-            ) : leaderRows.map((s: any, i: number) => {
-              const neg = s.totalLossPct < 0;
-              const w = (Math.abs(s.totalLossPct) / leaderMax) * 100;
-              return (
-                <div className="lrow" key={s.name}>
-                  <span className="lrank">{String(i + 1).padStart(2, '0')}</span>
-                  <div className="lname"><span className="ltag">{s.name}</span><span className="lmeta">{s.trades} trades · {s.lossRate}% loss</span></div>
-                  <div className="lbar"><i style={{ width: `${Math.max(w, 1)}%`, background: neg ? 'var(--loss)' : 'var(--ink3)' }} /></div>
-                  <span className={`lval ${neg ? 'loss' : 'gain'}`}>{neg ? `${s.totalLossPct.toFixed(2)}%` : '0.00%'}</span>
-                </div>
-              );
-            })}
-          </div>
-          </div>
-        </section>
-
-        {/* ── MODEL TRIPLE ── */}
-        <section className="panel">
-          <Rule label="Edge & Risk Model" sub="Model · Projection · Recovery" />
-          <div className="body">
-          <div className="trip">
-            <div>
-              <div className="subh">Edge & Risk Model</div>
-              <div className="dl">{edge.map((r) => <div className="r" key={r.k}><span className="k">{r.k}</span><span className={`v ${r.c}`}>{r.v}</span></div>)}</div>
-            </div>
-            <div>
-              <div className="subh">Monte-Carlo Projection</div>
-              {hasMc ? <>
-                <div className="dl">{monte.map((r) => <div className="r" key={r.k}><span className="k">{r.k}</span><span className={`v ${r.c}`}>{r.v}</span></div>)}</div>
-                <p className="note">{mc.actualPercentile}% of {mc.runs} simulated histories had a drawdown as deep or deeper than yours.</p>
-              </> : <p className="note">Not enough trades to run a Monte-Carlo projection.</p>}
-            </div>
-            <div>
-              <div className="subh">Recovery Pattern</div>
-              <div className="dl"><div className="r"><span className="k">Size When Underwater</span><span className={`v ${recColor}`}>{recHas ? `${recovery.sizeRatio}x baseline` : '—'}</span></div></div>
-              <p className="note">{recNote}</p>
-            </div>
-          </div>
-          </div>
-        </section>
-
-        {/* ── LOSS CONTRIBUTION ── two bar graphs, one for instruments and one for sessions. His request,
-            2026-09-15: "two seperate bar graphs. One for sessions and one for instruments and their loss
-            shares". They replaced two pies (2026-09-14), which had replaced a pair-vs-strategy heatmap and,
-            beside it, the Loss Frequency list. */}
-        <section className="panel">
-          <Rule label="Loss Contribution · Instrument & Session" sub="Share of Total Loss" />
-          <div className="body">
-          <div className="lgraphs">
-            <LossBars title="By Instrument" tone="instr" rows={lossShare.byPair ?? []} />
-            <LossBars title="By Session" tone="sess" rows={lossShare.bySession ?? []} />
-          </div>
-          </div>
-        </section>
-
-        {/* ── STRUCTURAL ── */}
-        <section className="panel">
-          <Rule label="Structural Diagnostics" right={<Seg options={['CONTEXT', 'ENTRY']} value={diag} onChange={setDiag} />} />
-          <div className="body">
-          <div className="struct-top">
-            {structSections.length === 0 ? (
-              <span className="mut" style={{ fontSize: 12 }}>No structural data yet</span>
-            ) : structSections.map((sec, si) => (
-              <div key={si} style={si > 0 ? { marginTop: 18 } : undefined}>
-                <div className="subh" style={{ color: 'var(--loss)' }}>{sec.title}</div>
-                {sec.items.map((it: any, ii: number) => (
-                  <div className="rp" key={ii}>
-                    <span className="nm">{it.label}</span>
-                    <span style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
-                      <span className="v">{fmtDd(it.avgDdPct)}</span><span className="tl"><WLB wins={it.wins} losses={it.losses} breakevens={it.breakevens} size={11} /></span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-
-          <div className="sg">
-            <div>
-              <div className="subh">Session</div>
-              {sessions.length === 0 ? <span className="mut" style={{ fontSize: 11 }}>No session data</span> : sessions.map((s) => {
-                const tone = sevTone(s.avgDdPct);
-                return (
-                  <div className="sess" key={s.session}>
-                    <div className="top"><span className="nm">{s.session}</span><span className={`vv ${tone}`}>{fmtDd(s.avgDdPct)}</span></div>
-                    <div className="sb">N={s.total} · <WLB wins={s.wins} losses={s.losses} breakevens={s.breakevens} size={11} /></div>
-                    <div className="sbar"><i style={{ width: `${Math.round(s.barWidthPct)}%`, background: toneVar(tone) }} /></div>
-                    <div className="wp"><span className="l">Worst Pair</span><span className="r">{s.worstPair} {fmtDd(s.worstDdPct)}</span></div>
-                  </div>
-                );
-              })}
-            </div>
-            <div>
-              <div className="subh">Loss Streaks</div>
-              <div className="ls">
-                <div><div className="k">Max Loss Streak</div><div className="big loss">{sk?.maxLossStreak?.length ?? 0}</div><div className="s">{fmtRange(sk?.maxLossStreak?.startDate, sk?.maxLossStreak?.endDate) || 'no data'}</div></div>
-                <div><div className="k">Avg Loss Streak</div><div className="big warn">{sk?.avgLossStreak ?? 0}</div><div className="s">before recovery</div></div>
-                <div><div className="k">Post-Streak Revenge</div><div className="big loss">{sk?.revengeRate ?? 0}%</div><div className="s">of streaks triggered</div></div>
-                <div><div className="k">Best Win Streak</div><div className="big gain">{sk?.bestWinStreak?.length ?? 0}</div><div className="s">{fmtRange(sk?.bestWinStreak?.startDate, sk?.bestWinStreak?.endDate) || 'no data'}</div></div>
-              </div>
-              {/* 11px is this page's floor and .12em its tracking cap (docs/READABILITY.md, causes 2
-                  and 3). This was 9px at .13em - under both at once. */}
-              <div className="k" style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink3)', marginTop: 20 }}>Trade Timeline</div>
-              <div className="tl">{timeline.length === 0 ? <span className="mut" style={{ fontSize: 10 }}>—</span> : timeline.map((c, i) => <span key={i} className={c === 'W' ? 'tw' : c === 'L' ? 'tlo' : 'tb'}>{c}</span>)}</div>
-            </div>
-            <div>
-              <div className="subh">RR Distribution</div>
-              {rrBuckets.length === 0 ? <span className="mut" style={{ fontSize: 11 }}>No RR data</span> : <>
-                {rrBuckets.map((b) => {
-                  const tone = rrTone(b.label);
-                  return (
-                    <div className="rr" key={b.label}>
-                      <div className="top">
-                        <span style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}><span className={`rng ${tone}`}>{b.label}</span><span className="nm">{b.note}</span></span>
-                        <span style={{ display: 'flex', gap: 9, alignItems: 'baseline' }}><span className="ct">{b.count}T</span><span className="pc">{b.pct}%</span></span>
-                      </div>
-                      <div className="rrbar"><i style={{ width: `${b.pct}%`, background: toneVar(tone) }} /></div>
-                    </div>
-                  );
-                })}
-                {belowTarget > 0 && <p className="note">{belowTarget.toFixed(0)}% of trades fall below target RR — <span className="loss">primary drawdown driver</span></p>}
-              </>}
-            </div>
-          </div>
-          </div>
-        </section>
-
-        {/* ── MONTHLY TABLE ── */}
-        {monthly.length > 0 && (
-          /* NOT WRAPPED IN A PANEL, and NOT restyled. His instruction 2026-09-27: "dont change how
-             Monthly Drawdown / Dominant Cause per Month is displayed" - its columns, rows, text and
-             background all stay. .mtbl-sec is the hook dpStyles uses to keep the original heading. */
-          <section className="mtbl-sec">
-            <Rule label={`Monthly Drawdown${monthlyRange ? ` · ${monthlyRange}` : ''}`} sub="Dominant Cause per Month" />
-            <div className="mwrap">
-              <table className="mtbl">
-                <thead><tr><th>Month</th><th>Return</th><th>Rec.</th><th>Max DD</th><th>Big L</th><th>Loss</th><th>CF</th></tr></thead>
-                <tbody>
-                  {displayMonths.map((m, i) => {
-                    // Return = surplus above the prior peak once recovered, else the raw month %.
-                    // CF = the running carried-forward deficit after this month (see cfRows above).
-                    const isLive = m.month === curMon && m.year === curYr;
-                    const eq = cfRows[i].ret;
-                    const cfVal = cfRows[i].cf;
-                    const cf = cfVal < 0 ? `${cfVal.toFixed(2)}%` : '0.00%';
-                    const eqStr = eq == null ? '—' : eq === 0 ? '0.00%' : `${eq > 0 ? '+' : ''}${eq.toFixed(2)}%`;
-                    const eqCls = eq == null ? 'mut' : eq > 0 ? 'gain' : eq < 0 ? 'loss' : 'dim';
-                    const dot = m.dominantCauseClass === 'bad' ? 'var(--loss)' : m.dominantCauseClass === 'good' ? 'var(--gain)' : 'var(--warn)';
-                    // ── OPEN A MONTH TO SEE ITS TRADED DATES ────────────────────────
-                    // His instruction: a drop-down showing "all traded dates and outcome just like
-                    // the calendar does but not with money". Purely ADDITIVE — his 2026-09-27 rule
-                    // ("dont change how Monthly Drawdown is displayed") still holds: the seven
-                    // columns, their values, the dot and the LIVE badge are all untouched, and the
-                    // only new thing on a closed table is the little chevron.
-                    //
-                    // ⚠ EVERY DATE IN THE MONTH, not only the traded ones — his correction on
-                    // seeing the first version (2026-10-25): *"display all the dates in that month
-                    // and only label as w or L those that were traded ... There is unused space
-                    // and that design i propose will use that space."*
-                    const monthIdx = MONTH_ABBR.indexOf(m.month);
-                    const mKey = `${m.year}-${monthIdx + 1}`;
-                    const isOpen = openMonth === mKey;
-                    const toggle = () => setOpenMonth(isOpen ? null : mKey);
-                    const cells = isOpen ? monthDayCells(calResult?.calendarData, m.year, monthIdx) : [];
-                    const anyTraded = cells.some(c => c.mark);
-                    return (
-                      <React.Fragment key={`${m.month}-${m.year}`}>
-                      <tr
-                        style={{ ...(isLive ? { background: 'rgba(96,165,250,0.06)' } : {}), cursor: 'pointer' }}
-                        onClick={toggle}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
-                        tabIndex={0}
-                        role="button"
-                        aria-expanded={isOpen}
-                        aria-label={`${m.month} ${m.year} — show the days traded`}
-                      >
-                        <td><span className="mmname"><span className="d" style={{ background: isLive ? '#60a5fa' : dot, boxShadow: m.dominantCauseClass === 'good' ? undefined : 'none' }} /><span className="nm">{m.month.toUpperCase()}/{m.year}</span>{isLive && <span className="live-badge" style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, letterSpacing: '.1em', border: '1px solid rgba(96,165,250,.5)', borderRadius: 999, padding: '0 5px', verticalAlign: 'middle' }}>LIVE</span>}<span aria-hidden style={{ marginLeft: 7, display: 'inline-block', fontSize: 9, opacity: 0.55, transition: 'transform .15s', transform: isOpen ? 'rotate(90deg)' : 'none' }}>▶</span></span></td>
-                        <td className={eqCls}>{eqStr}</td>
-                        <td className="mut">{Math.round(m.recoveryPct)}%</td>
-                        <td className={m.maxDdPct === 0 ? 'mut' : 'loss'}>{fmtDd(m.maxDdPct)}</td>
-                        <td className={m.biggestLossPct === 0 ? 'mut' : 'loss'}>{fmtDd(m.biggestLossPct)}</td>
-                        <td className="dim">{m.lossCount}/{m.totalTrades}</td>
-                        <td className={cf === '0.00%' ? 'mut' : 'loss'}>{cf}</td>
-                      </tr>
-                      {isOpen && (
-                        <tr>
-                          <td colSpan={7} style={{ padding: '10px 2px 14px' }}>
-                            {!anyTraded ? (
-                              <span className="mut" style={{ fontSize: 12 }}>No day-by-day record stored for this month.</span>
-                            ) : (
-                              <MonthDays cells={cells} label={m.month} />
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
+        <DdMonthly monthly={d.monthly ?? []} openMonth={openMonth}
+                   onToggleMonth={setOpenMonth} calendarData={calResult?.calendarData} />
 
       </div>
     </div>

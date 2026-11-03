@@ -11,11 +11,18 @@
  *
  * HOW EACH PAGE CONSUMES IT
  *   MetricsPanel  builds its `D` object of var(--mp-…, <dark>) references plus the light overrides.
- *   Drawdown      (components/drawdown/dpTokens.ts) maps its own token names onto these values.
+ *
+ * ⚠ THE DRAWDOWN PAGE NO LONGER READS THIS FILE, since 2026-11-03. It used to, under his 2026-09-27
+ * instruction *"copy the design and colors used in metrics page … use in the drawdown page"*, via a
+ * `drawdown/dpTokens.ts` that mapped its names onto these values. He then supplied a new Drawdown
+ * design with a self-contained palette, so that page now has its own tokens
+ * (`components/drawdown/ddTokens.ts`) and this file was deliberately left untouched — editing it to
+ * suit the new design would have silently restyled Metrics too. **So this file is now Metrics-only:
+ * a colour changed here no longer moves the Drawdown page with it.**
  *
  * ⚠ EVERY LIGHT VALUE HERE WAS MEASURED against the surface it sits on, not eyeballed. The drawdown's
- * light theme had three real failures in August (dpStyles.ts records --ink3 at 2.56:1, below the
- * minimum), so anything added here is measured before it ships.
+ * light theme had three real failures in August (one token measured 2.56:1, below the minimum), so
+ * anything added here is measured before it ships.
  */
 
 /** The dark palette — what both pages show in every theme except `light`. */

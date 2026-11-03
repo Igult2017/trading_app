@@ -1461,8 +1461,14 @@ export default function Journal() {
           ) : activeNav === 'tfmetrics' ? (
             <TFMetricsPanel sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'drawdown' ? (
+            /* `sessions` + the setter feed the account selector his 2026-11-03 design added at the
+               top of the panel. It calls setActiveSessionId directly rather than
+               handleSelectSession, because that helper also jumps to the dashboard — which would
+               throw you off the drawdown page the moment you switched account. */
             <DrawdownPanel sessionId={activeSessionId ?? undefined}
-                           dispFont={F.stack} bodyFont={F.bodyStack ?? F.stack} />
+                           dispFont={F.stack} bodyFont={F.bodyStack ?? F.stack}
+                           sessions={sessions}
+                           onSessionChange={setActiveSessionId} />
           ) : activeNav === 'fsdai' ? (
             <TraderAI sessionId={activeSessionId ?? undefined} darkMode={T.dark} />
           ) : activeNav === 'sync' ? (

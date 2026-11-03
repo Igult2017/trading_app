@@ -13,6 +13,7 @@ import { cacheGet, cacheSet, cacheDel, userSessionKey,
 import { EDIT_LOCK_KEY, EDIT_LOCKABLE_ALL } from "./services/autoJournal";
 import { deleteJournalEntryFully } from "./lib/journalDelete";
 import { accountTypeEdit } from "./lib/accountFilters";
+import { asDateKey, filterEntriesByPeriod } from "./lib/periodFilter";
 import { canonicalSession } from "../shared/sessions";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking,
@@ -2072,9 +2073,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const scope = await resolveComputeScope(auth, req);
       if (!scope) return res.json({ success: true, drawdown: {} });
-      const { entries, startingBalance, sessionId } = scope;
+      const { entries: allEntries, startingBalance, sessionId } = scope;
 
-      const cacheKey = userSessionKey("drawdown", auth.id, sessionId);
+      // ── THE PERIOD SELECTOR (his 2026-11-03 Drawdown design) ───────────────────────────────────
+      //
+      // The client resolves "this month" / "this quarter" / "year to date" into a from/to pair
+      // (client/src/components/drawdown/ddPeriods.ts) and this narrows the trade set before the
+      // Python sees it. ⚠ WITH NO RANGE THE ARRAY IS UNTOUCHED, so "all time" — the default — is
+      // exactly the request that existed before the selector, and the existing cache entry for it
+      // stays valid.
+      const from = asDateKey(req.query.from);
+      const to   = asDateKey(req.query.to);
+      const entries = filterEntriesByPeriod(allEntries, from, to);
+
+      // ⚠ THE RANGE IS PART OF THE CACHE KEY. Without it, opening "October" and then "year to date"
+      // would be served October's figures under the new label — the cache cannot tell two different
+      // questions apart by entry count alone, because a narrower range can legitimately hold the
+      // same number of trades.
+      const periodSuffix = from || to ? `:${from ?? 'x'}:${to ?? 'x'}` : '';
+      const cacheKey = userSessionKey("drawdown", auth.id, `${sessionId ?? ''}${periodSuffix}`);
       const cached = await cacheGet<{ result: any; entryCount: number }>(cacheKey);
       if (cached && cached.entryCount === entries.length) return res.json(cached.result);
 

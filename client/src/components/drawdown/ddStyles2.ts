@@ -1,0 +1,193 @@
+/**
+ * ddStyles2.ts — section CSS for the Drawdown panel's new design. Part 2 of 2.
+ *
+ * Split from `ddStyles.ts` only to keep both files inside the 200-line limit; the two are
+ * concatenated by `ddPanelCss()` below and there is no other reason for the boundary.
+ *
+ * ⚠ NO BACKTICKS ANYWHERE IN THIS FILE — same reason as part 1: one stray backtick ends the
+ * template literal mid-rule and the page silently loses its styling while the build stays green.
+ */
+import { DD_CORE_CSS } from '@/components/drawdown/ddStyles';
+import { MONTH_DAYS_CSS } from '@/components/drawdown/monthDays';
+
+const DD_SECTIONS = `
+/* ── SECTION HEADERS + STATUS BADGES ───────────────────────────────────────── */
+.dp .dd-sec-head{
+  display:flex; flex-direction:column; gap:12px; justify-content:space-between;
+  border-bottom:1px solid var(--t-line); padding-bottom:14px;
+}
+@media (min-width:1024px){ .dp .dd-sec-head{ flex-direction:row; align-items:center; } }
+.dp .dd-badges{
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
+  font-size:12px; font-family:var(--dd-mono);
+}
+.dp .dd-badge{
+  padding:6px 12px; border-radius:12px; display:flex; align-items:center; gap:6px;
+  background:var(--t-line); border:1px solid var(--line-strong);
+}
+.dp .dd-badge-emerald{ background:var(--t-emerald-10); border-color:var(--t-emerald-30); }
+.dp .dd-badge-rose{ background:var(--t-rose-10); border-color:var(--t-rose-40); }
+.dp .dd-badge-amber{ background:var(--t-amber-10); border-color:var(--t-amber-20); }
+.dp .dd-dot{ width:8px; height:8px; border-radius:9999px; background:var(--emerald); }
+/* Respects a reduced-motion preference rather than pulsing regardless. */
+@media (prefers-reduced-motion:no-preference){
+  .dp .dd-dot{ animation:ddpulse 2s cubic-bezier(.4,0,.6,1) infinite; }
+}
+@keyframes ddpulse{ 50%{ opacity:.5; } }
+
+/* ── TABS ───────────────────────────────────────────────────────────────────── */
+.dp .dd-tabs{
+  display:flex; align-items:center; gap:4px; flex-wrap:wrap;
+  background:var(--surface-deep); padding:4px; border-radius:12px;
+  border:1px solid var(--line); font-size:12px;
+}
+.dp .dd-tab{
+  padding:6px 12px; border-radius:8px; border:none; background:transparent;
+  color:var(--ink-dim); cursor:pointer; transition:color .2s,background .2s;
+  font-family:var(--dd-sans); font-weight:500;
+}
+.dp .dd-tab:hover{ color:var(--ink-strong); }
+.dp .dd-tab[aria-selected="true"]{
+  background:var(--amber-mid); color:#020617; font-weight:700;
+}
+.journal-light .dp .dd-tab[aria-selected="true"]{ color:#ffffff; }
+.dp .dd-tab:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+
+/* ── CHART ──────────────────────────────────────────────────────────────────── */
+.dp .dd-chart{ height:288px; width:100%; padding-top:8px; position:relative; }
+.dp .dd-chart svg{ display:block; }
+/* Chart labels follow the columnar face so the axes match the tables. */
+.dp .dd-chart svg text{ font-family:var(--dd-mono); }
+.dp .dd-chart-foot{
+  display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+  font-size:12px; color:var(--ink-dim); padding-top:8px; border-top:1px solid var(--t-line);
+}
+.dp .dd-tt{
+  position:absolute; pointer-events:none; z-index:20;
+  background:var(--surface-deep); border:1px solid var(--line-strong);
+  padding:12px; border-radius:12px; box-shadow:0 20px 25px -5px rgba(0,0,0,.4);
+  font-size:12px; font-family:var(--dd-mono); white-space:nowrap;
+}
+.dp .dd-tt .tt-h{
+  color:var(--ink-soft); font-weight:700; border-bottom:1px solid var(--line);
+  padding-bottom:4px; margin-bottom:6px; display:flex; justify-content:space-between; gap:16px;
+}
+.dp .dd-tt .tt-r{ display:flex; justify-content:space-between; gap:16px; color:var(--ink-dim); }
+.dp .dd-hit{ fill:transparent; cursor:pointer; }
+
+/* ── TABLES ─────────────────────────────────────────────────────────────────── */
+.dp .dd-twrap{ overflow-x:auto; border-radius:12px; border:1px solid var(--t-line); }
+.dp .dd-twrap table{
+  width:100%; text-align:left; font-size:12px; font-family:var(--dd-mono); border-collapse:collapse;
+}
+.dp .dd-twrap thead{
+  background:var(--t-inner); color:var(--ink-dim);
+  border-bottom:1px solid var(--line); text-transform:uppercase; letter-spacing:.05em;
+}
+.dp .dd-twrap thead th{ padding:12px 16px; font-weight:600; white-space:nowrap; }
+.dp .dd-twrap tbody tr{ border-top:1px solid var(--t-line-soft); transition:background .2s; }
+.dp .dd-twrap tbody tr:first-child{ border-top:none; }
+.dp .dd-twrap tbody td{ padding:14px 16px; }
+.dp .dd-rowhover:hover{ background:var(--t-card-hi); }
+.dp .dd-right{ text-align:right; }
+.dp .dd-tag{
+  background:var(--t-line); padding:2px 8px; border-radius:4px;
+  color:var(--ink-strong); font-weight:500;
+}
+
+/* ── BARS ───────────────────────────────────────────────────────────────────── */
+.dp .dd-track{ background:var(--t-line); height:8px; border-radius:9999px; overflow:hidden; }
+.dp .dd-track-w{ width:128px; min-width:72px; }
+.dp .dd-track > i{ display:block; height:100%; border-radius:9999px; background:var(--rose-mid); }
+.dp .dd-bigbar{
+  width:100%; background:var(--surface-deep); height:20px; border-radius:8px;
+  overflow:hidden; border:1px solid var(--line); display:flex;
+}
+.dp .dd-bigbar > i{
+  background:linear-gradient(to right,var(--rose-mid),var(--amber-mid)); height:100%;
+  display:flex; align-items:center; justify-content:flex-end; padding:0 8px;
+  font-size:10px; font-family:var(--dd-mono); font-weight:700; color:#020617;
+}
+.dp .dd-scale{
+  display:flex; justify-content:space-between; font-size:10px;
+  color:var(--ink-faint); font-family:var(--dd-mono); padding-top:8px;
+}
+.dp .dd-bucket{ background:var(--t-inner); border:1px solid var(--t-line); padding:12px; border-radius:12px; }
+.dp .dd-bucket + .dd-bucket{ margin-top:12px; }
+.dp .dd-bucket-track{
+  width:100%; background:var(--surface); height:8px; border-radius:9999px;
+  overflow:hidden; margin-top:6px;
+}
+.dp .dd-bucket-track > i{ display:block; height:100%; }
+
+/* ── NOTES, INSIGHTS, WARNINGS ─────────────────────────────────────────────── */
+.dp .dd-note{
+  padding-top:8px; font-size:11px; color:var(--ink-dim);
+  border-top:1px solid var(--t-line); display:flex; align-items:center; gap:6px;
+}
+.dp .dd-insight{
+  background:var(--t-blue-10); border:1px solid var(--t-blue-20); border-radius:12px;
+  padding:12px; font-size:11px; color:var(--insight-ink);
+  display:flex; align-items:flex-start; gap:10px; line-height:1.6;
+}
+.dp .dd-insight p{ margin:0; }
+.dp .dd-warn{
+  background:var(--warn-grad); border:1px solid var(--t-rose-40);
+  border-radius:12px; padding:14px;
+}
+.dp .dd-warn p{ margin:0; }
+.dp .dd-warn-head{
+  display:flex; align-items:center; gap:8px; color:var(--rose);
+  font-weight:700; font-size:12px; margin-bottom:8px;
+}
+
+/* ── SESSION CARDS ──────────────────────────────────────────────────────────── */
+.dp .dd-sess{
+  border-radius:12px; padding:16px; position:relative; overflow:hidden;
+  background:var(--t-inner); border:1px solid var(--line);
+}
+.dp .dd-sess-hot{ border-color:var(--t-rose-40); }
+.dp .dd-sess-glow{
+  position:absolute; top:0; right:0; width:64px; height:64px;
+  background:var(--t-rose-10); border-bottom-left-radius:9999px; pointer-events:none;
+}
+.dp .dd-sess-sub{ font-size:11px; color:var(--ink-dim); margin-top:12px; position:relative; }
+.dp .dd-sess-rule{ padding-top:8px; margin-top:8px; border-top:1px solid var(--t-line); }
+
+/* ── TRADE SEQUENCE ─────────────────────────────────────────────────────────── */
+.dp .dd-seq{
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:12px;
+  background:var(--surface-deep); border-radius:12px; border:1px solid var(--line);
+}
+.dp .dd-seq-chip{
+  padding:6px 11px; min-height:36px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--dd-mono); font-weight:700; font-size:12px;
+  transition:transform .2s; white-space:nowrap;
+}
+@media (prefers-reduced-motion:no-preference){ .dp .dd-seq-chip:hover{ transform:scale(1.1); } }
+.dp .dd-seq-win{ background:var(--t-emerald-20); color:var(--emerald); border:1px solid var(--t-emerald-30); }
+.dp .dd-seq-loss{ background:var(--t-rose-20); color:var(--rose); border:1px solid var(--t-rose-40); }
+.dp .dd-seq-be{ background:var(--t-line); color:var(--ink-soft); border:1px solid var(--line-strong); }
+
+/* ── MONTHLY LEDGER ────────────────────────────────────────────────────────── */
+/* The expandable row keeps the chevron and the day grid he asked for on 2026-10-25; the mock-up's
+   ledger has no expander and dropping it would have removed a feature he specifically requested. */
+.dp .dd-mrow{ cursor:pointer; }
+.dp .dd-mrow:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
+.dp .dd-mname{ display:flex; align-items:center; gap:8px; white-space:nowrap; }
+.dp .dd-mdot{ width:8px; height:8px; border-radius:9999px; flex-shrink:0; }
+.dp .dd-mchev{ display:inline-block; font-size:9px; opacity:.55; transition:transform .15s; }
+.dp .dd-mchev.open{ transform:rotate(90deg); }
+.dp .dd-live{
+  font-size:11px; font-weight:800; letter-spacing:.1em; border:1px solid var(--t-blue-20);
+  color:var(--blue); border-radius:9999px; padding:0 5px;
+}
+.dp .dd-empty{ font-size:12px; color:var(--ink-dim); }
+${MONTH_DAYS_CSS}
+`;
+
+/** The whole panel's stylesheet, in one string. */
+export function ddPanelCss(): string {
+  return DD_CORE_CSS + DD_SECTIONS;
+}
