@@ -184,8 +184,10 @@ const DD_SECTIONS = `
 .dp .dd-mrow{ cursor:pointer; }
 .dp .dd-mrow:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
 .dp .dd-mname{ display:flex; align-items:center; gap:8px; white-space:nowrap; }
-.dp .dd-mdot{ width:8px; height:8px; border-radius:9999px; flex-shrink:0; }
-.dp .dd-mchev{ display:inline-block; font-size:9px; opacity:.55; transition:transform .15s; }
+/* The leading marker in his ledger, and the expand affordance in one. FULL opacity, not the 55% it
+   had as a trailing hint: it now carries the month's dominant cause as its colour, and a faded
+   signal is not a signal. */
+.dp .dd-mchev{ display:inline-block; font-size:10px; flex-shrink:0; transition:transform .15s; }
 .dp .dd-mchev.open{ transform:rotate(90deg); }
 .dp .dd-live{
   font-size:11px; font-weight:800; letter-spacing:.1em; border:1px solid var(--t-blue-20);

@@ -1,38 +1,32 @@
-# PLAN - Drawdown panel rebuilt to his new design (APPROVED, in verification)
-
-## Status: built; verifying visually with Playwright
+# PLAN - Drawdown ledger: match his mock-up exactly (follow-up to the approved rebuild)
 
 ## Phase 1 - Architecture
-Presentation rebuild of the Drawdown panel to his 2026-11-03 mock-up. Data wiring untouched:
-/api/drawdown/compute (server/python/drawdown/core.py) already returned all 11 blocks.
-Panel lives inside Journal (sidebar item 'drawdown'), mounted at Journal.tsx:1464.
+He pointed at the Monthly Drawdown Ledger and asked whether it was included. It is
+(client/src/components/drawdown/ddMonthly.tsx) but two details drifted from his mock-up:
 
-New: client/src/components/drawdown/dd*.{ts,tsx} (tokens, styles x2, header, banner, kpis, profile,
-chart, breakdown, riskCards, lossShare, structural, streaks, rr, monthly, bits, empty, periods)
-Rewritten: DrawdownPanel.tsx (orchestrator), skeletons/DrawdownSkeleton.tsx
-Server: server/lib/periodFilter.ts + routes.ts date-range filter and cache key
-Deleted: dpStyles.ts, dpTokens.ts, dpSections.ts, diveProfile.tsx, lossBars.tsx
-Reused unchanged: monthDays.tsx (the day-by-day expander)
+| | his mock-up | what I shipped |
+|---|---|---|
+| subtitle | Historical drawdown performance by calendar month | Dominant cause per month - open a row for its traded days |
+| month cell | amber triangle BEFORE the month, no dot | coloured dot before, triangle after |
 
-## Phase 2 - Tasks (all done)
-1. ddTokens (his palette + a light remap; mpTokens.ts deliberately untouched)
-2. ddStyles/ddStyles2 (gaps reduced: sections 32->16px, grids ->12px, card padding 24->20px)
-3. ddHeader (account selector wired to the real session list; period selector)
-4. Section components, one per card
-5. DrawdownPanel as orchestrator
-6. Server period filter + cache key
-7. Preserved: monthly day expander, coloured W/L counts via WLB
-8. Dead files deleted; stale mpTokens pointer corrected
+His instruction for this whole piece of work was "dont redesign it, you only recreate in react", so
+his copy and his cell layout win.
 
-## Phase 3 - Execute: done
+Files: client/src/components/drawdown/ddMonthly.tsx (subtitle + month cell)
+       client/src/components/drawdown/ddStyles2.ts (.dd-mchev restyled; .dd-mdot removed if orphaned)
+
+## Phase 2 - Tasks
+1. Subtitle back to his exact words.
+2. Month cell to his shape: triangle first, then MONTH/YEAR. Drop the separate dot.
+   KEEP the dominant-cause information by TINTING that triangle (bad=red, good=green, else amber)
+   rather than deleting a signal the old panel carried. Flag it; flat amber on request.
+3. Delete the now-unused .dd-mdot rule (dead code rule).
+4. Re-run: tsc, ddStyles.test.ts, Playwright screenshot of the ledger in both themes.
+
+## Phase 3 - Execute: in order, one at a time.
 
 ## Phase 4 - Health check
-- npx tsc --noEmit: clean
-- client/src/components/drawdown/ddStyles.test.ts: 15/15 pass
-- server/services/ctraderRateGuard.test.ts: 53/53 (no regression)
-- Contrast measured both themes; his dark #64748b was 3.58:1 (below the 4.5:1 floor) -> #7987a3
-- Playwright: screenshots of a harness using the REAL extracted stylesheet, dark + light
-  NOTE: cannot log into the real journal locally (no Supabase keys / ADMIN_SECRET in .env)
+tsc clean; ddStyles.test.ts 15/15; screenshot compared against his image.
 
 ## NOT in scope
-Redesigning anything; Metrics page or mpTokens.ts; the Python maths; the signal platform.
+Any other section; the data; the Python; the server.

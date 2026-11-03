@@ -70,7 +70,7 @@ export function DdMonthly({
       <div className="dd-between" style={{ flexWrap: 'wrap', gap: 8 }}>
         <div>
           <h3 className="dd-title">Monthly Drawdown Ledger{range ? ` · ${range}` : ''}</h3>
-          <p className="dd-muted">Dominant cause per month — open a row for its traded days</p>
+          <p className="dd-muted">Historical drawdown performance by calendar month</p>
         </div>
         <span className="dd-mono fs-xs c-emerald fw-semi"
               style={{ background: 'var(--t-emerald-10)', border: '1px solid var(--t-emerald-20)',
@@ -113,10 +113,18 @@ export function DdMonthly({
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } }}
                       style={isLive ? { background: 'var(--t-blue-10)' } : undefined}>
                     <td>
+                      {/* HIS SHAPE: the triangle comes FIRST, then the month, and there is no separate
+                          dot — matching the mock-up he sent on 2026-11-03.
+                          ⚠ THE TRIANGLE IS TINTED BY THE MONTH'S DOMINANT CAUSE (red bad / green good /
+                          amber otherwise) rather than being a flat amber. His mock-up drops the little
+                          coloured dot the old ledger carried, and that dot was the only thing saying at a
+                          glance what drove each month; colouring the triangle he already has keeps that
+                          signal without adding anything to his layout. Say the word and it goes flat
+                          amber. */}
                       <span className="dd-mname">
-                        <span className="dd-mdot" style={{ background: isLive ? 'var(--blue)' : dot }} aria-hidden />
+                        <span aria-hidden className={`dd-mchev ${isOpen ? 'open' : ''}`}
+                              style={{ color: isLive ? 'var(--blue)' : dot }}>▶</span>
                         <span className="c-strong fw-bold">{m.month.toUpperCase()}/{m.year}</span>
-                        <span aria-hidden className={`dd-mchev ${isOpen ? 'open' : ''}`}>▶</span>
                       </span>
                     </td>
                     <td>{isLive
