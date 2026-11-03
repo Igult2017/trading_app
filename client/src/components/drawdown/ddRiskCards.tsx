@@ -54,6 +54,12 @@ export function DdRiskCards({ risk, mc, recovery }: { risk: any; mc: any; recove
   const ratio = Number(recovery?.sizeRatio ?? 0);
   const verdict = recovery?.verdict;
   const risky = recHas && verdict === 'increase';
+  // ⚠ "TOO FEW TRADES TO CALL IT A PATTERN" IS ITS OWN STATE, not a kind of warning. `recovery.py`
+  // returns `insufficient` below its MIN_UNDERWATER floor: the ratio is real and still shown, but no
+  // behavioural claim is made from it. This card previously printed a red "Behavioural Risk
+  // Detected" box off a SINGLE underwater trade (his screen, 2026-11-03).
+  const thin = recHas && verdict === 'insufficient';
+  const uwCount = Number(recovery?.underwaterCount ?? 0);
 
   return (
     <section className="dd-grid dd-g3">
@@ -134,14 +140,22 @@ export function DdRiskCards({ risk, mc, recovery }: { risk: any; mc: any; recove
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div className="dd-inner-sm" style={{ display: 'block', padding: 14 }}>
               <div className="fs-xs c-dim" style={{ marginBottom: 4 }}>Position Size When Underwater</div>
-              <div className={`fs-2xl fw-bold dd-serif ${risky ? 'c-rose' : recHas ? 'c-emerald' : 'c-dim'}`}>
+              {/* Neutral ink while the sample is thin — a red figure is itself a claim. */}
+              <div className={`fs-2xl fw-bold dd-serif ${
+                thin ? 'c-ink' : risky ? 'c-rose' : recHas ? 'c-emerald' : 'c-dim'}`}>
                 {recHas ? `${ratio}x ` : '— '}
                 <span className="fs-xs c-dim" style={{ fontFamily: 'var(--dd-sans)', fontWeight: 400 }}>
                   baseline risk
                 </span>
               </div>
             </div>
-            {risky ? (
+            {thin ? (
+              <p className="dd-muted" style={{ lineHeight: 1.6 }}>
+                Based on {uwCount} underwater trade{uwCount === 1 ? '' : 's'} — too few to call this a
+                pattern. The ratio is real, but one or two trades cannot tell a habit from a one-off.
+                It will be judged at {recovery?.minSample ?? 4}.
+              </p>
+            ) : risky ? (
               <div className="dd-warn">
                 <div className="dd-warn-head">
                   <AlertTriangle width={16} height={16} style={{ flexShrink: 0 }} aria-hidden />

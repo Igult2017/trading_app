@@ -28,7 +28,7 @@ export const EMPTY_DRAWDOWN = {
                 worstCase99: 0, actualPercentile: 0, riskOfRuinPct: 0, ruinThreshold: -50,
                 breach20Pct: 0 },
   recovery: { hasData: false, underwaterAvgSize: 0, baselineAvgSize: 0, sizeRatio: 0,
-              underwaterCount: 0, baselineCount: 0, verdict: '' },
+              underwaterCount: 0, baselineCount: 0, verdict: '', minSample: 4 },
   lossShare: { byPair: [], bySession: [] },
   structural: { context: [], entry: [] },
   sessions: [],
