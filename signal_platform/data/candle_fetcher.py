@@ -100,37 +100,6 @@ def _validate(candles: list[Candle], symbol: str, tf: str) -> list[Candle]:
     return valid
 
 
-async def _fetch_or_top_up(symbol: str, tf: str, count: int) -> list[Candle]:
-    """Ask only for the bars we do not already hold; fall back to the whole window otherwise.
-
-    HIS QUESTION, 2026-11-03: *"Why don't we request data once and use everywhere where it is
-    needed? Why unnecessary requests?"* This is the answer for the repeat reads. The cache expires
-    at every bar close by design, and until now each expiry re-downloaded the entire window to learn
-    one new bar — 249 of 250 M5 bars that had not changed and could not change.
-
-    ⚠ `get_last_good` IS THE RIGHT SOURCE HERE AND ONLY HERE. Its own docstring names this module as
-    the one caller permitted to use it, because it answers "what did we last see?" and never "what
-    is the market doing now?" — which is exactly what a top-up needs, since the broker is about to
-    be asked for everything since.
-
-    Aggregated timeframes are deliberately left alone: they recurse through `fetch_candles` for
-    their base, so the base's top-up already benefits them, and a second merge layer is a second
-    thing to get wrong.
-    """
-    if is_native(tf):
-        held = candle_cache.get_last_good(symbol, tf)
-        if held and len(held) >= count:
-            from data.candle_topup import top_up
-            result = await top_up(symbol, tf, count, held, _validate)
-            if result is not None:
-                merged, fresh = result
-                # Score ONLY the bars that actually just arrived — see the note in `_do_fetch`.
-                if tf == "M1" and fresh:
-                    _audit_against_ticks(symbol, fresh)
-                return merged
-    return await _do_fetch(symbol, tf, count)
-
-
 async def _do_fetch(symbol: str, tf: str, count: int) -> list[Candle]:
     # Non-native TF: recurse through fetch_candles so the base enters cache
     if not is_native(tf):
@@ -216,7 +185,7 @@ async def fetch_candles(symbol: str, tf: str, count: int = 100) -> list[Candle]:
         _in_flight[key] = fut
         candles: list[Candle] = []
         try:
-            candles = await _fetch_or_top_up(symbol, tf, count)
+            candles = await _do_fetch(symbol, tf, count)
             if candles:
                 candle_cache.put(symbol, tf, candles)
         except asyncio.TimeoutError:

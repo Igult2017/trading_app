@@ -48,13 +48,11 @@ _WEEK_MS = 7 * 24 * 3600 * 1000   # the deal list is asked for one week at a tim
 async def _ask(req, want: int):
     async with _req_lock:
         # PACED WITH THE CANDLE FETCH — the same socket and the same ~5 requests/second cap, so the
-        # same clock (`ctrader_client._last_req`). Unpaced, the first production run (19 Sep 17:48)
-        # sent its deal-list requests back to back and 3 of 5 came back BLOCKED_PAYLOAD_TYPE "You
-        # are being rate limited".
-        gap = _cc._MIN_REQ_GAP - (time.monotonic() - _cc._last_req)
-        if gap > 0:
-            await asyncio.sleep(gap)
-        _cc._last_req = time.monotonic()
+        # same clock. Unpaced, the first production run (19 Sep 17:48) sent its deal-list requests
+        # back to back and 3 of 5 came back BLOCKED_PAYLOAD_TYPE "You are being rate limited".
+        # The inline copy of this that used to live here is now `ctrader_client.await_turn`, shared
+        # by every module on this socket — three of them were missing it entirely (2026-11-03).
+        await _cc.await_turn()
         reader, writer = await _sess.get_connection()
         await _sess.send(writer, req.payloadType, req.SerializeToString())
         return await asyncio.wait_for(_sess.recv_expect(reader, want), timeout=15)

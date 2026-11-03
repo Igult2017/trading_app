@@ -48,7 +48,33 @@ _req_lock  = asyncio.Lock()      # serialize all TCP request/response pairs
 # Pace every trendbar request at least this far apart so a burst across many symbols/TFs (as we
 # add pairs + strategies) stays under the limit and never trips it. Requests just queue on _req_lock.
 _MIN_REQ_GAP = 0.30              # seconds between consecutive trendbar requests (~3.3/s, safely < 5/s)
-_last_req    = 0.0               # monotonic time of the last trendbar send
+_last_req    = 0.0               # monotonic time of the last paced send
+
+
+async def await_turn() -> None:
+    """Wait out the shared gap, then claim this moment. Call it immediately before EVERY send.
+
+    ⚠ WHY THIS IS ONE FUNCTION AND NOT A BLOCK COPIED INTO EACH MODULE. On 2026-11-03 production was
+    refused with BLOCKED_PAYLOAD_TYPE while the candle fetch was pacing **perfectly** — the four
+    failing requests went out at 48.377 / 48.677 / 48.979 / 49.279, exactly 0.300s apart. The cap was
+    being spent by the modules that took `_req_lock` but never came through here:
+    `ctrader_spread` (156 requests in 18 minutes), and both `ctrader_positions` calls.
+
+    AND THE DAMAGE WAS WORSE THAN THEIR OWN COUNT. A send that does not STAMP `_last_req` leaves the
+    next properly-paced caller measuring its gap from a stale timestamp — so that caller computes
+    "the gap has already passed" and fires at once. One unpaced request therefore buys a second,
+    paced one for free, and two or three land inside a single 0.30s slot. The pacing was arithmetically
+    correct and simply blind to the traffic that never registered itself.
+
+    ⚠ MUST BE CALLED HOLDING `_req_lock`. The lock keeps one request/response pair on the wire at a
+    time; this keeps them far enough apart. They are different jobs and both are needed — the lock
+    alone permits an unlimited rate, and the gap alone permits interleaved replies.
+    """
+    global _last_req
+    gap = _MIN_REQ_GAP - (time.monotonic() - _last_req)
+    if gap > 0:
+        await asyncio.sleep(gap)
+    _last_req = time.monotonic()
 
 
 async def _load_symbols(reader, writer) -> None:
@@ -113,13 +139,10 @@ async def fetch_bars(
                 toTimestamp=to_ts,
                 count=count,
             )
-            # Rate-limit guard: keep trendbar requests ≥ _MIN_REQ_GAP apart (under cTrader's ~5/s
-            # historical cap) so bursts across pairs/TFs never trip BLOCKED_PAYLOAD_TYPE.
-            global _last_req
-            gap = _MIN_REQ_GAP - (time.monotonic() - _last_req)
-            if gap > 0:
-                await asyncio.sleep(gap)
-            _last_req = time.monotonic()
+            # Rate-limit guard: keep requests ≥ _MIN_REQ_GAP apart (under cTrader's ~5/s historical
+            # cap) so bursts across pairs/TFs never trip BLOCKED_PAYLOAD_TYPE. Shared with every
+            # other module that sends on this socket — see `await_turn`.
+            await await_turn()
             await _sess.send(writer, req.payloadType, req.SerializeToString())
             # recv_expect, NOT recv. This line is the one that BROKE on 2026-08-21: a position was
             # opened elsewhere, cTrader pushed an execution event onto this shared socket, the

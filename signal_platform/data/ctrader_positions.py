@@ -33,6 +33,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
 )
 
 from data import ctrader_session as _sess
+from data import ctrader_client as _cc
 from data.ctrader_client import _load_symbols, _req_lock, _symbols
 
 log = logging.getLogger(__name__)
@@ -142,6 +143,11 @@ async def open_positions() -> list[Position] | None:
             reader, writer = await _sess.get_connection()
             await _load_symbols(reader, writer)
             req = ProtoOAReconcileReq(ctidTraderAccountId=_sess._account_id)
+            # Paced with everything else on this socket. Reconcile is on the roomier ~50/s budget
+            # rather than the scarce historical one, but it still has to STAMP the shared clock:
+            # a send that does not leaves the next paced caller measuring from a stale timestamp and
+            # firing at once. See `ctrader_client.await_turn`.
+            await _cc.await_turn()
             await _sess.send(writer, req.payloadType, req.SerializeToString())
             # recv_expect, NOT recv — opening a position makes cTrader push an execution event, and
             # a bare recv reads that as the reply, leaving the real one to desynchronise the shared
@@ -216,6 +222,9 @@ async def closing_deal(position_id: int, lookback_hours: int = 48) -> ClosingDea
                 toTimestamp=now_ms,
                 maxRows=500,
             )
+            # ⚠ A DEAL LIST IS A HISTORICAL REQUEST — the same scarce ~5/s budget the candle fetch
+            # lives on, and this went unpaced until 2026-11-03. See `ctrader_client.await_turn`.
+            await _cc.await_turn()
             await _sess.send(writer, req.payloadType, req.SerializeToString())
             # recv_expect, never a bare recv — the same shared-socket rule `open_positions` records.
             resp = await asyncio.wait_for(

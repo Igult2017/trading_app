@@ -19,6 +19,7 @@
  * github.com/spotware/openapi-proto-messages/OpenApiModelMessages.proto
  */
 import WebSocket from 'ws';
+import { awaitTurn } from './ctraderPace';
 import type { RawBrokerTrade } from '../brokerSyncService';
 import { acquire, withConnection } from '../ctraderConnPool';
 
@@ -172,6 +173,7 @@ export function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000,
 export async function appAuth(ws: WebSocket, app?: string) {
   const { clientId, clientSecret } = appCreds(app);
   if (!clientId || !clientSecret) throw new Error('CTRADER_CLIENT_ID or CTRADER_CLIENT_SECRET is not configured');
+  await awaitTurn('normal');
   send(ws, PT_APP_AUTH_REQ, { clientId, clientSecret });
   await waitFor(ws, PT_APP_AUTH_RES);
 }
@@ -277,6 +279,7 @@ async function fetchAccountsOnce(wsUrl: string, accessToken: string, app?: strin
   const ws = await openWS(wsUrl);
   try {
     await appAuth(ws, app);
+    await awaitTurn('normal');
     send(ws, PT_ACCOUNTS_REQ, { accessToken });
     const payload = await waitFor(ws, PT_ACCOUNTS_RES);
     return (payload?.ctidTraderAccount ?? []).map((a: any): CTraderAccount => ({
@@ -325,8 +328,10 @@ export async function fetchCTraderBalance(
   const ws = await openWS(isLive ? LIVE_WS : DEMO_WS).catch((e) => { lease.release(); throw e; });
   try {
     await appAuth(ws, app);
+    await awaitTurn('normal');
     send(ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken });
     await waitFor(ws, PT_ACCT_AUTH_RES);
+    await awaitTurn('normal');
     send(ws, PT_TRADER_REQ, { ctidTraderAccountId: acctId });
     const t = await waitFor(ws, PT_TRADER_RES, 10000);
     console.log(`[cTrader] PT_TRADER_RES raw for ${ctraderId}:`, JSON.stringify(t));
@@ -353,6 +358,9 @@ export async function fetchCTraderBalance(
 // range in half and recurse so we never silently lose closed deals.
 async function fetchDealsInRange(ws: WebSocket, acctId: number, from: number, to: number): Promise<any[]> {
   const maxRows = 500;
+  // ⚠ HISTORICAL, AND THIS FUNCTION RECURSES — a full range splits and asks twice more. Unpaced,
+  // that is a burst of scarce-budget requests back to back, which is the shape a limiter punishes.
+  await awaitTurn('history');
   send(ws, PT_DEALS_REQ, { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to, maxRows });
   const dp    = await waitFor(ws, PT_DEALS_RES, 20000);
   const deals = dp?.deal ?? [];
@@ -793,6 +801,8 @@ async function fetchEntryOrderLevels(ws: WebSocket, acctId: number, from: number
     : Promise<Map<string, { stopLoss?: number; takeProfit?: number; orderType?: string }>> {
   const out = new Map<string, { stopLoss?: number; takeProfit?: number; orderType?: string }>();
   try {
+    // Historical: the order list shares the scarce ~5/s budget with deals and candles.
+    await awaitTurn('history');
     send(ws, PT_ORDERS_REQ, { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to });
     const payload = await waitFor(ws, PT_ORDERS_RES, 20000);
     for (const o of (payload?.order ?? [])) {
@@ -842,10 +852,12 @@ export async function fetchCTraderTrades(
   try {
     await appAuth(ws, app);
 
+    await awaitTurn('normal');
     send(ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken });
     await waitFor(ws, PT_ACCT_AUTH_RES);
 
     // Build symbolId → name map
+    await awaitTurn('normal');
     send(ws, PT_SYMBOLS_REQ, { ctidTraderAccountId: acctId });
     const symPayload = await waitFor(ws, PT_SYMBOLS_RES, 30000);
     const symbolMap: Record<number, string> = {};

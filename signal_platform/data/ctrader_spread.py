@@ -44,6 +44,7 @@ from data import ctrader_session as _sess
 # land between a trendbar request and its reply, and the candle fetch would parse the wrong message.
 # The whole reason this module is request/response rather than a spot subscription is to be able to
 # take this lock — a subscription cannot.
+from data import ctrader_client as _cc
 from data.ctrader_client import _load_symbols, _req_lock, _symbols
 
 log = logging.getLogger(__name__)
@@ -72,6 +73,13 @@ async def _newest(reader, writer, sid: int, quote_type: int) -> float | None:
         ctidTraderAccountId=_sess._account_id, symbolId=sid, type=quote_type,
         fromTimestamp=now_ms - _WINDOW, toTimestamp=now_ms,
     )
+    # ⚠ PACED, AND IT WAS NOT UNTIL 2026-11-03. `ProtoOAGetTickDataReq` is a HISTORICAL request, so
+    # it spends the same scarce ~5/s budget the candle fetch lives on — and `quote_for` sends two of
+    # them per symbol per call (bid, then ask). Unpaced, that was ~312 requests in an 18-minute
+    # window going straight past the gate, and because they never stamped the shared clock the NEXT
+    # candle fetch measured its gap from a stale timestamp and fired immediately too. The candle
+    # fetcher was pacing perfectly and still being refused. See `ctrader_client.await_turn`.
+    await _cc.await_turn()
     await _sess.send(writer, req.payloadType, req.SerializeToString())
     # recv_expect: the shared socket carries unsolicited pushes, and reading one as the reply leaves
     # the real reply behind to desynchronise every later reader. See ctrader_session.recv_expect.
@@ -83,6 +91,40 @@ async def _newest(reader, writer, sid: int, quote_type: int) -> float | None:
     if not res.tickData:
         return None
     return res.tickData[0].tick / _DIVISOR
+
+
+def _live_quote_if_trusted(symbol: str) -> tuple[float, float] | None:
+    """The streamed (bid, ask) when this symbol has earned it, else None so the broker is asked.
+
+    THREE WAYS TO GET None, and each one falls back to exactly today's behaviour:
+      * the symbol has not earned trust (`tick_bar_audit.trusted` — a minimum sample and no mismatch
+        anywhere in the recent window; one wrong bar withdraws it);
+      * no stream, or no quote for this symbol;
+      * the quote is older than `fix_quotes` considers fresh.
+
+    ⚠ THE CROSSED-BOOK TEST IS REPEATED HERE and that is deliberate, not an oversight. `quote_for`
+    refuses `ask <= bid` from the broker because it is "not a book, it is a crossed or stale one" —
+    a zero or negative spread fed into a stop calculation or a side-of-the-line test. A streamed
+    quote can be crossed for the same reasons, so it faces the same test rather than being trusted
+    because of where it came from.
+
+    Never raises: an enrichment that can throw is a new way to lose a quote.
+    """
+    try:
+        from data import fix_quotes
+        from data.tick_bar_audit import audit
+        if not audit.trusted(symbol):
+            return None
+        live = fix_quotes.live_quote(symbol)
+        if live is None:
+            return None
+        bid, ask = live
+        if ask <= bid:
+            return None
+        return (bid, ask)
+    except Exception as exc:
+        log.debug(f"[ctrader_spread] live quote unavailable for {symbol}: {type(exc).__name__}: {exc}")
+        return None
 
 
 async def quote_for(symbol: str) -> tuple[float, float] | None:
@@ -100,6 +142,38 @@ async def quote_for(symbol: str) -> tuple[float, float] | None:
     NEVER RAISES. A quote is an input, not a decision: if it cannot be fetched the caller falls back
     to the last closed bar rather than the instrument going silent.
     """
+    # ── FIX FIRST, THE BROKER ONLY WHEN FIX IS SILENT ──────────────────────────────────────────
+    #
+    # HIS INSTRUCTION, documented in D40: *"when trade is placed and even when watching 1HR candle to
+    # close, we should rely more on FIX data … because it is real time data."* And the division of
+    # labour is the broker's own: FIX is real-time and "does not support requests for historical
+    # market data" (fix_quotes.py:13); the Open API is where history lives. Asking the Open API for a
+    # price THIS INSTANT was the wrong source for the question.
+    #
+    # ⚠ IT WAS ALSO EXPENSIVE IN THE ONE CURRENCY THAT MATTERS HERE. `_newest` sends
+    # `ProtoOAGetTickDataReq`, which is a HISTORICAL request on the scarce ~5/s budget, and this
+    # function sends TWO of them per symbol per call — about 312 in an 18-minute window on
+    # 2026-11-03, while the candle fetcher was being refused.
+    #
+    # ⚠ WHY THIS WAS NOT DONE SOONER, AND WHAT CHANGED. The note below this one recorded that the
+    # stream was "not yet trusted to decide an ENTRY" because the evidence covered the BID only and
+    # "nothing has ever compared the streamed ASK against the broker's ask". The `quote-compare` line
+    # has been gathering exactly that, and 165 production samples now answer it — |difference|
+    # mean / max:
+    #
+    #     EUR/USD  bid 0.000002 / 0.000020   ask 0.000000 / 0.000010
+    #     GBP/USD  bid 0.000003 / 0.000020   ask 0.000001 / 0.000010
+    #     GBP/JPY  bid 0.005021 / 0.008      ask 0.005021 / 0.006     <- the known constant offset
+    #     XAU/USD  bid 0.033    / 0.29       ask 0.016    / 0.29
+    #
+    # So the ask is proven for the two symbols whose bars already match the broker exactly, and is
+    # NOT proven for GBP/JPY or gold. Hence the per-symbol gate rather than a blanket switch — and
+    # `tick_bar_audit.trusted` is reused rather than a second list invented, because it already
+    # admits exactly those two and already withdraws trust the moment one bar disagrees.
+    live = _live_quote_if_trusted(symbol)
+    if live is not None:
+        return live
+
     hit = _cache.get(symbol)
     if hit and time.monotonic() < hit[2]:
         return (hit[0], hit[1])
