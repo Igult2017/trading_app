@@ -1596,7 +1596,7 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
-### D62 — 🔴 THE LIVE FIX FEED IS OFF ON THE NEW SERVER, and one missing variable is why. Added 2026-11-02
+### D62 — ✅ FIXED 2026-11-03. The live FIX feed was off on the new server; two missing variables were why. Added 2026-11-02
 
 **Verified 2026-11-02 by reading the live config, the code, and the broker.** After the rebuild at
 `https://app.dorixe.com`, the signal platform runs but **the whole real-time half is switched off**.
@@ -1660,9 +1660,30 @@ returns None and every pass with an open position drops to `ctrader_spread.quote
 round trip. ⚠ Today those jobs return in ~1ms, which suggests no open positions, so this is a
 **latent** cost and **NOT** the cause of the rate-limit storm in D63. Do not conflate them.
 
-**⚠ WHY IT IS STILL OPEN:** the production write was **blocked by the permission classifier**
-(modifying a shared resource). The two variables above are **not yet set** — everything here is
-measurement, not a change. Needs his go-ahead or his hand on the dashboard.
+**✅ DONE 2026-11-03, ON HIS EXPLICIT APPROVAL — and done means the LOG said so, not that the
+switches were set.** He asked whether FIX was on for the ladder, trade management and the
+momentum-candle-close watch; it was not, and he approved switching it on.
+
+Both variables created on app `dm96yia8e3dmg5lhjc2bu2de`, value `true`, **unquoted**, production
+scope, then a redeploy (`g120qjlaxx1wdytikdk5ff5r`). Read back before deploying: `"true"`, not
+quoted, `is_literal:false`. ⚠ Every key on this app exists **twice** — one production row and one
+preview row — so two rows per variable is normal here, not a duplicate.
+
+**The measured proof, from the production container log at 06:49 UTC:**
+
+    06:49:08  [boot] real-time watchers started (trade + entry + price publisher)
+    06:49:08  [fix] price stream open, subscribed to ['EUR/USD','GBP/USD','USD/JPY','GBP/JPY','XAU/USD']
+    06:49:09  [boot] cTrader OK - history feed is live
+
+and **no** `[boot] real-time watchers are OFF` line. So the FIX price session, live trade
+management, the 1-minute-bar-close entry scan and the journal's live ticker are all running.
+
+**⚠ THE LADDER IS SWITCHED ON BUT NOT YET PROVEN IN BEHAVIOUR.** `AUTO_BREAKEVEN_ENABLED=true` is
+set and read back, but nothing at boot exercises it — it only acts when a position is open and a
+rung is reached, and `auto_breakeven_demo_only` defaults to `True`
+([`settings.py:189`](../signal_platform/config/settings.py#L189)) so it refuses to amend anything
+that is not a demo account. **The first real rung is what closes this half**; until then this is
+"configured", not "observed". Autotrade remains OFF (D59) and is independent of the ladder.
 
 **⚠ DO NOT CONFUSE THESE TWO VARIABLES WITH THE MIGRATION BLOCKERS — those are all settled.** He
 confirmed on 2026-11-02 that the **Supabase keys, `ADMIN_SECRET` and the cTrader redirect** are set,
