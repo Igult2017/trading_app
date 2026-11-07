@@ -4782,6 +4782,140 @@ broker's minimum stop distance (`slDistance` / `tpDistance`) is not read or enfo
 
 ---
 
+### C-COPY3 — the copier could lose its broker login and go deaf for ever, with an empty log. FIXED 2026-11-07, NOT PROVEN LIVE
+
+**He asked, 2026-11-07:** *"can you investigate why copier has never worked then fix."*
+
+**The honest history first, because it changes what "fixed" means here. Four separate faults, each
+one genuinely fixed, and not one of them ever seen placing a copy:**
+
+| when | fault | state |
+|---|---|---|
+| 20 Sep | sizing had no stop loss to work with | superseded by the next row (C-COPY1) |
+| 21 Sep | a resting ORDER was discarded at the door, and the stop rides on those events | fixed — C-COPY2, whose own entry says *"NOT PROVEN LIVE, and that is the only proof that counts"* |
+| 25 Oct | the 30-second safety net deliberately stayed silent about a position that **appeared** | fixed |
+| **07 Nov** | **this entry** — it could lose its login and never ask for it back | fixed in code |
+
+So it is not one bug. It is a chain of real bugs. **This one would have defeated all three earlier
+fixes**, because it stops the engine hearing anything at all.
+
+#### The root cause, every link read in the live code
+
+**An open socket was treated as proof of a logged-in session. It is not** — cTrader can end the
+account's session and leave the connection up.
+
+The detection side logs in as a strict chain, where each step is sent **only** when the previous one
+succeeds (`providers/ctrader._dispatch`):
+
+| step | file:line |
+|---|---|
+| socket opens → ask the app in | `providers/ctrader.py:187-195` |
+| app is in → ask the **account** in | `:245-249` |
+| account is in → `_authed = True`, ask for the symbol list | `:251-256` |
+| symbols arrive → ask for open positions **and start the 30-second safety net** | `:259-270` |
+
+It reacted to exactly six kinds of message, and **the `elif` chain ended with no `else`** — so
+everything else was dropped without even a debug line. Among the dropped:
+
+- **2142** `ProtoOAErrorRes` — the refusal that follows, *"Trading account is not authorized"*
+- **2147** `ProtoOAAccountsTokenInvalidatedEvent` — *your session has ended*
+- **2164** `ProtoOAAccountDisconnectEvent`
+
+**Three silent deaths, and nothing could recover from any of them:**
+
+1. **A refusal anywhere in that chain stops it dead** — and `_reconcile_scheduled` is never set, so
+   **the 30-second safety net never starts at all.**
+2. **`_authed` and `_connected` were cleared only on a TCP disconnect** (`:197-204`), and
+   `needs_recycle()` (`:170-173`) asked **only** about the socket — so a dead session on a live
+   socket returned `False` for ever while every request was refused.
+3. **The socket never drops.** The installed `TcpProtocol` heartbeats by itself
+   (`def heartbeat` → `self.send(ProtoHeartbeatEvent(), True)`). No disconnect ever came to rescue it.
+
+**The trigger is routine, and documented in this repo.** Node refreshes the **shared** cTrader token
+(`routes.ts:2810-2820`, the same `refreshCTraderToken` that `autoSyncService.ts:88`/`:196` uses, on
+the same account row), and cTrader answers by ending that account's session on every other
+connection and pushing 2147 — `ctrader-open-api-apps.md:92`: *"Fires on: … token refreshed …"*.
+
+**This is the same root cause as D64, in a second process.** D64 was fixed in the signal scanner
+earlier the same day; this is the other place it lived. One of two is not a fix — see the
+"find EVERY enforcement point" rule.
+
+**It matches the recorded symptom exactly:** *"an empty executionLog means the engine never SAW the
+trade — look upstream at detection, not at the log"*, and his report that *"copy trading log is also
+not working"*. The log was right all along; it had nothing to report.
+
+#### What is NOT the cause — checked, so it is never chased again
+
+| theory | what the check showed |
+|---|---|
+| the engine is switched off | `COPY_ENGINE_ENABLED` is unset in production; `start.sh:46` defaults it **on** |
+| preview / dry-run mode | `COPY_DRY_RUN` is unset; `config.py:108` defaults it to `False` |
+| the encryption key is wrong | set, 44 chars, and the two production entries are just Coolify's live + preview scopes with **identical** values (compared by fingerprint) |
+| the order-placing side is broken | the executor builds a fresh connection and logs in again on **every** order (`executors/ctrader.py:226-236`) — wasteful, but it cannot go stale |
+| the two deliberate refusals | risk-% sizing with no stop loss, and the session filter, both write a SKIP row **with a reason**. They are visible, so they are not this silent failure |
+
+#### The fix — reuse the recovery that already existed
+
+The engine already recycles a provider every 90 seconds via `needs_recycle()`, and **the rebuild
+re-reads credentials from the database** (`engine.py:98-115` → `_load_masters` → `get_creds` at
+`:221`). That is the only path that actually recovers, because a live provider's `self.creds` is
+**stale** after a token refresh — a plain reconnect would reuse the dead token for ever. So the
+provider's only job is to admit the session is gone.
+
+- **`copy_platform/auth_loss.py`** (new, 66 lines) — which refusals mean "not logged in".
+- **`providers/ctrader.py`** — handles 2147/2164 (`_note_auth_lost`, logged at WARNING, once), reads
+  2142 and decides with `auth_loss.is_auth_failure`, and **ends the silence with an `else`** so no
+  message is ever dropped unnamed again. `needs_recycle()` now also fires when the login was lost,
+  or when the socket is up but the login chain never finished past a 120-second grace — the
+  "silently dead from the first second" case.
+- ⚠ **A refusal must never become a reconnect storm.** The 90-second supervisor is the brake and it
+  already existed; nothing here retries faster. Answering refusals with more connections is exactly
+  what built D63.
+- **Also closed, because this change would have multiplied it:** `stop()` ended the socket but not
+  the reconcile timer, which re-arms itself on the event loop — so every stopped provider left a
+  callback firing every 30 seconds for the life of the process. Harmless while recycling was rare;
+  not once a lost login causes one. `_stopped` now ends the chain.
+
+⚠ **ONE LIST, AND THE DRIFT IS MADE UNSHIPPABLE RATHER THAN IMPORTED.** The identical judgement
+lives in `signal_platform/data/ctrader_auth_state.py`. Importing it across the two platforms is the
+obvious way to keep one truth and is **exactly what must not be done** — they are separate processes
+started from separate directories (`start.sh:27` and `:52`), and a cross-platform import has already
+taken the whole order path down once (`ctrader_session.py:29-32`). So the values are duplicated and
+`tests/test_auth_loss.py` reads the other file and **fails if the two ever disagree** — including a
+check that both answer six real cases identically. A test-time dependency costs nothing in
+production; a runtime one has already cost an outage.
+
+**Measured:** `copy_platform/tests/run_all.py` — **16 files, 327 checks, all pass** (32 of them new).
+Proved to have teeth by sabotage: reverting `needs_recycle` to the old socket-only test fails 4 of
+them. The teeth that matter most are the ones asserting an **ordinary** refusal changes nothing —
+`REQUEST_FREQUENCY_EXCEEDED`, `CHANNEL_IS_BLOCKED`, `CONNECTIONS_LIMIT_EXCEEDED`,
+`SERVER_IS_UNDER_MAINTENANCE`, `ALREADY_LOGGED_IN`, and a rate limit whose own text says
+*"not authorized to send this often"*.
+
+#### ⚠ STILL OPEN — and this matters more than the code
+
+1. **I could not read production.** The permission gate refused it (*"Production Reads"*), so I have
+   **not** seen the live engine, its masters, its followers or its log.
+2. **It is not known whether anything is configured to copy at all.** The 02 Nov migration left the
+   database empty. With no master and no follower row the engine runs, finds nothing, logs nothing —
+   and behaves **identically** after this fix. **A code fix cannot conjure a configuration.** The one
+   call that settles it is already built: `GET /api/admin/copy/diagnostics` with `X-Admin-Secret`.
+3. **NOT PROVEN LIVE — and that is the only proof that counts.** Three fixes in a row have been
+   shipped to this engine and reported done on green checks, with nobody ever watching a copy
+   happen. The check: a real trade on the master must produce a **PLACED or OPEN row naming the
+   follower account**. A SKIP row instead means a gate refused it, and the row says which.
+
+#### Reported, not acted on
+
+- **`gateway.py` is dead code — 260 lines, imported only by `tests/test_scale.py`.** Nothing in
+  production uses it, and `add_handler` (`:235`) has **no caller at all**, so its handler list would
+  be empty even if it were wired. It was built to fix something real (its own note: the executor
+  downloads **1,941 symbols, 312 KB per order**) and it passes its tests. The dead-code rule says it
+  goes; the fact that it solves a real problem and works says wire it. **His call** — it is not why
+  copying fails.
+
+---
+
 ### C11 — The journal ticker's GBP/JPY price has NOT been checked against the broker. Found 2026-10-11
 
 **Where to look:** `client/src/components/TickerTape.tsx`, `signal_platform/data/price_publisher.py`,

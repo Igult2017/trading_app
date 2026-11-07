@@ -51,6 +51,12 @@ def make_provider() -> CTraderProvider:
     p._symbols = {1: "EURUSD"}
     p._authed = p._reconciled = p._reconcile_scheduled = p._connected = False
     p._disconnected_since = None
+    # The login's own state, separate from the socket's — see test_auth_loss.py. Set here because
+    # this builder stands in for __init__, and a field it forgets is an AttributeError in whichever
+    # method reads it next, not a visible failure here.
+    p._auth_lost = ""
+    p._connected_since = None
+    p._stopped = False
     p._loop = asyncio.new_event_loop()
     p.client = None
     return p

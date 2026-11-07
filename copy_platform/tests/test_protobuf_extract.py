@@ -108,11 +108,15 @@ for folder, _dirs, files in os.walk(ROOT):
                 bad.append(f"{os.path.relpath(path, ROOT)}: {m.group(0)}")
 
 s.check("every Protobuf.extract call passes exactly one argument", bad, [])
-# NINE SINCE 2026-09-26 — `gateway.py` reads `ProtoOAAccountAuthRes` to learn which account just
+# TEN SINCE 2026-11-07 — `providers/ctrader.py` now decodes `ProtoOAErrorRes` (2142) to read the
+# broker's real errorCode and description, which is how it tells "you are not logged in" from "you
+# are asking too often". Before that, 2142 was one of the messages the provider dropped in silence,
+# and that silence is what let the copier go deaf for ever with an empty log.
+# Nine since 2026-09-26 — `gateway.py` reads `ProtoOAAccountAuthRes` to learn which account just
 # authenticated on the shared connection. The count is a canary: it catches a call site QUIETLY
 # DISAPPEARING (a reply silently stopping being handled), which the one-argument rule above cannot
 # see. So it is updated deliberately when a real one is added, never to make a red suite green.
-s.check("...and all nine call sites are still present", total, 9)
+s.check("...and all ten call sites are still present", total, 10)
 
 
 # ── TEETH ───────────────────────────────────────────────────────────────────

@@ -27,6 +27,7 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
 from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT, RECONNECT_DELAY, \
     RECONCILE_INTERVAL
 
+import auth_loss
 import symbol_details
 from lot_calc import lots_from_volume
 
@@ -148,6 +149,14 @@ class CTraderProvider:
         self._reconcile_scheduled = False
         self._connected   = False
         self._disconnected_since: float | None = None
+        # WHY THE LOGIN NEEDS ITS OWN STATE, separate from the socket's. The socket being up was
+        # treated as proof we were logged in, and it is not: cTrader can end the account's session
+        # and leave the connection open. `_auth_lost` is the broker saying so; `_connected_since`
+        # is how the OTHER silent death is caught — a login chain that never finished at all, which
+        # also means the 30-second safety net never started.
+        self._auth_lost: str = ""
+        self._connected_since: float | None = None
+        self._stopped     = False
         self._loop        = asyncio.get_running_loop()
 
         # Only "demo" uses the demo gateway; live AND funded/prop accounts are live.
@@ -164,15 +173,60 @@ class CTraderProvider:
         self.client.startService()
 
     def stop(self) -> None:
+        # ⚠ MARK IT STOPPED FIRST. `stopService()` ends the socket but NOT the reconcile timer
+        # chain, which lives on the event loop and re-arms itself unconditionally — so every
+        # stopped provider used to leave a callback firing every 30 seconds for the life of the
+        # process, on an object nobody holds any more. That was survivable while recycling was
+        # rare; it is not now that a lost login causes one, so it is closed here rather than left
+        # as a leak this change would have multiplied.
+        self._stopped = True
         self.client.stopService()
 
-    def needs_recycle(self, max_down: float = 300.0) -> bool:
-        """True if disconnected longer than max_down — the engine supervisor recycles it."""
+    def needs_recycle(self, max_down: float = 300.0, max_unauthed: float = 120.0) -> bool:
+        """True when this provider must be torn down and rebuilt — the engine supervisor does it.
+
+        ⚠ THE SOCKET USED TO BE THE ONLY QUESTION ASKED, and that is what made the copier's silence
+        permanent. Three ways to be useless, not one:
+
+        1. The socket is down and has been for a while — the original test.
+        2. **The broker ENDED OUR SESSION while leaving the connection up.** Nothing here could see
+           that: `_connected` stays True, so this returned False for ever while every request was
+           refused and no trade was heard.
+        3. **The login chain never finished.** It is strictly sequential — each step is sent only
+           when the previous one succeeds (`_dispatch`) — so one refusal anywhere in it stops it
+           dead, AND `_reconcile_scheduled` is never set, so the 30-second safety net never starts.
+           Connected, not authenticated, nothing scheduled, nothing logged, for ever.
+
+        WHY A REBUILD AND NOT A RECONNECT. `self.creds` was read when this provider was built, and
+        after a token refresh it is STALE — reconnecting with it would fail identically, for ever.
+        The supervisor's rebuild goes back through `get_creds` and re-reads the live token from the
+        database (`engine.py:221`), which is the only path that actually recovers.
+
+        ⚠ The supervisor's 90-second interval IS the brake on this. Nothing here may retry faster:
+        answering a refusal with more connections is exactly what built the rate-limit storm (D63).
+        """
+        if self._auth_lost:
+            return True
+        if (self._connected and not self._authed and self._connected_since is not None
+                and (time.monotonic() - self._connected_since) > max_unauthed):
+            return True
         return (not self._connected and self._disconnected_since is not None
                 and (time.monotonic() - self._disconnected_since) > max_down)
 
+    def _note_auth_lost(self, reason: str) -> None:
+        """The broker says we are not logged in. Recorded once, loudly; the supervisor acts on it."""
+        if self._auth_lost:
+            return                      # already known — do not repeat it every 30 seconds
+        self._auth_lost = reason
+        self._authed = False
+        log.warning(f"[{self.master_id}] LOGIN LOST — {reason}. The connection is still open but the "
+                    f"broker is no longer answering for this account; the supervisor will rebuild "
+                    f"this provider with a freshly-read token.")
+
     def _request_reconcile(self) -> None:
         """Periodic safety net — re-fetch open positions to catch missed closes."""
+        if self._stopped:
+            return          # the chain ends here; this provider has been replaced
         if self._authed:
             try:
                 req = ProtoOAReconcileReq()
@@ -187,6 +241,7 @@ class CTraderProvider:
     def _on_connected(self, client):
         self._connected = True
         self._disconnected_since = None
+        self._connected_since = time.monotonic()   # starts the clock on "did the login finish?"
         from config import ctrader_app_creds
         cid, csec = ctrader_app_creds(self.creds)   # the app that issued THIS account's tokens
         req = ProtoOAApplicationAuthReq()
@@ -350,6 +405,35 @@ class CTraderProvider:
         elif ptype == ProtoOAExecutionEvent().payloadType:
             event = Protobuf.extract(message)
             asyncio.ensure_future(self._handle_execution(event))
+
+        # ── THE END OF THE SILENCE (added 2026-11-07) ───────────────────────────────────────────
+        # This chain used to STOP HERE, with no `else`. Every other message the broker sent was
+        # dropped without even a debug line — including the two that announce the end of a session
+        # and the refusal that follows every request afterwards. That is why the copier could go
+        # deaf for ever with an empty log, and why the log looked broken when it was merely correct
+        # and had nothing to report.
+        elif ptype in (auth_loss.PT_TOKEN_INVALIDATED, auth_loss.PT_ACCOUNT_DISCONNECT):
+            name = ("token invalidated" if ptype == auth_loss.PT_TOKEN_INVALIDATED
+                    else "account disconnected")
+            self._note_auth_lost(f"broker pushed {name} ({ptype})")
+
+        elif ptype == auth_loss.PT_OA_ERROR:
+            # A refusal can say the same thing as those pushes, and in production that is how it
+            # showed up at all: errorCode='INVALID_REQUEST' desc='Trading account is not authorized'.
+            # ⚠ Only a LOGIN failure triggers a rebuild — a rate limit must not (see auth_loss.NEVER).
+            res = Protobuf.extract(message)
+            code = getattr(res, "errorCode", "") or ""
+            desc = getattr(res, "description", "") or ""
+            if auth_loss.is_auth_failure(code, desc):
+                self._note_auth_lost(f"broker refused: {code!r} {desc!r}")
+            else:
+                log.warning(f"[{self.master_id}] broker error {code!r}: {desc!r} "
+                            f"(not a login failure — connection kept)")
+
+        else:
+            # Named, not silent. Debug level because the ordinary push traffic is heavy and this is
+            # a diagnostic of last resort, not a running commentary.
+            log.debug(f"[{self.master_id}] unhandled message type {ptype}")
 
     # ── Event handling ─────────────────────────────────────────────────────────
 
