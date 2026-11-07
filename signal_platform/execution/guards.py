@@ -131,9 +131,15 @@ def check(symbol: str, direction: str, strategy: str,
                     f"{', '.join(sorted(active - {'all'})) or 'none'}; allowed: "
                     f"{', '.join(sorted(wanted))}")
 
-    # 5. SIZE. 0.0 means sizing could not be done honestly (no equity, no stop). Never guess.
+    # 5. SIZE. 0.0 means sizing could not be done honestly. Never guess.
+    #
+    # THERE ARE NOW THREE WAYS TO GET HERE, and the message names all of them because a refusal that
+    # blames the wrong thing sends the next session to the wrong file. The third one is new (2026-11-08):
+    # a yen-quoted pair prices a pip in yen, so sizing it needs a live USD/JPY rate, and without one
+    # `pip_value_per_lot` returns None rather than pricing the pip at the old dollar default.
     if lots <= 0:
-        return "no honest size (equity or stop distance missing)"
+        return ("no honest size — the starting balance, the stop distance, or the conversion rate "
+                "needed to price a pip was missing")
     if equity <= 0:
         return "account equity unknown"
 

@@ -1679,6 +1679,141 @@ that touches who can become admin, so it gets looked at rather than assumed.
 
 ## D. cTrader & copy trading
 
+### D65 — a pip was priced at $10 on every instrument, so yen trades risked $132 when $200 was asked. FIXED 2026-11-08
+
+**He reported, 2026-11-08:** *"The Autotrader can effectively place trades. However, i have one
+problem. The entries dont adjust according to the market … sometimes a risk of 200 dollars can only
+buy 1.2 lots for me to have a proper stop loss room when I trade manually … But when i use
+autotrade, it does not adopt to these leading to small SL and being hit in the market where i was
+not supposed to or sometimes having a big SL unnecessarily."* And: *"check the latest trades i placed
+manually in that account that autotrader was trading in."*
+
+#### THE DEFECT, and it is arithmetic
+
+`sizing.size_lots` took `pip_value_per_lot: float = 10.0` and `conversion_rate: float = 1.0` **as
+defaults, and nothing in the platform ever computed either one.** The only production path —
+`placer.py:85` → `plan_size` → `sizing.py:208` — passed neither, so the $10 stood for every symbol.
+The account is US dollars (deposit asset id 15, confirmed against the live account).
+
+| symbol | contract × pip | true $/pip/lot | assumed | risk when $200 was asked |
+|---|---|---|---|---|
+| EUR/USD | 100,000 × 0.0001 | 10.00 | 10.00 | $200 ✓ |
+| GBP/USD | 100,000 × 0.0001 | 10.00 | 10.00 | $200 ✓ |
+| XAU/USD | 100 oz × 0.1 | 10.00 | 10.00 | $200 ✓ |
+| **GBP/JPY** | 100,000 × 0.01 = **¥1,000** | **6.62** | 10.00 | **$132 — 34% under** |
+| **USD/JPY** | 100,000 × 0.01 = **¥1,000** | **6.62** | 10.00 | **$132 — 34% under** |
+
+A yen pair is quoted in **yen**, so a pip is worth a thousand yen a lot and must be converted.
+**Both strategies trade a yen pair** (VIX.1 has GBP/JPY, BX-S/D has USD/JPY and GBP/JPY).
+
+⚠ **The VIX.1 doc predicted this when GBP/JPY was added on 2026-10-05:** *"FOR WHEN AUTOTRADE
+RETURNS: sizing IS pip-denominated, so the first real GBP/JPY order wants checking by hand."* Nobody
+checked it by hand. This entry is that check.
+
+**Fixed:** new `execution/pip_value.py` (94 lines) — `pip_value_per_lot(symbol, usd_jpy)` =
+contract × pip, converted when the quote currency is not USD; `quote_currency()` reads the second
+half of the pair instead of assuming; `needs_rate()` lets a caller skip the lookup for dollar-quoted
+pairs. It lives apart from `sizing.py` because that file was already 211 lines, over the limit, and
+because pure arithmetic is the part worth testing on its own.
+
+⚠ **It REFUSES rather than guessing.** `None` means "cannot be priced honestly" and `plan_size`
+turns that into **0 lots**, which the guard already treats as skip — the same contract
+`contract_size_for` states in its own words (*"NONE IS THE POINT OF THIS FUNCTION"*). Falling back
+to a plausible default **is** the bug.
+
+**The rate costs no broker request:** `data/fix_wire.py:25` already streams USD/JPY for the journal's
+price band, so `placer._usd_jpy_for` reads the FIX book first and asks the Open API only when FIX is
+quiet — and returns `None` without asking anything at all for the three dollar-quoted symbols, so a
+silent feed can never hold up a EUR/USD order.
+
+**Also corrected:** `guards.py` rule 5 said *"no honest size (equity or stop distance missing)"*.
+There are now **three** ways to get there, and a refusal that blames the wrong thing sends the next
+session to the wrong file, so it names all three including the missing conversion rate.
+
+**Measured:** `tests/test_pip_value.py` — **33 checks, all pass**. The ones that matter most are the
+three instruments that are already correct returning **exactly 10.0**, because real money is sized by
+them. End to end: a 10-pip GBP/JPY stop at $200 of intended risk now sizes **3.02 lots and really
+costs $200**, where the old code sized 2.00 lots and really cost **$132.45**. Proved to have teeth by
+sabotage — reinstating the dollar fallback fails **8** of the 33. `test_order_volume.py` (55),
+`test_autotrade_sessions.py` (17), `test_autotrade_dm.py` (60) and `test_execution_placement.py` (35)
+all still green.
+
+⚠ **This makes yen positions about 1.51× bigger.** It corrects an under-risk toward the 2% that was
+asked for, but it is a real change in size. Autotrade is OFF (`AUTOTRADE_ENABLED=false`), so nothing
+places until it is switched on.
+
+#### HIS REAL TRADES — what they actually show, and where I was wrong
+
+He pointed at the account himself (login 5296567) after I wrongly said it was not his. **It is.** My
+deal query only covered the last 30 days; his trades are from **23 September**. And the
+`balanceVersion: 8` I dismissed **is** his 8 balance changes.
+
+| | XAU/USD | GBP/USD |
+|---|---|---|
+| size | **1.00 lot** sell | **1.00 lot** sell |
+| entry | STOP order 4319.96 → filled 4319.92, 08:07:11 UTC | market 1.32851, 10:02:24 UTC |
+| stop | **4324.50** → $4.58 → 45.8 pips | moved to 1.32831 (+2 pips) |
+| risk on 1 lot | **$458 = 4.42%** of the $10,370.87 account | unknown — the stop was moved |
+| exit | three parts: 4319.40 / 4315.48 / 4310.91 | +2.2 pips, four laddered take-profits |
+
+⚠ **The two EUR/USD trades in that account are MINE, not his** — labels
+`routing-proof-shared-socket` and `gate-probe`, comment *"routing evidence probe"*, 0.01 lots, closed
+within seconds. Leftovers from the cTrader scaling verification (D63). Do not read them as his.
+
+⚠ **The GBP/USD original stop is not recoverable** — the ladder moved it to +2 pips, exactly the trap
+`MAP.md:176` records: *"the risk is the stop the trade was PLACED with, never the one it closed
+on."* Gold is the only trade of his with a measurable original stop.
+
+#### The stop-distance gap, measured in the constant's own unit — and a correction to my own estimate
+
+The knob is `_SL_LINE_GAP_BODY = 0.30` (`vix1_entry.py:93`), whose own comment says *"⚠ FITTED TO TWO
+TRADES, AND THAT IS NOT A MEASUREMENT … 'what he actually does', not 'what measured best'."*
+
+His gold fill at 08:07 followed the **07:00 1-hour candle**: open 4331.22, close 4319.69 — body
+**11.53**, range 14.07 (broker bars, scaled by the fixed 1e5 the project already documents at
+`ctrader_client.py:112-117`).
+
+| | stop beyond the reference |
+|---|---|
+| **his trade** | **0.397 × body** (4.58) |
+| the code's constant | **0.30 × body** (3.46) |
+
+So on this trade the code would have left about **1.12 less room — $112 a lot on gold**, roughly
+**1.3× tighter**. That is the direction he describes.
+
+⚠ **I FIRST ESTIMATED 1.7×–2.9× AND THAT OVERSTATED IT.** That figure compared his gold stop as a
+share of price (0.106%) against VIX.1's measured stops on **currency pairs** (0.037% median, 0.063%
+p90) — different instruments, so the momentum candle differs and the comparison inflates. Measured in
+the constant's own unit on his own trade the gap is about a third of what I claimed. The honest
+number is 1.3×, and the earlier one is withdrawn.
+
+⚠ **Also not comparable exactly:** 0.30 is measured from **the line**, his 0.397 from **the fill**.
+They differ by however far the fill sat from the line; the momentum candle closed at 4319.69 against
+a 4319.92 fill, so they are close here, but the distinction is real and `vix1_entry.py:185-188`
+records why it matters.
+
+#### ⚠ STILL OPEN — two numbers that are HIS, and one measurement that needs approval
+
+1. **The stop multiple.** One trade is not a calibration — fitting 0.30 to two trades is exactly how
+   this got here. Changing it needs his ruling, and validating a new value against the 222-fill
+   history is a **backtest** and needs separate approval.
+2. **The risk percent.** He risked **4.42%** on gold; autotrade is pinned at **2.00%** of the
+   starting balance on his own instruction of 2026-09-03 (*"static 2% of the starting account
+   balance"*). **Even with a perfect stop the bot's position will be less than half his** until that
+   number changes. `autotrade_risk_pct` — his call, not to be moved quietly.
+
+#### What was ALREADY built — so it is not rebuilt on a recommendation
+
+Three of the five things a ChatGPT answer he pasted recommended already exist: **market-based stops**
+(`vix1_entry.py:176-194` — the further of the line minus 0.30 × the momentum body and the anchor
+minus 0.5 × the 1-minute range), **dynamic sizing** (5.9-pip stop → 3.39 lots, 11.8-pip → 1.69 lots,
+asserted in its own checks), and **broker-read contract size and precision** (`MAP.md:277`). Its
+fourth, **live spread checks**, is one **he had removed** on 2026-09-26 — *"Can you first remove that
+spread gate"* — and `guards.py:169-185` records it measured +13.0R against −21.6R. Do not re-add it
+without his word.
+
+---
+
 ### D64 — ✅ FIXED IN CODE 2026-11-07 (the market is shut, so the proof is pending). The scanner lost its broker login and never asked for it back — 1,556 refusals in 48 minutes
 
 **Verified 2026-11-07** in the production container log. One line, repeating every two seconds,

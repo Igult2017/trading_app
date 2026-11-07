@@ -189,7 +189,8 @@ def size_lots(equity: float, risk_pct: float, stop_pips: float,
 
 def plan_size(equity: float, entry: float, stop: float, symbol: str,
               risk_pct: float, fixed_lots: float = 0.0,
-              max_lots: float = 5.0) -> tuple[float, int, float]:
+              max_lots: float = 5.0,
+              usd_jpy: float | None = None) -> tuple[float, int, float]:
     """(lots, volume, stop_pips) for one signal.
 
     `equity` here is THE RISK BASE, which since 2026-09-03 is the account's STARTING balance and not
@@ -205,7 +206,16 @@ def plan_size(equity: float, entry: float, stop: float, symbol: str,
     if fixed_lots and fixed_lots > 0:
         lots = round(max(MIN_LOTS, min(max_lots, fixed_lots)), 2)
     else:
-        lots = size_lots(equity, risk_pct, pips, max_lots=max_lots)
+        # WHAT A PIP IS ACTUALLY WORTH, per instrument — not the $10 that used to be assumed for
+        # everything. Right for the three dollar-quoted symbols, and 34% wrong for the two yen ones:
+        # a pip of GBP/JPY is Y1,000 a lot, about $6.62, so a trade meant to risk $200 risked $132.
+        # `None` means it cannot be priced honestly, and 0 lots is how this function already says
+        # SKIP — the caller must never fall back to a default, which is the bug being fixed.
+        from execution.pip_value import pip_value_per_lot
+        pv = pip_value_per_lot(symbol, usd_jpy=usd_jpy)
+        if pv is None:
+            return 0.0, 0, pips
+        lots = size_lots(equity, risk_pct, pips, pip_value_per_lot=pv, max_lots=max_lots)
     # THE SYMBOL IS PASSED, so a gold lot is 100 ounces and not 100,000 units. Without it this
     # returned a volume 1,000x too large for metals and the broker refused the order.
     return lots, lots_to_volume(lots, symbol), pips

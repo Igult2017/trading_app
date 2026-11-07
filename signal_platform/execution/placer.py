@@ -45,6 +45,41 @@ async def _tell(notify, message: str | None) -> None:
     await safe_notify.tell(notify, message)
 
 
+async def _usd_jpy_for(symbol: str) -> float | None:
+    """The live USD/JPY price, but ONLY when the symbol being sized needs it.
+
+    A yen-quoted pair prices a pip in yen (Y1,000 a lot), so turning that into the account's dollars
+    needs this rate. The three dollar-quoted symbols need nothing, and this returns None for them
+    WITHOUT asking anything — so a silent feed can never hold up a EUR/USD order.
+
+    THE RATE IS ALREADY ON THE WIRE: `data/fix_wire.SYMBOL_IDS` streams "USD/JPY" for the journal's
+    price band, so the FIX book usually has it with no broker request at all. The Open API is the
+    fallback for when FIX is quiet, which is the division of labour the platform already follows.
+
+    Never raises. None means "unpriceable", and `plan_size` turns that into 0 lots, which the guard
+    below already refuses — the one thing that must not happen is falling back to a dollar default.
+    """
+    from execution.pip_value import needs_rate
+    if not needs_rate(symbol):
+        return None
+    try:
+        from data import fix_quotes
+        q = fix_quotes.live_quote("USD/JPY")
+        if q and q[0] and q[1] and q[1] > q[0]:
+            return (q[0] + q[1]) / 2.0
+    except Exception as exc:
+        log.warning(f"[execution] FIX had no USD/JPY ({type(exc).__name__}: {exc}) — asking the broker")
+    try:
+        from data import ctrader_spread
+        q = await ctrader_spread.quote_for("USD/JPY")
+        if q and q[0] and q[1] and q[1] > q[0]:
+            return (q[0] + q[1]) / 2.0
+    except Exception as exc:
+        log.warning(f"[execution] could not read USD/JPY to price a yen pip: "
+                    f"{type(exc).__name__}: {exc}")
+    return None
+
+
 async def _live_book():
     """(open positions, resting order ids) from the broker, or None when that cannot be read.
 
@@ -86,7 +121,10 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
             equity=risk_base, entry=entry, stop=sl, symbol=symbol,
             risk_pct=settings.autotrade_risk_pct,
             fixed_lots=settings.autotrade_fixed_lots,
-            max_lots=settings.autotrade_max_lots)
+            max_lots=settings.autotrade_max_lots,
+            # Only fetched for a yen-quoted pair; None for the dollar-quoted three, which need no
+            # conversion and so cannot be held up by a quiet feed.
+            usd_jpy=await _usd_jpy_for(symbol))
 
         if not risk_base and not settings.autotrade_fixed_lots:
             log.error(f"[execution] NOT placing {symbol} {side} — the account's STARTING balance is "
