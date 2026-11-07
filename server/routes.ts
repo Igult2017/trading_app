@@ -13,6 +13,7 @@ import { cacheGet, cacheSet, cacheDel, userSessionKey,
 import { EDIT_LOCK_KEY, EDIT_LOCKABLE_ALL } from "./services/autoJournal";
 import { deleteJournalEntryFully } from "./lib/journalDelete";
 import { accountTypeEdit } from "./lib/accountFilters";
+import { decideRole, describeDecision } from "./lib/adminRole";
 import { asDateKey, filterEntriesByPeriod } from "./lib/periodFilter";
 import { canonicalSession } from "../shared/sessions";
 import { db, pool } from "./db";
@@ -6144,6 +6145,12 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
   //   1. ADMIN_EMAIL env var — explicit, zero race condition.
   //   2. Atomic DB check: if no admin exists yet → first registrant becomes admin.
   //   3. Everyone else → 'user'.
+  // Latches true the first time any administrator is seen, so the "nobody is admin" recovery costs
+  // at most ONE locked count per process instead of one per login. Deliberately one-way: it can
+  // only ever stop the recovery firing, never start it, which is the safe direction for a rule that
+  // hands out admin. A restart re-checks.
+  let adminExists = false;
+
   // ── Local admin login (fallback when Supabase is not configured) ────────────
   app.post("/api/auth/local-login", async (req: Request, res: Response) => {
     const adminEmail  = process.env.ADMIN_EMAIL;
@@ -6182,16 +6189,65 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
 
       if (existing.length > 0) {
         let existingRole = existing[0].role as 'admin' | 'user';
-        // Self-heal: if this IS the configured ADMIN_EMAIL but the stored role drifted to
-        // 'user' (profile created before ADMIN_EMAIL was set, or the env changed), promote
-        // it now. Without this an existing admin can never regain admin — the ADMIN_EMAIL
-        // check below only runs for brand-NEW profiles, so each login keeps returning 'user'
-        // (and re-syncs app_metadata down to 'user'), locking the admin out of /admin.
-        const adminEmailEnv = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-        if (adminEmailEnv && (authUser.email ?? '').trim().toLowerCase() === adminEmailEnv && existingRole !== 'admin') {
-          await db.update(userProfiles).set({ role: 'admin' }).where(eq(userProfiles.id, authUser.id));
-          existingRole = 'admin';
-          console.log('[Auth/setup] promoted existing ADMIN_EMAIL profile to admin', { id: authUser.id });
+        // ── CAN THIS ACCOUNT BE ADMIN? (rewritten 2026-11-08) ─────────────────────────────────
+        // THE DEFECT THIS FIXES. Only ONE rule used to run here: "promote if the email matches
+        // ADMIN_EMAIL". Production did not have ADMIN_EMAIL set, so henryantipas@gmail.com sat on
+        // `role: 'user'` through every single login while /admin answered 403 — and there was no
+        // other way back in, because the app's OTHER rule ("if nobody is admin, let someone become
+        // admin") ran for brand-NEW profiles only. The 02 Nov migration emptied the database;
+        // profiles came back and the admin row did not, which is exactly the state that rule exists
+        // for, and it was unreachable.
+        //
+        // `decideRole` now answers both, in one place that has tests (`lib/adminRole.ts`).
+        //
+        // ⚠ AND IT MUST NOT COST A ROW LOCK ON EVERY LOGIN. A first version of this took a
+        // `SELECT … FOR UPDATE` transaction on every single sign-in, which would have serialised
+        // logins behind a lock — a real regression on a path that is already carrying +0.25s from
+        // `verifyToken`. `adminExists` latches the moment any administrator is seen, so the count
+        // runs at most once per process and never again. The latch only ever makes the recovery
+        // LESS likely to fire, which is the safe direction for a rule that grants admin: if the
+        // last admin were deleted while the process ran, recovery waits for a restart rather than
+        // arming itself behind our back.
+        const base = {
+          email:      authUser.email,
+          adminEmail: process.env.ADMIN_EMAIL,
+          existingRole,
+        };
+        let decision = decideRole({ ...base, adminCount: 1 });   // 1 = "an admin exists"
+        if (!decision.promoted && existingRole !== 'admin' && !adminExists) {
+          // The only rule left is the recovery, and that one genuinely needs the count. Read it in
+          // the SAME transaction as the write, under `FOR UPDATE`, so two simultaneous sign-ins
+          // cannot both see zero and both become admin.
+          decision = await db.transaction(async (tx) => {
+            const counted = await tx.execute(
+              drizzleSql`SELECT COUNT(*)::int AS cnt FROM user_profiles WHERE role = 'admin' FOR UPDATE`
+            );
+            const adminCount = Number((counted.rows?.[0] as any)?.cnt ?? 0);
+            if (adminCount > 0) adminExists = true;
+            const d = decideRole({ ...base, adminCount });
+            if (d.promoted) {
+              await tx.update(userProfiles).set({ role: d.role }).where(eq(userProfiles.id, authUser.id));
+            }
+            return d;
+          });
+        } else if (decision.promoted) {
+          // The named-admin promotion is deterministic — no count, no race, no lock needed.
+          await db.update(userProfiles).set({ role: decision.role }).where(eq(userProfiles.id, authUser.id));
+        }
+        if (decision.role === 'admin') adminExists = true;
+        if (decision.promoted) {
+          existingRole = decision.role;
+          // ⚠ A PROMOTION IS A SECURITY EVENT AND IS NEVER SILENT. The log says which rule fired,
+          // and the admins get a notification — so a `bootstrap` promotion (the only rule that can
+          // hand admin to someone nobody named) cannot happen unnoticed.
+          console.warn('[Auth/setup] PROMOTED existing profile —', describeDecision(decision),
+                       { id: authUser.id, email: authUser.email ?? null });
+          createAdminNotification({
+            category: 'signup',
+            title: 'An account was promoted to admin',
+            body: `${authUser.email || 'Unknown email'} — ${describeDecision(decision)}`,
+            meta: { userId: authUser.id, email: authUser.email ?? null, reason: decision.reason },
+          }).catch(() => {});
         }
         console.log('[Auth/setup] existing profile found', { id: authUser.id, role: existingRole });
         // Sync Supabase app_metadata so the client JWT stays accurate: ONLY WHEN IT IS WRONG
@@ -6206,24 +6262,31 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       }
 
       // ── 2. New user — determine role atomically ───────────────────────────
+      // ⚠ THE SAME `decideRole` AS THE EXISTING-PROFILE BRANCH ABOVE, deliberately. This path used
+      // to carry its own copy of the rule, and that is how the two drifted apart in the first
+      // place: the new-user copy knew about "nobody is admin yet" and the existing-profile copy did
+      // not, which is what locked the admin out with no way back. Two implementations of one
+      // security rule cannot be kept in step, and the drift is silent.
       const email = authUser.email ?? '';
-      let assignedRole: 'admin' | 'user' = 'user';
-
-      const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-      if (adminEmail && email.toLowerCase() === adminEmail) {
-        // Explicit env-var admin — no DB query needed, no race condition.
-        assignedRole = 'admin';
-      } else {
-        // Atomic check: promote first registrant to admin using FOR UPDATE lock
-        // so two simultaneous sign-ups cannot both pass the zero-admin check.
-        await db.transaction(async (tx) => {
-          const countResult = await tx.execute(
-            drizzleSql`SELECT COUNT(*)::int AS cnt FROM user_profiles WHERE role = 'admin' FOR UPDATE`
-          );
-          const adminCount = (countResult.rows?.[0] as any)?.cnt ?? 0;
-          console.log('[Auth/setup] admin count', { adminCount });
-          if (Number(adminCount) === 0) assignedRole = 'admin';
+      const newDecision = await db.transaction(async (tx) => {
+        const countResult = await tx.execute(
+          drizzleSql`SELECT COUNT(*)::int AS cnt FROM user_profiles WHERE role = 'admin' FOR UPDATE`
+        );
+        const adminCount = Number((countResult.rows?.[0] as any)?.cnt ?? 0);
+        if (adminCount > 0) adminExists = true;
+        console.log('[Auth/setup] admin count', { adminCount });
+        return decideRole({
+          email,
+          adminEmail:   process.env.ADMIN_EMAIL,
+          existingRole: null,          // brand-new profile
+          adminCount,
         });
+      });
+      const assignedRole: 'admin' | 'user' = newDecision.role;
+      if (assignedRole === 'admin') {
+        adminExists = true;
+        console.warn('[Auth/setup] NEW profile is admin —', describeDecision(newDecision),
+                     { id: authUser.id, email });
       }
 
       // ── 3. Insert the profile ─────────────────────────────────────────────
@@ -6314,6 +6377,21 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       .limit(1);
 
     if (!profile.length || profile[0].role !== 'admin') {
+      // ⚠ SAY WHY, HERE, WHERE IT ACTUALLY BITES. `logServiceStatus()` already reports
+      // "Admin login (ADMIN_EMAIL + ADMIN_SECRET)" as MISSING and it does run — but only ONCE at
+      // boot (`index.prod.ts:53`), and the container log rolls past it within hours. So the one
+      // clue to a locked-out administrator was invisible exactly when someone needed it: production
+      // answered 403 to henryantipas@gmail.com with nothing anywhere explaining that the setting
+      // which would have let him in was simply absent.
+      //
+      // ⚠ THE LOG ONLY — never the response body. Telling a caller which settings are unset is
+      // information disclosure, and this endpoint answers unauthenticated requests too.
+      if (!process.env.ADMIN_EMAIL?.trim()) {
+        console.warn('[Admin] refused a signed-in account and ADMIN_EMAIL is NOT SET — nothing can '
+                   + 'promote anyone while no administrator exists. Set ADMIN_EMAIL and sign in again.',
+                     { id: authUser.id, email: authUser.email ?? null,
+                       storedRole: profile[0]?.role ?? 'no profile' });
+      }
       return res.status(403).json({ error: "Forbidden — admins only" });
     }
 

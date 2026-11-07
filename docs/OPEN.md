@@ -1594,6 +1594,89 @@ test proving the process count returns to zero.
 
 ---
 
+### C16 — He was locked out of /admin and NOTHING in production could let him back in. FIXED 2026-11-08
+
+**He reported:** *"That admin email is not loging me in to admin. I think something is broken."*
+
+**He was signed in the whole time.** Nothing was crashing. His account was recorded as a normal user
+and production had no way to change that, so every login returned the same answer. Measured from the
+live container log, his 14:39:54 login on 07 Nov:
+
+    [Auth/setup] start { id: '0a96e6d3-1547-4192-b567-ff57ffed26e8', email: 'henryantipas@gmail.com' }
+    [Auth/setup] existing profile found { id: '0a96e6d3-…', role: 'user' }
+    POST /api/auth/setup 200 :: {"role":"user"}
+    GET /api/admin/users 403 :: {"error":"Forbidden — admins only"}
+    GET /api/admin/stats 403
+
+#### The root cause — two rules, and the one that mattered was unreachable
+
+There were two ways to become admin, and they had **drifted apart because each path carried its own
+copy of the rule**:
+
+| rule | where | reached an EXISTING profile? |
+|---|---|---|
+| email matches `ADMIN_EMAIL` | `routes.ts:6190` (existing), `:6212` (new) | only while that setting exists |
+| **first person in, when NOBODY is admin** — an atomic locked count | `routes.ts:6218-6224` | **no — brand-new profiles only** |
+
+**`ADMIN_EMAIL` was not set in production** (confirmed twice against the live environment; all 74
+variables listed, it was absent). So for an account that already had a profile, the only available
+rule could not fire — and the app's own recovery rule, *if nobody is admin let someone become
+admin*, was written for exactly this situation and was out of reach.
+
+**That is precisely the state the 02 Nov migration created:** the database was emptied, profiles came
+back, and the admin row did not.
+
+The comment above the broken path had predicted it word for word: *"an existing admin can never
+regain admin — the ADMIN_EMAIL check below only runs for brand-NEW profiles, so each login keeps
+returning 'user' … locking the admin out of /admin."*
+
+#### Fixed, in three parts
+
+**1. The setting.** `ADMIN_EMAIL=henryantipas@gmail.com` in Coolify, read back afterwards to confirm
+it stored clean — no stray quotes, no whitespace, both the live and preview scopes (`is_literal`
+false; a `true` there has previously stored the quotes and crashed boot).
+
+**2. One rule, in one tested place.** `server/lib/adminRole.ts` (`decideRole`) now answers it for
+**both** paths. The two copies are gone — *"two implementations of one security rule cannot be kept
+in step, and the drift is silent"* is the whole lesson of this defect. The recovery rule now reaches
+an existing profile, which is what makes a lost admin row survivable without the setting.
+
+⚠ **THE SECURITY BOUNDARY:** nobody is promoted while an administrator already exists. The only rule
+that can hand admin to someone unnamed requires the count to be **zero** — i.e. the system is already
+unadministerable. That bootstrap risk was already accepted here for new sign-ups; this made it
+consistent rather than dependent on whether a profile row happens to exist. It **cannot** widen
+access on a system that has an administrator. A promotion is logged at WARNING **and** raised as an
+admin notification, so the unnamed case can never happen quietly.
+
+**3. It says why, where it bites.** `logServiceStatus()` already reported
+`Admin login (ADMIN_EMAIL + ADMIN_SECRET)` as MISSING and it **does** run — unconditionally at boot
+(`index.prod.ts:53`). But it is a **one-shot boot message** and the container log rolls past it within
+hours, so the one clue was invisible exactly when someone was locked out. The refusal itself
+(`routes.ts:6316`) now says so. ⚠ **Server log only** — naming unset settings to a caller is
+information disclosure, and that endpoint answers unauthenticated requests too.
+
+#### A regression I caught in my own change, before it shipped
+
+The first version took a `SELECT … FOR UPDATE` transaction **on every single login**, which would
+have serialised sign-ins behind a row lock — a real cost on a path already carrying +0.25s from
+`verifyToken` (`project-login-logout-speed`). An `adminExists` latch now means the count runs at most
+**once per process**. Deliberately one-way: it can only ever stop the recovery firing, never start
+it, which is the safe direction for a rule that grants admin. If the last admin were deleted
+mid-process, recovery waits for a restart rather than arming itself unnoticed.
+
+**Measured:** `npx tsx server/lib/adminRole.test.ts` — **21 checks, all pass**; `npx tsc --noEmit`
+clean; all 7 `server/lib/*.test.ts` and all 7 `server/services/__tests__` still pass. Proved to have
+teeth by sabotage: loosening the zero-admin guard to `adminCount >= 0` fails **11** of the 21,
+including every one of the six "an ordinary account stays a user" checks.
+
+#### ⚠ STILL TO CHECK — one thing, and it needs him
+
+**Look at `GET /api/admin/users` for any admin he does not recognise.** That table has never been
+readable from here, so what the 02 Nov migration left behind is **unknown**. This is the one change
+that touches who can become admin, so it gets looked at rather than assumed.
+
+---
+
 ## D. cTrader & copy trading
 
 ### D64 — ✅ FIXED IN CODE 2026-11-07 (the market is shut, so the proof is pending). The scanner lost its broker login and never asked for it back — 1,556 refusals in 48 minutes
