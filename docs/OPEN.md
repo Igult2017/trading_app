@@ -1596,6 +1596,131 @@ test proving the process count returns to zero.
 
 ## D. cTrader & copy trading
 
+### D64 — ✅ FIXED IN CODE 2026-11-07 (the market is shut, so the proof is pending). The scanner lost its broker login and never asked for it back — 1,556 refusals in 48 minutes
+
+**Verified 2026-11-07** in the production container log. One line, repeating every two seconds,
+continuously from 12:05 to 12:53 and still going when I stopped reading:
+
+    [ctrader_positions] broker answered 2142
+      (ProtoOAErrorRes code='INVALID_REQUEST' desc='Trading account is not authorized')
+
+In plain terms: **the broker had ended the scanner's login on that connection, and nothing in the
+scanner noticed or asked to log in again.** Every request it made for 48 minutes was refused, and it
+would have stayed refused until the process restarted.
+
+**This is NOT D63.** D63 is the Node side being *rate limited* — told "you are asking too often".
+This is the Python scanner being told "I do not know who you are". Different process, different
+message, opposite remedy: D63's cure was to make fewer connections, this one's is to make a new one.
+Answering this fault the way D63 was answered would have rebuilt D63's storm.
+
+#### The chain, every link read in the live code
+
+| # | What happens | Where |
+|---|---|---|
+| 1 | Node refreshes the **shared** cTrader token for the very account the scanner logs in as | `routes.ts:2810-2820` (`ctraderCredsFor` → `refreshCTraderToken`, the same refresher `autoSyncService.ts:88`/`:196` uses) |
+| 2 | cTrader then ends that account's session on every OTHER connection and pushes `ProtoOAAccountsTokenInvalidatedEvent` | our own note already said so: `ctrader-open-api-apps.md:92` — *"Fires on: … token refreshed …"* |
+| 3 | **Python threw that notice away** — `recv_expect` returned only the reply it asked for plus the two error types, and skipped everything else with a `log.debug`, invisible at the INFO level production runs at | `ctrader_session.py:202-207` (before this fix) |
+| 4 | **An open socket was treated as a logged-in session.** `if _writer is not None and not _writer.is_closing(): return` — it re-authenticated only when the socket was CLOSED, and losing the login does not close it | `ctrader_session.py:231-232` (before this fix) |
+| 5 | Every request after that was refused | — |
+| 6 | **Nothing recovered.** A search for `reset_connection` over the whole signal platform returned **three** lines — the definition and two *exception* paths in the candle fetcher — so an error **reply** never reset anything, anywhere | `ctrader_client.py:161`, `:180` |
+
+Measured, not assumed — who recovered from an error reply before this fix:
+
+| module | asks for | reset on an error reply? |
+|---|---|---|
+| `ctrader_client.py` | candles | **no** — `:164-167` raises; its two resets are for exceptions and misalignment |
+| `ctrader_positions.py` | reconcile, deals | **no** — `:157-160` logged and returned `None` |
+| `ctrader_spread.py` | quote | **no** |
+| `ctrader_orders.py` | orders | **no** |
+
+And searching for the words *not authorized*, *NOT_AUTHENTICATED*, *ACCESS_TOKEN_INVALID* and
+*TOKEN_EXPIRED* found them **only inside comments**. No code anywhere acted on them.
+
+#### Why nobody saw it: the two events were labelled as something harmless
+
+`ctrader_session.py:179` named them wrongly, and that is the whole reason this ran unnoticed.
+Checked against the protobuf **actually installed**, not from memory:
+
+| number | what it really is | what the code called it |
+|---|---|---|
+| 2147 | `PROTO_OA_ACCOUNTS_TOKEN_INVALIDATED_EVENT` | "margin change" |
+| 2164 | `PROTO_OA_ACCOUNT_DISCONNECT_EVENT` | "trailing SL change" |
+
+Node had both right all along (`brokerAdapters/ctrader.ts:109-110`). So even with debug logging
+switched on, the line would have read *"skipped margin change"* — a yawn, not an alarm.
+
+#### The fix
+
+**One recovery point, at the gate every reply already passes through.** Sends got a single gate last
+week (`await_turn`); replies have one too — `recv_expect` — and candles, positions, quotes and
+orders all reach it, so none of them can forget and a new call site inherits it.
+
+- **New: `data/ctrader_auth_state.py`** (115 lines) — owns "are we logged in, and may we try again
+  yet". `ctrader_session.py` was already 269 lines, over the limit, so this went beside it rather
+  than into it, which also makes it testable with no broker and no socket.
+- **`is_auth_failure`** reads the **description as well as the code**, because the real event arrived
+  as `errorCode='INVALID_REQUEST'` — a name that is not in cTrader's published enum at all, and
+  `errorCode` is a free-form **string** field on `ProtoOAErrorRes` (field type 9, verified), so the
+  broker is not limited to the names it documents.
+- ⚠ **It is deliberately FALSE for `REQUEST_FREQUENCY_EXCEEDED`, `CHANNEL_IS_BLOCKED`,
+  `BLOCKED_PAYLOAD_TYPE`, `CONNECTIONS_LIMIT_EXCEEDED`, `SERVER_IS_UNDER_MAINTENANCE` and
+  `ALREADY_LOGGED_IN`.** Each of those gets *worse* if answered with a fresh handshake. This is the
+  most important line in the change and the most heavily tested: D63 was built out of exactly that
+  mistake.
+- **A 60-second floor** between re-login attempts, so a genuinely dead token cannot turn the
+  2-second position tracker into 30 handshakes a minute. The refusal is logged once a minute, not
+  thirty times.
+- **`recv_expect`** stops stepping over 2147/2164 and logs them at WARNING; it also inspects every
+  error reply it returns. The reply still reaches the caller unchanged — the flag is the only new
+  effect, so no caller's behaviour changed.
+- **`get_connection`** drops the dead socket and re-authenticates when the flag is set, and says
+  **`authorization regained`** on success. ⚠ The teardown happens here and **not** inside
+  `recv_expect`: sends are paced but not mutually exclusive, so two coroutines can be awaiting
+  replies on the same reader, and closing the socket mid-read would yank it from under the other.
+- **`tests/test_auth_recovery.py`** — 38 checks, all passing. It reads the **installed protobuf**
+  for 2147/2164 so the next mislabel fails instead of rotting; it proves the exact production pair
+  is recognised; it proves every ordinary refusal is left alone; and it reads the source to prove
+  the gate is actually **wired** at both ends, which is the failure that matters (a call site that
+  forgot, not a function that misbehaves).
+
+#### ⚠ WHAT IS STILL UNPROVEN — written down so it is checked, not claimed
+
+1. **The cure has not been seen working.** 242 existing checks still pass and the 38 new ones pass,
+   but no production log has yet shown the refusal stopping or an `authorization regained` line.
+2. **A PREDICTION: candles were about to fail the same way.** The market was shut, so only the
+   2-second position tracker was talking to the broker — which is why its warning is the only one in
+   the log. **Candles use the same socket and the same login**, and the candle fetch raises on an
+   error reply *without* resetting (`ctrader_client.py:164-167`). So at the Sunday 22:00 UTC reopen
+   the scanner would have produced **no signals at all** until something restarted it. That is the
+   part that costs trades, and it was invisible. **If candles still stall after this deploy, the
+   diagnosis was wrong** — and that, not the warning's absence, is the test.
+3. **Which of the four triggers fired on Saturday is not pinned down.** The *mechanism* is proved at
+   every link; the token refresh is the likeliest of the four causes cTrader documents for that event
+   (refresh, revoke, account deleted, cTID deleted), but the log window did not contain the refresh
+   itself. It does not change the fix, which recovers from all four.
+
+#### Two smaller things fixed alongside it, both diagnostics rather than cures
+
+- **The FIX logon refusal said nothing at all.** `[fix] logon refused:` printed with an empty tail,
+  because the old line read field 58 off whichever message arrived **first**, whatever type it was,
+  and fell back to `raw[:120]`. An empty tail is not "no reason given" — it means the buffer was
+  **empty**, i.e. the broker accepted the TCP connection and then **hung up without sending a
+  byte**. That is a materially different fact from a refusal, and it is what a server does when the
+  session is already taken or the login does not exist, rather than when a password is wrong (which
+  comes back as a Logout carrying text). `fix_quotes._why_refused` now says which of those happened,
+  and names the host, port and SenderCompID. ⚠ **The CAUSE is still unknown** — both watchers build
+  their own stream from the same login (`trade_watcher.py:171`, `entry_watcher.py:144`) and cTrader
+  may permit only one session per login, but that is a **hypothesis**. The next refusal will now
+  carry a real reason; no redesign until it does.
+- **The calendar's refusals did not name themselves.** `21 refused (no confident match)` is not
+  evidence of anything: it cannot tell "correctly careful about two indistinguishable rows" from
+  "wrongly blind to an obvious pair". `calendarDb` now prints each refused pair — the released title
+  and the stored titles it was weighed against, capped at 12 so a long day cannot bury the log. The
+  one matcher change that has actually worked was built from real printed titles; this is how the
+  next one gets built too. **Not touched otherwise.**
+
+---
+
 ### D62 — ✅ FIXED 2026-11-03. The live FIX feed was off on the new server; two missing variables were why. Added 2026-11-02
 
 **Verified 2026-11-02 by reading the live config, the code, and the broker.** After the rebuild at
@@ -1822,6 +1947,21 @@ agreed ramp is 1 → 2 → 5 → 10 → 20 → 50 **verifying at each notch** (`
 the notch is an open question. His call, 2026-11-02: **fix the routing properly and leave the setting
 at 5** (#6 above), with re-verifying the notch against `GET /api/admin/ctrader-capacity` as a
 follow-up once feeds are up.
+
+**MEASURED 2026-11-07 — the storm has stopped, but on a SHUT MARKET, so this is not yet a close.**
+Two production windows after the fix: **0** `BLOCKED_PAYLOAD_TYPE` refusals in 12 minutes, then 0 in
+18 more. Before the fix the same log carried 116 refusals in 35 minutes (3.31 a minute). ⚠ Weekend
+load is a fraction of weekday load, so this shows the loop is not self-feeding any more — it does
+**not** show the budget holds under a real session. The closing measurement is still an hour of open
+market.
+
+**⚠ AND THE SUSPECT NAMED ABOVE IS NOW CONFIRMED — on the other side of the platform.** D63's note
+says "the strong suspect is the shared login: one sign-in issues ONE ticket for every account under
+that cTID, and the first to renew invalidates the copies the others hold". That is exactly the
+mechanism proved in **D64** for the Python scanner, link by link. **It does not make them the same
+defect** — D63 is "you are asking too often", D64 is "I do not know who you are", and they want
+opposite cures — but they share an upstream trigger, so a token refresh is worth checking first
+whenever either reappears.
 
 ### D61 - Log out / reconnect works in the code and in a real Postgres, but has NOT been run end to end
 

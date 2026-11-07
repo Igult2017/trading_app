@@ -215,6 +215,33 @@ class FixQuoteStream:
 
     # ── lifecycle ──────────────────────────────────────────────────────────────
 
+    def _why_refused(self, raw: str, msgs: list) -> str:
+        """Say what the broker ACTUALLY did when the logon was not accepted.
+
+        ⚠ THE OLD LINE SAID NOTHING AT ALL. It read `m.get("58")` off the FIRST message in the
+        buffer — whatever type that was — and fell back to `raw[:120]`, so production logged a bare
+        `[fix] logon refused:` with an empty tail and there was nothing to diagnose from. An empty
+        tail is not "no reason given": it means the buffer was EMPTY, i.e. the broker accepted the
+        TCP connection and then HUNG UP without sending a single byte. That is a different fact from
+        a refusal, and worth distinguishing — it is what a server does when the session is already
+        taken or the login does not exist, rather than when a password is wrong (which comes back as
+        a Logout carrying Text).
+
+        Returns a description only; it never raises, because a failure to explain a failure must not
+        replace it.
+        """
+        if not raw:
+            return (f"the broker closed the connection without replying — {self.host}:{self.port}, "
+                    f"SenderCompID {self.account_id}. Nothing was sent back, so this is not a "
+                    f"password rejection; the session was dropped before FIX spoke.")
+        # Pull the Text (58) off the message that is actually complaining — a Logout (5) or a
+        # Reject (3) — rather than off whichever message happened to arrive first.
+        for m in msgs:
+            if m.get("35") in ("5", "3") and m.get("58"):
+                return f"{'Logout' if m.get('35') == '5' else 'Reject'} 58={m['58']!r}"
+        types = ",".join(sorted({m.get("35", "?") for m in msgs})) or "none parsed"
+        return f"no Logon(35=A) in the reply; message types seen: {types}; raw={raw[:200]!r}"
+
     async def connect(self, symbols: list[str]) -> bool:
         """Log on and subscribe. Returns False on any failure — never raises into the caller."""
         try:
@@ -228,8 +255,7 @@ class FixQuoteStream:
                    ).decode(errors="replace")
             msgs = parse(raw)
             if not any(m.get("35") == "A" for m in msgs):
-                reason = next((m.get("58", "") for m in msgs), "")
-                log.error(f"[fix] logon refused: {reason or raw[:120]}")
+                log.error("[fix] logon not accepted — %s", self._why_refused(raw, msgs))
                 await self.close()
                 return False
 

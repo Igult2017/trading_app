@@ -198,11 +198,25 @@ export async function storeReleasedValues(values: ReleasedValue[]): Promise<numb
     + ` | released asks for: ` + Array.from(new Set(values.map(v => `${v.currency}|${v.date}`))).sort().join(", "));
 
   let filled = 0, refused = 0, unmatched = 0;
+  // ⚠ A REFUSAL THAT DOES NOT NAME ITSELF CANNOT BE FIXED. The counts above were all this printed,
+  // and `21 refused` is not evidence of anything — it does not say whether the matcher is being
+  // correctly careful about two indistinguishable rows or wrongly blind to an obvious pair. The one
+  // matcher change that has actually worked was built from real printed titles, so print them.
+  // Capped: a long day must not bury the rest of the log.
+  const refusals: string[] = [];
   for (const [k, group] of buckets) {
     const candidates = byDay.get(k);
     if (!candidates || candidates.length === 0) { unmatched += group.length; continue; }
     const assigned = resolveClaims(group, candidates);
     refused += group.length - assigned.size;
+    if (assigned.size < group.length && refusals.length < 12) {
+      const won = new Set(Array.from(assigned.values()));
+      for (const v of group) {
+        if (!won.has(v) && refusals.length < 12) {
+          refusals.push(`${k} "${v.event}" vs [${candidates.map(c => c.title).join(" | ")}]`);
+        }
+      }
+    }
     for (const [idx, v] of assigned) {
       await db.update(economicEvents)
         .set({ actualValue: v.actual })
@@ -211,6 +225,10 @@ export async function storeReleasedValues(values: ReleasedValue[]): Promise<numb
     }
   }
   console.log(`[calendarDb] released values: ${filled} filled, ${unmatched} no same-day event, ${refused} refused (no confident match)`);
+  for (const r of refusals) console.log(`[calendarDb]   refused: ${r}`);
+  if (refused > refusals.length) {
+    console.log(`[calendarDb]   ...and ${refused - refusals.length} more refusals not listed`);
+  }
   return filled;
 }
 

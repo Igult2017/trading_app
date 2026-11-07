@@ -22,6 +22,8 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAErrorRes,
 )
 
+from data import ctrader_auth_state as _auth
+
 log = logging.getLogger(__name__)
 
 _TOKEN_URL  = "https://openapi.ctrader.com/apps/token"
@@ -175,8 +177,17 @@ PT_ERROR    = 50     # ProtoErrorRes (common protocol error)
 # Unsolicited pushes we may safely step over while waiting for a reply. Named for the log line, not
 # used as a whitelist — `recv_expect` skips ANYTHING that is not the reply it wants, because the set
 # of things cTrader can push is not knowable from here and a whitelist would rot silently.
+#
+# ⚠ 2147 AND 2164 WERE MISLABELLED "margin change" AND "trailing SL change" UNTIL 2026-11-07, and
+# that wrong label is why a 48-minute outage went unnoticed: they are the two events that mean the
+# account's session HAS ENDED, so even with debug logging on the line read "skipped margin change".
+# The names below come from the installed protobuf (ProtoOAPayloadType), not from memory.
 _PUSH_NAMES = {51: "heartbeat", 2126: "execution event", 2131: "spot", 2132: "order error",
-               2142: "error", 2147: "margin change", 2164: "trailing SL change"}
+               2142: "error", 2147: "TOKEN INVALIDATED", 2164: "ACCOUNT DISCONNECTED"}
+
+# The two pushes that are not "step over me" — they say we are no longer logged in.
+PT_TOKEN_INVALIDATED = 2147   # ProtoOAAccountsTokenInvalidatedEvent
+PT_ACCOUNT_DISCONNECT = 2164  # ProtoOAAccountDisconnectEvent
 
 
 async def recv_expect(reader: asyncio.StreamReader, want: int,
@@ -198,14 +209,46 @@ async def recv_expect(reader: asyncio.StreamReader, want: int,
     A REAL ERROR IS RETURNED, NOT SKIPPED. If the broker answers our request with ProtoOAErrorRes the
     caller must see it; skipping it would spin until the timeout and report "no reply" instead of the
     reason. The caller checks payloadType and decides.
+
+    ⚠ AND TWO PUSHES ARE NOT "STEP OVER ME" (added 2026-11-07). 2147 and 2164 say the account's
+    SESSION HAS ENDED — after a shared-token refresh, among other causes. Skipping them cost a
+    48-minute outage: the socket stayed open, so `get_connection` kept handing the dead session back
+    and all 1,556 requests in that window were refused. They are noticed here because this is the ONE
+    place every reply on this socket passes through — candles, positions, quotes and orders all reach
+    it, exactly as every SEND reaches `await_turn`. The recovery itself is deferred to
+    `get_connection`; see `ctrader_auth_state`.
     """
     for _ in range(max_skip):
         msg = await recv(reader)
+        # `!= want` so this can never swallow a reply someone is genuinely waiting for. No caller
+        # asks for an event today, but a branch that quietly eats the thing it was asked for is the
+        # shape of the 2026-08-21 outage and is not worth leaving lying around.
+        if msg.payloadType != want and msg.payloadType in (PT_TOKEN_INVALIDATED,
+                                                           PT_ACCOUNT_DISCONNECT):
+            _auth.mark_lost(f"broker pushed {_PUSH_NAMES[msg.payloadType]} ({msg.payloadType})")
+            continue
         if msg.payloadType in (want, PT_OA_ERROR, PT_ERROR):
+            # An error REPLY can say the same thing as those pushes, and in production it is how we
+            # found out at all: errorCode='INVALID_REQUEST' desc='Trading account is not authorized'.
+            # Returned to the caller unchanged either way — only the recovery flag is a new effect.
+            if msg.payloadType in (PT_OA_ERROR, PT_ERROR):
+                _note_if_unauthorized(msg)
             return msg
         log.debug("[ctrader] skipped %s (%d) while waiting for %d",
                   _PUSH_NAMES.get(msg.payloadType, "push"), msg.payloadType, want)
     raise RuntimeError(f"[ctrader] {max_skip} messages arrived without a reply of type {want}")
+
+
+def _note_if_unauthorized(resp) -> None:
+    """Flag the session as logged-out when an error reply says so. Never raises — a failure to parse
+    an error must not replace the caller's real error with this one."""
+    try:
+        e = ProtoOAErrorRes() if resp.payloadType == PT_OA_ERROR else ProtoErrorRes()
+        e.ParseFromString(resp.payload)
+        if _auth.is_auth_failure(e.errorCode, e.description):
+            _auth.mark_lost(f"broker refused: {e.errorCode!r} {e.description!r}")
+    except Exception:
+        pass
 
 
 def _describe_resp(resp) -> str:
@@ -226,8 +269,24 @@ def _describe_resp(resp) -> str:
 
 async def get_connection() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
     """Return an authenticated TCP connection, reconnecting if needed."""
-    global _reader, _writer
+    # `_token_expiry` is in here because the re-auth path below clears it. Without the declaration
+    # that assignment would quietly make a LOCAL float and change nothing at all.
+    global _reader, _writer, _token_expiry
     async with _conn_lock:
+        # ⚠ AN OPEN SOCKET IS NOT A LOGGED-IN SESSION. This used to be the whole test, and it is what
+        # made the 2026-11-07 outage permanent: cTrader ended the account's session but left the TCP
+        # connection up, so every request for 48 minutes went out on a socket it would never answer.
+        # `should_reauth()` STAMPS its own attempt and only says yes once per floor, so a 2-second
+        # caller cannot turn this into a handshake storm — the failure mode of D63.
+        if _auth.should_reauth():
+            log.warning("[ctrader] re-authenticating — the broker says this session is not logged in")
+            reset_connection()
+            # ⚠ AND THROW AWAY THE CACHED TOKEN. `get_access_token` holds Node's token for 180s
+            # (`_token_expiry`), and the likeliest reason we were logged out is that Node ROTATED it
+            # — so the copy in hand is the very token cTrader has just invalidated. Re-authenticating
+            # with it would fail (CH_ACCESS_TOKEN_INVALID), log a misleading "account auth failed",
+            # and keep failing for up to three minutes until the cache aged out on its own.
+            _token_expiry = 0.0
         if _writer is not None and not _writer.is_closing():
             return _reader, _writer
 
@@ -249,6 +308,9 @@ async def get_connection() -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
         if resp2.payloadType != TYPE_ACCOUNT_AUTH_RES:
             raise RuntimeError(f"[ctrader] account auth failed — acct={_account_id} {_describe_resp(resp2)}")
         log.info(f"[ctrader] account {_account_id} authenticated")
+        # Clears the flag and, if we were locked out, says "authorization regained" at WARNING. The
+        # recovery MUST be visible: without it there is no way to tell a fix from a silence.
+        _auth.mark_authenticated()
 
     return _reader, _writer
 
