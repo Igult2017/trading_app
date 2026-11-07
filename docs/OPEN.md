@@ -4909,14 +4909,57 @@ them. The teeth that matter most are the ones asserting an **ordinary** refusal 
 
    **So do not conclude from this entry that production is unreadable.** It is readable. Only that
    one authenticated-admin call needs either his hand or a permission rule.
-2. **It is not known whether anything is configured to copy at all.** The 02 Nov migration left the
-   database empty. With no master and no follower row the engine runs, finds nothing, logs nothing —
-   and behaves **identically** after this fix. **A code fix cannot conjure a configuration.** The one
-   call that settles it is already built: `GET /api/admin/copy/diagnostics` with `X-Admin-Secret`.
+2. ✅ **ANSWERED 2026-11-07, from the live log: THERE ARE ZERO ACTIVE COPY MASTERS IN THE DATABASE.
+   Nothing is configured to copy, so nothing copies — and no code fix changes that.**
+
+   ⚠ **And the diagnostics endpoint was never needed to find this out.** The production container
+   log is readable with the Coolify token alone:
+   `GET /api/v1/applications/<uuid>/logs?lines=5000`. That is what should have been tried first.
+
+   The evidence, from 3,126 lines covering boot at 13:56 UTC to 14:24 UTC — **after** both deploys:
+
+   | what the log shows | meaning |
+   |---|---|
+   | `[engine] starting copy engine (worker 0/1)` 13:56:29, `[notify] listening on 'copy_change'` | the engine is up and listening |
+   | `[watchdog] starting copy engine (attempt 1)` and **no** `copy engine exited` | it has not crashed or restarted |
+   | **exactly ONE `[engine]` line in the whole log** | none of `provider started for master`, `broker account …`, `its account is signed out`, `not yet supported`, `cannot get creds` |
+   | no `[engine] initial _load_masters failed` | a failed query would have logged that with a stack trace (`engine.py:86`), so the query **ran and returned nothing** |
+
+   `_load_masters` loops over the active-master list (`engine.py:128`); **an empty list logs nothing
+   at all**, which is exactly the silence observed.
+
+   **So C-COPY3's fix is a real defect fix but it is NOT what blocks copying today.** Said plainly
+   rather than left to look like the cure. To make it copy, a master must be registered and a
+   follower attached — the `/accounts` page (`App.tsx:230`) holds the copy-listing toggle
+   (`AccountsPage.tsx:803`) and `register-as-provider` (`useProviderStudio.ts:45`). The engine picks
+   a new master up instantly through the `copy_change` listener the log shows is live, or within 60s.
 3. **NOT PROVEN LIVE — and that is the only proof that counts.** Three fixes in a row have been
    shipped to this engine and reported done on green checks, with nobody ever watching a copy
    happen. The check: a real trade on the master must produce a **PLACED or OPEN row naming the
    follower account**. A SKIP row instead means a gate refused it, and the row says which.
+
+#### D64's own verification, from the same live log — HONEST STATUS
+
+**The symptom is gone, and my new code has NOT been seen doing it.** Both are true and both matter:
+
+| checked in the live post-deploy log | count |
+|---|---|
+| `Trading account is not authorized` — the loop | **0** (was 1,556 in 48 minutes) |
+| `AUTHORIZATION LOST` — the new warning | 0 |
+| `authorization regained` — the new recovery line | 0 |
+| `re-authenticating` | 0 |
+| `[ctrader] account 47535363 authenticated` | 2 — at 13:56:31 and 14:13:36 |
+
+That second login at 14:13:36 is the mechanism caught in the act: AutoSync ran across four cTrader
+accounts, then `GET /api/internal/ctrader-credentials 200` → `using live token from Node DB` →
+`account 47535363 authenticated`. **But it recovered through the PRE-EXISTING socket-closed rebuild,
+not the new path** — there is no `AUTHORIZATION LOST` line, so the broker closed the connection this
+time rather than leaving it open.
+
+⚠ **So do not record this as "the fix worked".** The refusal loop is absent and the new code is
+deployed and checked, but it has not yet been exercised in production, and the session may simply
+not have been invalidated-while-open since boot. The proof still wanted is an `AUTHORIZATION LOST`
+followed by an `authorization regained`, or candles continuing to work across a token refresh.
 
 #### Reported, not acted on
 
