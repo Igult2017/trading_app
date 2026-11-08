@@ -96,6 +96,13 @@ class SignalModel(Base):
     triggered_at   = Column("triggered_at",   UtcDateTime)   # entry filled; NULL = stop order pending
     executed_at    = Column("executed_at",    UtcDateTime)
     invalidated_at = Column("invalidated_at", UtcDateTime)
+    # When HE moved this order's entry or stop by hand at the broker and the platform took his
+    # number as its own. ⚠ It is the REPLAY ANCHOR for such a signal, not a decoration: the monitor
+    # is stateless and replays every candle since `created_at`, so without this an adopted entry
+    # would be tested against bars from BEFORE he moved it and could stamp a fill that never
+    # happened. See `docker-migrate.sql`, which must carry the same column or production answers
+    # 42703 on every signal read.
+    levels_adopted_at = Column("levels_adopted_at", UtcDateTime)
     created_at     = Column("created_at",     UtcDateTime, default=lambda: datetime.now(timezone.utc))
     updated_at     = Column("updated_at",     UtcDateTime, default=lambda: datetime.now(timezone.utc),
                             onupdate=lambda: datetime.now(timezone.utc))

@@ -445,6 +445,19 @@ ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_hidden BOOLEAN DE
 -- as wins/losses for a trade that never opened. Added 2026-07-22.
 ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS triggered_at TIMESTAMP;
 
+-- levels_adopted_at: when HE moved this order's entry or stop at the broker by hand and the
+-- platform took his number as its own. Added 2026-11-08 for his ask — *"Im asking seeing the trade
+-- visually in pepperstone when it is placed so that i can adjust SL manually"* — and then
+-- *"Does it also detect when i moved the entry price to a different entry price?"*
+--
+-- ⚠ IT EXISTS TO STOP A FALSE FILL IN THE PAST. The monitor is stateless and replays EVERY candle
+-- since `created_at` on every poll (`monitor/signal_monitor.py`: `start = _epoch(row.created_at)`).
+-- Adopt a new entry without this and the next poll re-judges OLD bars against it — a bar from
+-- before he moved anything can touch the new level and stamp `triggered_at` for a fill that never
+-- happened, which is exactly the systematic error the pending/triggered split exists to remove.
+-- With it, the replay for an adopted signal starts at the moment of adoption instead.
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS levels_adopted_at TIMESTAMP;
+
 -- ── Signal platform observability ────────────────────────────────────────────
 -- Added 2026-07-27. A VIX.1 signal was built, validated and saved at 11:17 UTC and never reached
 -- Telegram; the container restarted before anyone looked and took every log line with it, so "where

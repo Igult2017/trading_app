@@ -41,7 +41,7 @@ from datetime import datetime, timezone
 
 from core.types import Direction, SignalStatus, TF
 from core import event_bus
-from storage import signal_repo
+from storage import autotrade_repo, signal_repo
 from strategies.trade_management import TradeState, update as update_trade
 from validation.signal_validator import release
 
@@ -129,6 +129,44 @@ async def check_all() -> None:
         log.error(f"[signal_monitor] check_all error: {exc}", exc_info=True)
 
 
+async def _adopt_moved_levels(row) -> None:
+    """If he has moved this order's entry or stop at the broker, take his numbers as ours — now.
+
+    ⚠ IT UPDATES THE ROW IN MEMORY TOO, not only the database. The caller judges `row` immediately
+    after this returns, so writing the database alone would leave THIS poll still using the stale
+    entry — his change would not take effect until the next pass, and that pass is exactly where a
+    false fill would be stamped. Both or neither.
+
+    Never raises. A failure to notice his edit leaves the platform behaving as it did before, which
+    is the safe direction: the order stays watched against our own levels rather than unwatched.
+    """
+    try:
+        order_id = await asyncio.get_running_loop().run_in_executor(
+            None, autotrade_repo.order_for_signal, row.id)
+        if not order_id:
+            return                                  # nothing of ours resting — the normal case
+        from execution.canceller import _levels_he_moved
+        moved = _levels_he_moved(order_id)
+        if not moved:
+            return
+        ok = await asyncio.get_running_loop().run_in_executor(
+            None, lambda: signal_repo.adopt_levels(
+                row.id, entry=moved.get("entry"), stop=moved.get("sl")))
+        if not ok:
+            return
+        if "entry" in moved:
+            row.entry_price = moved["entry"]
+        if "sl" in moved:
+            row.stop_loss = moved["sl"]
+        row.levels_adopted_at = datetime.now(timezone.utc)
+        what = " and ".join(f"{'entry' if k == 'entry' else 'stop'} {v}" for k, v in moved.items())
+        log.info(f"[signal_monitor] {row.symbol} id={row.id}: adopting the {what} you set at the "
+                 f"broker — judging this setup against your levels from now on")
+    except Exception as exc:
+        log.warning(f"[signal_monitor] {row.symbol}: could not reconcile his levels: "
+                    f"{type(exc).__name__}: {exc}")
+
+
 async def _check_signal(row) -> str:
     """Judge one signal against every bar since its own clock. Returns a one-word outcome for the
     poll summary — never None, so a row that did nothing is distinguishable from a row that failed."""
@@ -150,9 +188,34 @@ async def _check_signal(row) -> str:
         except Exception as exc:
             log.warning(f"[signal_monitor] vix1 management alert failed for {row.symbol}: {exc}")
 
+    # ── LEVELS HE MOVED BY HAND WIN, AND THEY ARE CHECKED ON EVERY POLL (2026-11-08) ────────────
+    #
+    # His ask was to adjust a resting order himself: *"so that i can adjust SL manually"*, then
+    # *"Does it also detect when i moved the entry price to a different entry price?"*
+    #
+    # ⚠ WHY HERE AND NOT ONLY IN THE CANCELLER. The canceller runs only once this function has
+    # already decided the setup is DEAD. A level he moved on a setup that is still alive would never
+    # have been noticed at all — the monitor would keep judging his order against OUR entry, and a
+    # stale entry is how a fill gets recorded for a position that does not exist. So the
+    # reconciliation belongs on the judging path, before anything is judged.
+    #
+    # IT COSTS NO BROKER REQUEST: `ctrader_positions.last_resting_levels` reads the cached result of
+    # the reconcile this same 30-second poll already performs.
+    if row.triggered_at is None:
+        await _adopt_moved_levels(row)
+
     # THE REPLAY WINDOW — every bar since this signal's own clock. See the module docstring for why
     # this is stateless and why it costs nothing.
+    #
+    # ⚠ AN ADOPTED SIGNAL STARTS FROM THE MOMENT HE MOVED THE LEVEL, NOT FROM ITS BIRTH. This replay
+    # is stateless and re-judges every bar since `created_at` on each poll, so without this a level
+    # he just moved would be tested against bars from BEFORE he moved it — and a bar that happened
+    # to reach the new entry would stamp `triggered_at` for a fill that never happened. That is the
+    # exact systematic error the pending/triggered split exists to remove, and a hand edit must not
+    # reintroduce it.
     start  = _epoch(row.triggered_at) if row.triggered_at is not None else _epoch(row.created_at)
+    if row.triggered_at is None and getattr(row, "levels_adopted_at", None) is not None:
+        start = max(start, _epoch(row.levels_adopted_at))
     window = [c for c in bars if c.time >= start]
     if not window:
         return "no-new-bars"                     # nothing new since the last poll — the normal case

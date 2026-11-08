@@ -65,18 +65,40 @@ def _resting_ids(res) -> set[int]:
     return {int(o.orderId) for o in res.order}
 
 
-def _resting_stops(res) -> dict[int, float]:
-    """order id -> its CURRENT stop loss, for every pending order carrying one.
+#: cTrader's own order-type numbers, from ProtoOAOrderType. Named here because the TRIGGER price
+#: lives in a different field for each: a STOP order triggers at `stopPrice`, a LIMIT order at
+#: `limitPrice`. VIX.1 is always a stop entry by construction; BX uses a limit. Reading the wrong
+#: field would silently compare his entry against zero and read every order as "he moved it".
+_ORDER_TYPE_LIMIT = 1
+_ORDER_TYPE_STOP = 2
 
-    Scaled by the same fixed 100,000 as every other price in this reply (see the module header). An
-    order with no stop is absent rather than present-as-zero: zero is a price, and "he has no stop"
-    must never be read as "his stop is at 0".
+
+def _resting_stops(res) -> dict[int, dict[str, float]]:
+    """order id -> {"entry": trigger price, "sl": stop loss}, for every pending order.
+
+    Each price is scaled by the same fixed 100,000 as everything else in this reply (see the module
+    header). A level the order does not carry is ABSENT rather than present-as-zero: zero is a
+    price, and "he has no stop" must never be read as "his stop is at 0".
+
+    ⚠ BOTH LEVELS, because he moves both. His ask was the stop (*"so that i can adjust SL
+    manually"*), and then: *"Does it also detect when i moved the entry price to a different entry
+    price?"* — it did not, and a moved ENTRY is the more dangerous of the two, because the monitor
+    decides a FILL by replaying candles against the entry it has stored.
     """
-    out: dict[int, float] = {}
+    out: dict[int, dict[str, float]] = {}
     for o in res.order:
+        levels: dict[str, float] = {}
         sl = getattr(o, "stopLoss", 0) or 0
         if sl:
-            out[int(o.orderId)] = float(sl) / 100_000
+            levels["sl"] = float(sl) / 100_000
+        otype = getattr(o, "orderType", None)
+        raw_entry = (getattr(o, "stopPrice", 0) if otype == _ORDER_TYPE_STOP
+                     else getattr(o, "limitPrice", 0) if otype == _ORDER_TYPE_LIMIT
+                     else 0) or 0
+        if raw_entry:
+            levels["entry"] = float(raw_entry) / 100_000
+        if levels:
+            out[int(o.orderId)] = levels
     return out
 
 
@@ -85,16 +107,18 @@ def last_resting_order_ids() -> set[int] | None:
     return None if _resting_order_ids is None else set(_resting_order_ids)
 
 
-def last_resting_stop(order_id: int | str) -> float | None:
-    """The stop THE BROKER currently holds for one resting order, or None if it cannot be said.
+def last_resting_levels(order_id: int | str) -> dict[str, float] | None:
+    """What THE BROKER currently holds for one resting order: `{"entry": …, "sl": …}`, or None.
 
-    None covers three different things on purpose — never read, not resting any more, or resting with
-    no stop — because a caller must treat all three the same way: it does not know his stop, so it
-    must not act as though he has moved it.
+    None covers several things on purpose — the reconcile has never been read, the order is not
+    resting any more, or it carries neither level — because a caller must treat them all the same
+    way: it does not know his numbers, so it must not act as though he has changed them.
     """
     if _resting_order_stops is None:
         return None
-    return _resting_order_stops.get(int(order_id))
+    got = _resting_order_stops.get(int(order_id))
+    return dict(got) if got else None
+
 
 
 @dataclass(frozen=True)

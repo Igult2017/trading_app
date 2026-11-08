@@ -48,38 +48,49 @@ log = logging.getLogger(__name__)
 _MOVED_EPS_PIPS = 0.1
 
 
-def _stop_he_moved(order_id) -> float | None:
-    """The stop the broker holds for our resting order, when it is NOT the one we placed.
+def _levels_he_moved(order_id) -> dict[str, float] | None:
+    """The entry and/or stop THE BROKER holds for our resting order, when they are not ours.
 
-    None means "do not treat this as his" — and it covers every uncertain case on purpose: the
-    reconcile has never been read, the order is no longer resting, it rests with no stop at all, we
-    have no record of what we asked for, or the two agree. Each of those falls through to the normal
+    Returns only the levels that actually differ, so a caller writes exactly what he changed and
+    nothing else. None means "do not treat anything as his" — and it covers every uncertain case on
+    purpose: the reconcile has never been read, the order is not resting, it carries neither level,
+    we have no record of what we asked for, or they agree. Each of those falls through to the normal
     cancel, because leaving a dead order resting on a guess is the fault he reported on 2026-09-04
-    (a gold buy stop sitting 72 points offside), and it is worse than withdrawing one he had edited.
+    (a gold buy stop 72 points offside) and is worse than withdrawing one he had edited.
 
-    Never raises: a failure to read his stop must not stop the cancel from happening.
+    ⚠ BOTH LEVELS, after his question: *"Does it also detect when i moved the entry price to a
+    different entry price?"* It did not. A moved ENTRY matters more than a moved stop, because the
+    monitor decides a FILL by replaying candles against the entry it has stored.
+
+    Never raises: a failure to read his numbers must not stop the cancel from happening.
     """
     try:
         from data import ctrader_positions
-        live = ctrader_positions.last_resting_stop(order_id)
-        # NOT-POSITIVE IS "NO STOP", NEVER "A STOP AT ZERO". `_resting_stops` already drops a zero
-        # rather than storing it, so this cannot fire today — it is here because the alternative
-        # reading is catastrophic and silent: a 0.0 would look like a stop he had moved miles away,
-        # the order would be kept alive, and the platform would judge the setup against a price
-        # nothing can reach. Caught by this file's own test, which stubbed the zero deliberately.
-        if live is None or float(live) <= 0:
+        live = ctrader_positions.last_resting_levels(order_id)
+        if not live:
             return None
         intent = autotrade_repo.intent_for(str(order_id)) or {}
-        ours, symbol = intent.get("sl"), intent.get("symbol")
-        if not ours or not symbol:
+        symbol = intent.get("symbol")
+        if not symbol:
             return None
         from shared.pip import pip_size
         pip = pip_size(symbol)
         if not pip or pip <= 0:
             return None
-        return live if abs(float(live) - float(ours)) > _MOVED_EPS_PIPS * pip else None
+        tol = _MOVED_EPS_PIPS * pip
+        moved: dict[str, float] = {}
+        for key, ours in (("entry", intent.get("entry")), ("sl", intent.get("sl"))):
+            theirs = live.get(key)
+            # NOT-POSITIVE IS "NO LEVEL", NEVER "A LEVEL AT ZERO" — a 0.0 would look like he had
+            # moved it miles away, the order would be kept alive, and the setup would be judged
+            # against a price nothing can reach.
+            if theirs is None or float(theirs) <= 0 or not ours:
+                continue
+            if abs(float(theirs) - float(ours)) > tol:
+                moved[key] = float(theirs)
+        return moved or None
     except Exception as exc:
-        log.warning(f"[canceller] could not compare the broker's stop for {order_id}: "
+        log.warning(f"[canceller] could not compare the broker's levels for {order_id}: "
                     f"{type(exc).__name__}: {exc}")
         return None
 
@@ -111,24 +122,26 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
         # changes is WHICH STOP it is judged against — his, when he has set one.
         #
         # The live stop comes from the reconcile reply the monitor already fetches every 30 seconds
-        # (`ctrader_positions.last_resting_stop`), so this costs no broker request.
+        # (`ctrader_positions.last_resting_levels`), so this costs no broker request.
         #
-        # ⚠ IT FAILS TOWARD CANCELLING. `last_resting_stop` returns None for "never read", "not
+        # ⚠ IT FAILS TOWARD CANCELLING. `last_resting_levels` returns None for "never read", "not
         # resting any more" and "resting with no stop" alike, and every one of those falls through
         # to the cancel below — because a dead order left resting is the exact thing he complained
         # about on 2026-09-04 (a gold buy stop sitting 72 points offside). Keeping an unwatched
         # order alive on a guess is worse than cancelling one he had edited.
-        moved = _stop_he_moved(order_id)
-        if moved is not None:
+        moved = _levels_he_moved(order_id)
+        if moved:
             from storage import signal_repo
-            signal_repo.adopt_stop(signal_id, moved)
-            log.info(f"[canceller] {symbol}: NOT cancelling order {order_id} — the stop at the "
-                     f"broker is {moved}, which is not the one we placed. Treating it as his and "
-                     f"judging the setup against it from now on.")
+            signal_repo.adopt_levels(signal_id, entry=moved.get("entry"), stop=moved.get("sl"))
+            what = " and ".join(f"{'entry' if k == 'entry' else 'stop'} to {v}"
+                                for k, v in moved.items())
+            log.info(f"[canceller] {symbol}: NOT cancelling order {order_id} — you moved its "
+                     f"{what}. Treating those as yours and judging the setup against them from now "
+                     f"on; the replay starts from this moment so no earlier bar is re-judged.")
             await withdrawal_notice.announce(
                 order_id, symbol,
-                f"left resting — you moved its stop to {moved}, so the platform is now using "
-                f"your level instead of its own", withdrawal_notice.NOT_WITHDRAWN)
+                f"left resting — you moved its {what}, so the platform is now using your levels "
+                f"instead of its own", withdrawal_notice.NOT_WITHDRAWN)
             return False
 
         from execution.account import load_account

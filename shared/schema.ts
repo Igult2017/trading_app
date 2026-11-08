@@ -497,6 +497,13 @@ export const tradingSignals = pgTable("trading_signals", {
   triggeredAt: timestamp("triggered_at"),   // entry actually filled; NULL = stop order still pending
   executedAt: timestamp("executed_at"),
   invalidatedAt: timestamp("invalidated_at"),
+  // When HE moved this order's entry or stop by hand at the broker and the platform took his number
+  // as its own (2026-11-08). Written only by the signal platform; nothing on the Node side reads it.
+  // ⚠ IT IS HERE SO A SCHEMA PUSH CANNOT DROP IT. `npm start` runs `db:push`, and a column that
+  // exists in the database but not in this file is exactly what such a push removes — which would
+  // delete the replay anchor that stops a hand-moved entry being tested against older candles.
+  // `docker-migrate.sql` carries the same column, because Docker bypasses the push entirely.
+  levelsAdoptedAt: timestamp("levels_adopted_at"),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

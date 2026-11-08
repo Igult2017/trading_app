@@ -1753,6 +1753,51 @@ stay green (`test_stop_from_his_trades` 24, `test_pip_value` 33, `test_order_vol
    feature and nothing went red. The check now asserts `moved = _stop_he_moved(` and three checks
    fail when the feature is removed.
 
+
+**⚠ EXTENDED 2026-11-08 — THE ENTRY TOO.** He asked: *"Does it also detect when i moved the entry
+price to a different entry price?"* It did not, and a moved **entry** is worse than a moved stop:
+the monitor decides a **fill** by replaying candles against the entry it has stored
+(`signal_monitor.py`: `touched = (hi >= entry) if buy else (lo <= entry)`), so a stale entry means
+either a fill recorded for a position that does not exist, or a real fill missed. Now both levels
+are read from the same reconcile reply — `stopPrice` for a STOP entry, `limitPrice` for a LIMIT one,
+keyed off the order type, because VIX.1 is always a stop and BX is a limit.
+
+**⚠ THREE GAPS FOUND WHILE CODING, on his instruction** (*"dont leave any gaps. As you code when you
+find gaps, fix them"*):
+
+1. **A FALSE FILL IN THE PAST.** The monitor is stateless and replays **every** candle since
+   `created_at` on each poll. Adopting a new entry without recording *when* meant the next poll
+   tested OLD bars against it — a bar from before he touched anything could reach the new level and
+   stamp `triggered_at` for a fill that never happened. That is precisely the systematic error the
+   pending/triggered split exists to remove, reintroduced by a hand edit. Fixed with a new column,
+   **`levels_adopted_at`**, which the replay uses as its start for an adopted signal. Added to
+   `docker-migrate.sql` **and** `shared/schema.ts` — the second because `trading_signals` is in the
+   Drizzle schema and `npm start` runs `db:push`, which drops a column the schema does not declare.
+2. **THE CANCELLER WAS THE WRONG AND ONLY HOME.** It runs only once a setup has been judged **dead**,
+   so a level he moved on a setup that was still alive would never have been noticed at all. The
+   reconcile now runs on **every poll**, in the monitor, before anything is judged — and it updates
+   the row **in memory** as well as the database, or this poll would still use the stale entry and
+   the next one is exactly where the false fill would land.
+3. **THREE FUNCTIONS WENT DEAD AND WERE DELETED**, not left behind: `_stop_he_moved`,
+   `ctrader_positions.last_resting_stop` and `signal_repo.adopt_stop`, all written an hour earlier
+   and superseded by the two-level versions. One was still referenced only by the tests — a function
+   kept alive because a test calls it is dead code with a witness — so the tests now exercise the
+   real ones and assert the wrappers are gone.
+
+**⚠ AND I WALKED INTO THE SAME TEST TRAP TWICE IN ONE DAY.** A source-reading wiring check searched
+for `_adopt_moved_levels(row)`, which also matches the function's own `def` line — so deleting the
+**call** left the suite entirely green and the whole feature could have shipped disconnected. Exactly
+the mistake made on `_stop_he_moved` hours earlier. Both now assert a form that only a call site has
+(`await _adopt_moved_levels(row)`), and removing the call fails four checks. **Sabotage, not green
+checks, found this both times.**
+
+**Measured:** `tests/test_hand_moved_stop.py` — **50 checks**. Each of the four mechanisms was
+sabotaged individually and the suite went red for every one (2, 4, 2 and 4 failures). Green and
+unchanged alongside: `test_stop_from_his_trades` 24, `test_pip_value` 33, `test_auth_recovery` 39,
+`test_order_volume` 56, `test_execution_placement` 35, `test_autotrade_dm` 60,
+`test_entry_stop_already_hit` 20, `test_exit_watch` 36, `test_auto_breakeven` 39,
+`test_guard_live_order` 27.
+
 #### ⚠ NOT PROVEN, and it cannot be from here
 
 Autotrade is OFF, so no order rests. The honest end-to-end test is: an order appears in Pepperstone

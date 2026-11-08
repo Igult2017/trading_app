@@ -358,6 +358,11 @@ export class DbStorage implements IStorage {
       triggeredAt: insertSignal.triggeredAt ?? null,
       executedAt: insertSignal.executedAt ?? null,
       invalidatedAt: insertSignal.invalidatedAt ?? null,
+      // Nothing on the Node side ever sets this — only the signal platform does, when he moves a
+      // resting order's entry or stop by hand at the broker. It is defaulted here for the same
+      // reason as its three neighbours: this builds the FULL row type from the insert type, so a
+      // nullable column left out of the list stays `undefined` and fails the type.
+      levelsAdoptedAt: insertSignal.levelsAdoptedAt ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
