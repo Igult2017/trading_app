@@ -201,13 +201,18 @@ s.teeth("...while the correctly-sized one passes", _ok_why is None and _ok_v == 
 # went from the live balance to the balance the account started with — so the money at risk stops
 # drifting with every win and loss, and the same setup is the same bet in a month.
 print()
-print("   static 2% of the starting balance:")
+print("   static 1% of the starting balance:")
 
 from execution.sizing import size_lots, plan_size
 from config import settings as _s
 
 START = 10_000.0          # what the account began with
-s.check("the risk percent is 2%", _s.settings.autotrade_risk_pct, 2.0)
+# ⚠ 1% SINCE 2026-11-08, his instruction: *"make autotrade to risk only 1% of the account."* It was
+# 2% from 2026-09-03. The checks below still pass 2.0 and 0.5 EXPLICITLY, because they are about the
+# arithmetic of sizing rather than about which percentage is configured — only this one line reads
+# the live setting, which is why only this one had to change.
+s.check("the risk percent is 1%", _s.settings.autotrade_risk_pct, 1.0)
+s.check("...which is half of the 2% it was before", _s.settings.autotrade_risk_pct, 2.0 / 2)
 
 # HIS REAL GBP/USD TRADE: a 5.9-pip stop. $200 risked over 5.9 pips at $10/pip/lot = 3.39 lots.
 # It was actually placed at 0.94 lots, on the old 0.5% of live equity.

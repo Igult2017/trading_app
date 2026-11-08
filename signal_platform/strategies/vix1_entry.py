@@ -83,14 +83,40 @@ _MIN_ROOM_MULT = 1.0   # the floor: the noise a stop has to survive, x that same
 # how violent that move was. His rule, 2026-07-26: *"Make it dynamic and conforming to market
 # dynamics. Not hardcoded but practical."*
 #
-# ⚠ FITTED TO TWO TRADES, AND THAT IS NOT A MEASUREMENT. 0.30 is the midpoint of his two. It has NOT
-# been run against the 222-fill history; doing that needs his approval for a backtest. Until then
-# this is "what he actually does", not "what measured best".
+# ⚠ 0.552 SINCE 2026-11-08, AND IT IS FITTED TO THREE TRADES — better evidence than the two the old
+# 0.30 rested on, but STILL NOT A MEASUREMENT. It has not been run against the 222-fill history;
+# doing that needs his approval for a backtest. Until then this is "what he actually does", not
+# "what measured best", and it must be labelled that way.
+#
+# WHAT PROMPTED IT. He reported, 2026-11-08: *"it does not adopt to these leading to small SL and
+# being hit in the market where i was not supposed to"*, and pointed at his own manual trades. Read
+# off the broker and measured as a share of the momentum candle's BODY — the unit this constant is
+# in — his stops are:
+#
+#     23 Sep  XAU/USD    4.58 / 11.53 body  = 0.397      <- ⚠ DISAGREES, see below
+#     30 Oct  XAU/USD    7.00 / 12.68 body  = 0.552
+#     05 Nov  GBP/JPY   0.226 / 0.405 body  = 0.558      <- these two agree to within 0.006
+#
+# median 0.552, against the 0.30 that was here: his stops are about 1.8x the platform's.
+#
+# ⚠⚠ IT IS THE MEDIAN OF THREE, NOT A FIT TO ALL THREE, and the difference is not cosmetic. His two
+# MOST RECENT trades are reproduced almost exactly (7.00 and 0.224 against his 7.00 and 0.226). The
+# 23 SEP TRADE DISAGREES: 0.552 overshoots it — 6.36 against the 4.58 he used — and for that trade
+# alone **the old 0.30 was closer** (3.46, out by 1.12, against 1.78). His three run 0.397 to 0.558,
+# a spread of 0.161, so there is no single number that fits them all. 0.552 was chosen because it is
+# the median and it matches what he does NOW; saying it "fits his trades" would repeat exactly the
+# overclaim the old constant made when it called two trades a measurement. `test_stop_from_his_
+# trades.py` asserts the overshoot out loud so nobody later reads this as a clean fit.
+#
+# ⚠ HIS ARE MEASURED FROM THE FILL, THIS IS MEASURED FROM THE LINE. All three were stop-entries
+# right at the break, so fill and line nearly coincide — but they are not the same point, and the
+# note below about measuring from the line rather than the anchor is why that distinction is not
+# pedantry. The number is therefore close to his, not provably identical to it.
 #
 # WHY IT MATTERS MORE THAN IT LOOKS: the stop being tiny is what made the deleted 5x-spread rule fire
 # — the band it refused had a 4.2-pip median stop and lost 0.39R a trade, while the band that
 # survives has a 9.3-pip median and loses 0.09R (`docs/strategies/vix1-measured.md`).
-_SL_LINE_GAP_BODY = 0.30
+_SL_LINE_GAP_BODY = 0.552
 
 
 def _m1_range(wcl: list[Candle]) -> float:
@@ -192,10 +218,45 @@ def m1_signals(m1: list[Candle], bullish: bool, vc: Candle,
     from_line = line - _SL_LINE_GAP_BODY * body if bullish else line + _SL_LINE_GAP_BODY * body
     past_anchor = anchor - gap if bullish else anchor + gap
     sl = min(from_line, past_anchor) if bullish else max(from_line, past_anchor)
-    where = ("the line" if sl == from_line else
+
+    # ── A SELL'S STOP IS MOVED OUT BY THE SPREAD (added 2026-11-08) ─────────────────────────────
+    #
+    # HIS INSTRUCTION: *"The reason why we removed the spread stuff is because it was leading to
+    # rejection of trades unnecessarily. But now we want to use it to determine the size of SL."*
+    # So the spread no longer REFUSES anything — it widens the stop instead. Nothing is rejected.
+    #
+    # ⚠ WHY ONLY A SELL, AND THIS IS A MECHANISM RATHER THAN A TUNED NUMBER. Everything above is
+    # measured on CHART prices — the line, the pullback, the candle bodies are all bid. A sell is
+    # closed by BUYING BACK, so its stop fires on the ASK, which sits a spread above the chart: the
+    # stop is effectively a spread CLOSER than the rule intended. A buy's stop fires on the bid,
+    # the same price the rule was drawn from, so the spread cannot reach it. Adding the spread here
+    # does not widen his risk arbitrarily; it makes a sell's stop mean what the rule already said.
+    #
+    # MEASURED, 222 real fills with the broker's own bid AND ask at every one
+    # (`docs/strategies/vix1-measured.md`): the year is +16.3R scored on chart prices and -21.6R
+    # scored on the prices the trades really close at, and every bit of that 37.9R is on the SELLS.
+    # The control that says this is the spread and not a fit: the same correction applied to BUYS,
+    # where the mechanism says it must not help, turns +13.0R into +1.4R. So it is applied to sells
+    # only, and applying it to buys would be a measured mistake, not a symmetry improvement.
+    #
+    # His 16 Sep GBP/USD sell is the shape of the defect: a 2.5-pip stop against a 2.6-pip spread,
+    # already past its stop the moment it filled, gone in 1.2 seconds.
+    #
+    # `sp` is 0.0 when the spread could not be read, and then this changes nothing at all — a quiet
+    # feed must never silently move a stop.
+    # ⚠ WHICH OF THE TWO WON IS DECIDED BEFORE THE SPREAD IS ADDED, not after. `where` used to ask
+    # `sl == from_line`, and adding the spread makes `sl` equal to NEITHER candidate — so the label
+    # would have silently fallen through to "the line" on every sell, mislabelling the card and the
+    # log for the half of trades this change touches.
+    chose_line = (sl == from_line)
+    if not bullish and sp > 0:
+        sl += sp
+
+    where = ("the line" if chose_line else
              "the pullback's far edge" if (x.pullback is not None and anchor != line) else "the line")
     sl_note = (f"{abs(entry - sl)/pip:.1f}p — {abs(sl - line)/pip:.1f}p beyond {where}, "
-               f"{_SL_LINE_GAP_BODY:g}x the momentum candle's {body/pip:.1f}p body")
+               f"{_SL_LINE_GAP_BODY:g}x the momentum candle's {body/pip:.1f}p body"
+               + (f", +{sp/pip:.1f}p spread (a sell's stop fires on the ask)" if not bullish and sp > 0 else ""))
 
     # ALREADY THROUGH THE LEVEL? THEN WE DO NOT TAKE IT — we wait for the next bar.
     #

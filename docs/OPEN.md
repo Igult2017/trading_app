@@ -1681,6 +1681,16 @@ that touches who can become admin, so it gets looked at rather than assumed.
 
 ### D65 — a pip was priced at $10 on every instrument, so yen trades risked $132 when $200 was asked. FIXED 2026-11-08
 
+**⚠ SUPERSEDED IN PART, 2026-11-08 — the two "his calls" below have been made.** He ruled on both:
+*"make autotrade to risk only 1% of the account"* (so `autotrade_risk_pct` is **1.0**, not 2.0 — and
+deliberately BELOW his own ~1.5% manual risk, which he was shown first), and *"now we want to use it
+to determine the size of SL"* for the spread. He also supplied the trade samples the stop multiple
+needed (account **5347048**), which moved `_SL_LINE_GAP_BODY` from 0.30 to **0.552** — the median of
+three of his real trades. ⚠ **And the "1.3×" figure below is WITHDRAWN:** it rested on a single
+trade. With three trades measured in the constant's own unit the gap is **1.8×**. Full account in
+`docs/strategies/vix1.md`, fix log 2026-11-08.
+
+
 **He reported, 2026-11-08:** *"The Autotrader can effectively place trades. However, i have one
 problem. The entries dont adjust according to the market … sometimes a risk of 200 dollars can only
 buy 1.2 lots for me to have a proper stop loss room when I trade manually … But when i use

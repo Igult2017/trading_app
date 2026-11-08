@@ -18,11 +18,26 @@ the broker actually held on the day, and **none of these eight is killed by this
 the candle that used to trade through the narrow stop no longer reaches the wide one. Each case
 carries the minute it used to die at, in a comment, so the old behaviour is still readable.
 
-    the stop the broker held  ->  the stop the platform now computes
-    15 Sep GBP buy   1.34912  ->  1.34891        10 Sep EUR sell  1.16199  ->  1.16216  (was dead)
-    17 Sep EUR sell  1.14786  ->  1.14804        14 Sep EUR sell  1.15560  ->  1.15574  (was dead)
-    18 Sep EUR sell  1.14746  ->  1.14764        16 Sep GBP buy   1.34783  ->  1.34750  (was dead)
-    14 Sep gold      4284.39  ->  4290.74        16 Sep GBP sell  1.34573  ->  1.34602  (was dead)
+⚠ AND UPDATED AGAIN 2026-11-08, FOR THE SAME REASON AND IN THE SAME DIRECTION. He reported the
+platform's stops were too tight against his own manual trades, pointed at them
+(*"you can get some trade samples that i made manually here: 5347048"*), and they measure at **0.552
+x the momentum candle's body** where the code used 0.30 — so `_SL_LINE_GAP_BODY` is now 0.552 and a
+SELL's stop additionally moves out by the live spread (its stop fires on the ask). Every stop below
+moved WIDER again; each was checked to be further from entry AND still on the correct side of it
+before the number was written in. On the currency pairs the room goes from 4.5-7.0 pips to 6.5-10.9,
+which is the band `vix1-measured.md` says survives (9.3-pip median) rather than the one that bleeds
+(4.2). **The 16 Sep GBP sell — the one that filled and lost $125 in 1.2 seconds on a 2.5-pip stop
+against a 2.6-pip spread — now carries 9.4 pips of room.**
+
+    the stop the broker held  ->  0.30 x body     ->  0.552 x body (now)
+    15 Sep GBP buy   1.34912  ->  1.34891         ->  1.34865
+    17 Sep EUR sell  1.14786  ->  1.14804         ->  1.14824
+    18 Sep EUR sell  1.14746  ->  1.14764         ->  1.14787
+    14 Sep gold      4284.39  ->  4290.74         ->  4296.83
+    10 Sep EUR sell  1.16199  ->  1.16216         ->  1.16238   (was dead on the broker's stop)
+    14 Sep EUR sell  1.15560  ->  1.15574         ->  1.15617   (was dead)
+    18 Sep GBP buy   1.34783  ->  1.34750         ->  1.34715   (was dead)
+    16 Sep GBP sell  1.34573  ->  1.34602         ->  1.34642   (was dead)
 
 THE RULE ITSELF IS UNCHANGED AND STILL PROVED, by the two direct `vix1_stop_check` assertions at the
 bottom of this file — a candle past the stop kills, an exact touch does not. What changed is which
@@ -54,23 +69,23 @@ K = dt.timezone(dt.timedelta(hours=3))
 # the order the broker held (entry, stop), and — for a dead one — the candle that went past the stop
 CASES = [
     ("15 Sep GBP buy", "GBPUSD_0915_buy", True, 0.0001, 0.0001,
-     (1789477200, 1.34818, 1.34956, 1.34788, 1.34923), 1789481340, (1.34949, 1.34891), None),
+     (1789477200, 1.34818, 1.34956, 1.34788, 1.34923), 1789481340, (1.34949, 1.34865), None),
     ("17 Sep EUR sell", "EURUSD_0917_sell", False, 0.0001, 0.0,
-     (1789657200, 1.14859, 1.14876, 1.14751, 1.14781), 1789661160, (1.14759, 1.14804), None),
+     (1789657200, 1.14859, 1.14876, 1.14751, 1.14781), 1789661160, (1.14759, 1.14824), None),
     ("18 Sep EUR sell", "EURUSD_0918_sell", False, 0.0001, 0.0,
-     (1789725600, 1.14829, 1.14849, 1.14704, 1.14736), 1789729680, (1.14694, 1.14764), None),
+     (1789725600, 1.14829, 1.14849, 1.14704, 1.14736), 1789729680, (1.14694, 1.14787), None),
     ("14 Sep gold sell", "XAUUSD_0914_sell_withdrawn", False, 0.1, 0.0,
-     (1789412400, 4307.64, 4308.0, 4282.83, 4283.5), 1789416180, (4282.11, 4290.74), None),
+     (1789412400, 4307.64, 4308.0, 4282.83, 4283.5), 1789416180, (4282.11, 4296.83), None),
     ("10 Sep EUR sell (withdrawn)", "EURUSD_0910_sell_withdrawn", False, 0.0001, 0.0,
-     (1789056000, 1.16278, 1.16284, 1.1618, 1.16189), 1789059960, (1.16170, 1.16216), None),  # was dead at "20:02" on the OLD narrow stop
+     (1789056000, 1.16278, 1.16284, 1.1618, 1.16189), 1789059960, (1.16170, 1.16238), None),  # was dead at "20:02" on the OLD narrow stop
     ("14 Sep EUR sell (withdrawn)", "EURUSD_0914_sell_withdrawn", False, 0.0001, 0.0,
-     (1789365600, 1.15695, 1.15698, 1.15503, 1.15522), 1789370580, (1.15508, 1.15574), None),  # was dead at "10:11" on the OLD narrow stop
+     (1789365600, 1.15695, 1.15698, 1.15503, 1.15522), 1789370580, (1.15508, 1.15617), None),  # was dead at "10:11" on the OLD narrow stop
     # Decided in the 06:04 minute and logged as refused at 06:05: at 06:05 price was back under the
     # line, so the entry was (rightly) waiting. The live spread then was ~1.1 pips (entry 1.34813).
     ("16 Sep GBP buy (refused)", "GBPUSD_0916_buy_refused", True, 0.0001, 0.00011,
-     (1789524000, 1.34653, 1.34793, 1.34653, 1.34791), 1789527840, (1.34813, 1.34750), None),  # was dead at "06:03" on the OLD narrow stop
+     (1789524000, 1.34653, 1.34793, 1.34653, 1.34791), 1789527840, (1.34813, 1.34715), None),  # was dead at "06:03" on the OLD narrow stop
     ("16 Sep GBP sell (-$125)", "GBPUSD_0916_sell", False, 0.0001, 0.0,
-     (1789556400, 1.34712, 1.34727, 1.34544, 1.34555), 1789560180, (1.34548, 1.34602), None),  # was dead at "15:02" on the OLD narrow stop
+     (1789556400, 1.34712, 1.34727, 1.34544, 1.34555), 1789560180, (1.34548, 1.34642), None),  # was dead at "15:02" on the OLD narrow stop
 ]
 
 

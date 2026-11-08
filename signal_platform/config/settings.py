@@ -152,11 +152,21 @@ class Settings(BaseSettings):
     # var into the preview scope) and redeploy.
     autotrade_enabled:     bool  = False
     autotrade_demo_only:   bool  = True    # refuse to place on a live account, checked at runtime
-    # % OF THE STARTING BALANCE risked per trade — not of the live one. His instruction,
-    # 2026-09-03: "change our risk to static 2% of the starting account balance." Sizing off the
-    # live balance means the money at risk drifts with every win and loss; static means the same
-    # setup is the same bet in a month. Was 0.5% of live equity until then.
-    autotrade_risk_pct:    float = 2.0
+    # % OF THE STARTING BALANCE risked per trade — not of the live one. Sizing off the live balance
+    # means the money at risk drifts with every win and loss; static means the same setup is the
+    # same bet in a month. 0.5% of live equity until 2026-09-03, then 2% of the starting balance on
+    # his instruction ("change our risk to static 2% of the starting account balance").
+    #
+    # 1% SINCE 2026-11-08 — his instruction: *"make autotrade to risk only 1% of the account."*
+    #
+    # ⚠ THIS IS DELIBERATELY BELOW WHAT HE RISKS BY HAND, and he was shown that before it was set.
+    # His two real trades with a recoverable original stop, read off the broker (account 5347048):
+    #     GBP/JPY  1.00 lot, 22.6-pip stop -> $149.67 = 1.54% of the $9,704.51 account
+    #     XAU/USD  0.20 lot, 70.0-pip stop -> $140.00 = 1.44%
+    # So 1.5% reproduces his own sizing almost exactly (0.97 lots against the 1.00 he placed, 0.21
+    # against his 0.20); at 1% the platform sizes BELOW him on purpose. Do not "correct" this
+    # upward to match his manual trades — the gap is the instruction, not a defect.
+    autotrade_risk_pct:    float = 1.0
     # The balance that percentage is OF. 0.0 = use the account's own recorded starting balance from
     # the credential bridge. Set it to pin the number by hand if that recorded value is ever wrong.
     # If neither is known, sizing REFUSES rather than falling back to the live balance.
