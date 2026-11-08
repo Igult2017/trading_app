@@ -35,7 +35,8 @@ from core.instrument_debut import InstrumentDebut
 from strategies.vix1_bias import _ALLOW_H4, detect_bias
 from strategies.vix1_entry import m1_signals
 from strategies.vix1_lines import draw_line
-from strategies.vix1_momentum import LOOKBACK, momentum_grade   # candle_counts[M1] derives from LOOKBACK
+from strategies.vix1_momentum import (LOOKBACK, momentum_grade,   # candle_counts[M1] uses LOOKBACK
+                                      traded_on_memory)
 from strategies import vix1_building, vix1_countwatch, vix1_momentum_watch, vix1_preclose
 from strategies.vix1_signal import build_signal
 from strategies import vix1_spacing, vix1_log
@@ -436,6 +437,12 @@ class Vix1Strategy(BaseStrategy):
                                bias_reason=bias_reason,
                                retracement=bias.retracement, efficiency=bias.efficiency,
                     regime=bias.regime)
+            # WAS THIS CANDLE BIG ON ITS OWN, OR ONLY BY THE 24-HOUR MEMORY? Stamped here because
+            # this is the one place a CONFIRMED VIX.1 entry is built (the `_watch` cards are never
+            # traded — `dispatcher` only calls autotrade `if not is_watch`), and because the H1 bars
+            # are in scope here and not inside `build_signal`. Autotrade alone reads it; the card,
+            # the save and the DM are untouched, which is exactly how he scoped the rule.
+            sig.size_from_memory = traded_on_memory(h1, len(h1) - 1, bullish, sym)
             sig.dedup_key = key          # committed ONLY once the signal is real — never here
             out.append(sig)
             self._recent[sym] = (bullish, now, key)

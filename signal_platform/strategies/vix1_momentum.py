@@ -314,6 +314,31 @@ def qualifies_for_trade(h1: list[Candle], i: int, bullish: bool, symbol: str) ->
     return size_yardstick(h1, i, bullish, symbol) is not None
 
 
+def traded_on_memory(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
+    """Did candle `i` pass the SIZE test only because of the 24-hour memory?
+
+    True means: too small for the requirement in force NOW, but it cleared an EARLIER one remembered
+    from before the requirement changed. False covers both "big on its own" (including within his
+    0.2 margin) and "not a momentum candle at all" — a caller asking this is deciding whether to act
+    on a candle it has already qualified, so "not qualified" and "qualified properly" need no
+    distinction here.
+
+    HIS RULE, 2026-11-08: *"Autotrader should only take trades from candles that qualify momentum
+    candle size or misses it by the margine of error but not the previous momentum candles before the
+    momentum candle size changes."*
+
+    ⚠ IT ANSWERS, IT DOES NOT DECIDE. `qualifies_for_trade` is deliberately unchanged, and so are the
+    pre-close heads-up, spacing and the DM announcement — he scoped it himself: *"This only affects
+    trades taken by autotrade. Everything else including DM remains the same."* Only
+    `execution/placer` reads this to decline.
+
+    It is `size_yardstick`'s own answer read one way, not a second copy of the size rule: that
+    function returns `i` for a candle big on its own and an EARLIER index for one the memory let in.
+    """
+    j = size_yardstick(h1, i, bullish, symbol)
+    return j is not None and j != i
+
+
 def is_momentum_candle(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
     """BIG for this pair right now (2.5x its 100-bar median) + BIG FOR THE LAST ~4 MONTHS + BIGGER THAN THE
     ONE BEFORE IT + CLEAN + UNREJECTED. The wick WITH the move is not capped (a 48% with-wick appears in

@@ -221,6 +221,21 @@ class Signal:
                                    # saved, handed to the notifier and never sent. That exact case
                                    # happened on 2026-07-27 and was undiagnosable without this link.
     label:              str = ""   # short code shown prominently on the card (e.g. "451HRZ")
+    # True when the momentum candle this signal was built on passed the SIZE test only because of
+    # the 24-hour memory — i.e. it was too small for the requirement in force NOW, and cleared an
+    # EARLIER one remembered from before the requirement changed.
+    #
+    # ⚠ AUTOTRADE REFUSES THESE; EVERYTHING ELSE IS UNCHANGED. His rule, 2026-11-08: *"Autotrader
+    # should only take trades from candles that qualify momentum candle size or misses it by the
+    # margine of error but not the previous momentum candles before the momentum candle size
+    # changes."* Scoped by him in the next breath: *"This only affects trades taken by autotrade.
+    # Everything else including DM remains the same."* So the signal is still produced, still saved
+    # and still sent — `qualifies_for_trade`, the pre-close heads-up, spacing and the DM
+    # announcement all keep the memory. Only `execution/placer` declines to place.
+    #
+    # In memory only, never a database column: the placer receives this live object, so nothing
+    # needs to survive a restart for the decision to be right.
+    size_from_memory:   bool = False
     # Optional price BANDS to shade on the rendered chart card: [(low, high, colour, label)].
     # DELIBERATELY GENERIC. The renderer must not know what any strategy means by a band — one
     # strategy's supply zone and another's range are the same four numbers to it, and a renderer

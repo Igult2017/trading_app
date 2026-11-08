@@ -111,6 +111,37 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
                                               "nothing to place")
             return None
 
+        # ── A CANDLE ADMITTED ONLY BY THE 24-HOUR MEMORY IS NOT TRADED (2026-11-08) ─────────────
+        #
+        # HIS RULE: *"Autotrader should only take trades from candles that qualify momentum candle
+        # size or misses it by the margine of error but not the previous momentum candles before the
+        # momentum candle size changes."*
+        #
+        # The size test passes a candle three ways: big on its own (2.5x its 100-bar median body),
+        # within his 0.2 margin (2.3x), or — the one he is withdrawing here — by clearing the LOWEST
+        # requirement remembered from a candle that qualified on its own in the previous 24 clock
+        # hours. A big move raises its own yardstick (his 10-11 Sep GBP/USD move took the
+        # requirement 9.2 -> 11.6 pips), and that third route lets a candle too small for the NEW
+        # bar through on the OLD one.
+        #
+        # ⚠ THE SIGNAL IS NOT SUPPRESSED, and that is his scoping, not an accident: *"This only
+        # affects trades taken by autotrade. Everything else including DM remains the same."* The
+        # card has already gone out by the time this runs (`dispatcher` places only after sending),
+        # `qualifies_for_trade` is unchanged, and so are the pre-close heads-up, spacing and the
+        # momentum announcement. Only the ORDER is declined.
+        #
+        # Recorded through `decision_log.refused` so it appears on the Autotrade screen beside every
+        # other refusal — a trade not taken has to be as visible as one that was.
+        if getattr(signal, "size_from_memory", False):
+            why = ("its momentum candle was too small for the size required now and only qualified "
+                   "on the 24-hour memory of an earlier, smaller requirement")
+            log.info(f"[execution] NOT placing {symbol} {side} — {why}")
+            await decision_log.refused(signal, why)
+            if notify:
+                await _tell(notify, refusal_message(
+                    symbol, side, signal.strategy_name or signal.strategy_id, why))
+            return None
+
         # SIZED OFF THE STARTING BALANCE, NOT THE LIVE ONE. His instruction, 2026-09-03: *"static
         # 2% of the starting account balance."* `risk_base` is that number, decided once in
         # `account._risk_base`; 0.0 means it could not be established, and `plan_size` then returns
