@@ -1679,6 +1679,89 @@ that touches who can become admin, so it gets looked at rather than assumed.
 
 ## D. cTrader & copy trading
 
+### D66 — he could not see the bot's order in Pepperstone, and a stop he moved by hand was undone. FIXED 2026-11-08
+
+**He asked:** *"Why is it that when autotrader places a trade i am unable to see it when i log in to
+that account?"* then, correcting me: *"Im asking seeing the trade visually in pepperstone when it is
+placed so that i can adjust SL manually."*
+
+**⚠ HE CORRECTED ME THREE TIMES AND WAS RIGHT EVERY TIME. Recorded so none of my wrong answers is
+repeated:**
+
+| my answer | why it was wrong |
+|---|---|
+| *"it is a pending order, so it is in the Orders tab not Positions"* | he sees his OWN resting orders fine. Being pending is not why the bot's were invisible |
+| the account / the kill switch | not the question; he knew both |
+| offering to **delay the cancel** | *"The cancel takes effect once the price has gone outside the SL band on the opposite side not the direction we predicted. So i dont know why you are saying we delay it."* He is right — `signal_monitor.py:224-228` fires only when, for a buy, the **low** went DOWN through the stop before price ever rose to trigger the entry. It is correctly targeted. **Option withdrawn** |
+
+#### The real reason they were invisible: the orders were born dead
+
+If the cancel only removes a genuinely dead setup, an order that vanished at once was **already
+invalid when sent**. That is **B30**: 7 of 11 orders were sent after price had already gone through
+their own stop. **The fault was the placement, not the cancel** — and it is already fixed:
+`vix1_entry.py:313` calls `stop_already_hit` and returns **no order at all** for such a setup, live
+in the entry path. Today's wider stop (0.30 → 0.552 of the momentum body, plus the spread on a sell)
+makes it less likely still.
+
+⚠ **I COULD NOT RE-MEASURE THE SEPTEMBER FIGURES.** The broker returned **zero** orders for 8–21 Sep
+on the account this session reads, while the same account does return the 23 Sep ones. B30/B29 are a
+record written at the time, not a fresh measurement. Do not quote them as one.
+
+#### The gap that defeated adjusting a stop by hand
+
+`signal_monitor.py:167` reads `sl = float(row.stop_loss)` — **our stored stop, never the broker's
+live order.** So a stop he widened was invisible: the platform kept measuring the original tight
+level, called the setup dead, and `canceller` withdrew the very order he had just edited.
+
+#### Fixed — and both halves cost no extra broker request
+
+- **`data/ctrader_positions`** now keeps each resting order's `stopLoss` beside its id
+  (`_resting_stops`, `last_resting_stop`), from the reconcile reply that already arrives every 30
+  seconds and was discarding it. Scaled by the same fixed 100,000 as every other price there. ⚠ An
+  order with **no** stop is **absent**, never stored as `0.0` — zero is a price, and "he has no
+  stop" must never read as "his stop is at 0".
+- **`execution/canceller._stop_he_moved`** compares the broker's live stop with what we recorded
+  placing; on a difference beyond a tenth of a pip it **does not cancel**, adopts his level via
+  `signal_repo.adopt_stop`, and says so in the log and the DM — a withdrawal that does NOT happen is
+  now as visible as one that does.
+- ⚠ **IT FAILS TOWARD CANCELLING.** Never read, no longer resting, no stop, no record of ours, a
+  throwing read — every uncertain case falls through to the normal cancel, because a dead order left
+  resting is his 2026-09-04 complaint (a gold buy stop 72 points offside) and is worse than
+  withdrawing one he had edited.
+- **`orders.build_stop`** now sets a **label** (`auto-<strategy>-<signal stub>`) and a **comment**
+  (lots, risk %, stop basis). It set none of `label`/`comment`/`clientOrderId` before, which is why
+  a bot order was indistinguishable from a manual one — and why, earlier the same day, the only
+  reason I could tell MY four test orders from his trades in his own history was that mine carried
+  labels and his carried nothing. ⚠ Never `cp-` prefixed: the copy engine owns that namespace
+  (`copy_platform/executors/ctrader.py:183-192`), and `build_stop` refuses such a label even if
+  handed one.
+
+**Measured:** `tests/test_hand_moved_stop.py` — **28 checks**, all pass; and the suites around it
+stay green (`test_stop_from_his_trades` 24, `test_pip_value` 33, `test_order_volume` 56,
+`test_execution_placement` 35, `test_autotrade_dm` 60, `test_entry_stop_already_hit` 20,
+`test_autotrade_decision_log` 28, `test_guard_live_order` 27 — the last two need
+`PYTHONIOENCODING=utf-8` on a cp1252 console, which is an output artefact and not a failure).
+
+**⚠ TWO THINGS SABOTAGE FOUND THAT GREEN CHECKS HAD NOT:**
+1. **A zero stop was read as "his stop is at 0".** `_resting_stops` already drops a zero so it could
+   not fire yet, but the alternative reading is catastrophic and silent — the order would be kept
+   alive and judged against a price nothing can reach. `_stop_he_moved` now refuses a non-positive
+   stop.
+2. **My own wiring check was the "wired is not working" trap.** It searched the source for
+   `_stop_he_moved(order_id)`, which also matches the function's own `def` line — so deleting the
+   **call** left the suite entirely green. Replacing the call with `moved = None` removed the whole
+   feature and nothing went red. The check now asserts `moved = _stop_he_moved(` and three checks
+   fail when the feature is removed.
+
+#### ⚠ NOT PROVEN, and it cannot be from here
+
+Autotrade is OFF, so no order rests. The honest end-to-end test is: an order appears in Pepperstone
+**carrying its label**, he widens its stop, and the platform **leaves it alone and says so**. Green
+checks are not that, and this project has already paid four times for calling a copier fix done on
+green checks.
+
+---
+
 ### D65 — a pip was priced at $10 on every instrument, so yen trades risked $132 when $200 was asked. FIXED 2026-11-08
 
 **⚠ SUPERSEDED IN PART, 2026-11-08 — the two "his calls" below have been made.** He ruled on both:

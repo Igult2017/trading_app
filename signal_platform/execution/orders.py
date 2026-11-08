@@ -35,9 +35,34 @@ class OrderResult:
     fill_price: float | None = None
 
 
+#: How a label is built. Kept here, next to the only place that sets one, so the shape is readable
+#: from the order itself rather than reconstructed from three call sites.
+#:
+#: WHY AN ORDER IS MARKED AT ALL — his ask, 2026-11-08: *"Im asking seeing the trade visually in
+#: pepperstone when it is placed so that i can adjust SL manually."* Until now `build_stop` set no
+#: label, no comment and no clientOrderId, so a bot order was INDISTINGUISHABLE from one he placed
+#: by hand. That is not hypothetical: earlier the same day, his own account held four of my test
+#: orders and the only reason I could tell them from his trades was that MINE carried labels
+#: ("routing-proof-shared-socket", "gate-probe") and his carried nothing.
+#:
+#: ⚠ NEVER `cp-` PREFIXED. The copy engine finds its own mirrored positions by matching an exact
+#: `cp-<master order id>` label (`copy_platform/executors/ctrader.py:183-192`), so that namespace
+#: belongs to it. A label also travels from the order onto the POSITION it becomes
+#: (`ProtoOATradeData.label`), which is why the mark survives the fill and is worth setting here.
+LABEL_PREFIX = "auto"
+
+
+def order_label(strategy: str, signal_id: str | None) -> str:
+    """A short mark he can spot in the broker's own order list. `auto-vix1-1a2b3c4d`."""
+    strat = "".join(ch for ch in (strategy or "bot").lower() if ch.isalnum())[:8] or "bot"
+    stub = "".join(ch for ch in str(signal_id or "") if ch.isalnum())[:8]
+    return f"{LABEL_PREFIX}-{strat}" + (f"-{stub}" if stub else "")
+
+
 def build_stop(acct: int, symbol: str, side: str, volume: int, stop_price: float,
                sl: float, tp: float, expiry_ms: int | None, symbol_map: dict,
-               spec: dict | None = None, lots: float = 0.0):
+               spec: dict | None = None, lots: float = 0.0,
+               label: str = "", comment: str = ""):
     """The ProtoOANewOrderReq for a pending stop — or (None, reason) if it cannot be built.
 
     `spec` is the broker's OWN `{lotSize, minVolume, maxVolume, stepVolume}` for this symbol, from
@@ -98,8 +123,16 @@ def build_stop(acct: int, symbol: str, side: str, volume: int, stop_price: float
         req.takeProfit = round(float(tp), d)
     if expiry_ms:
         req.expirationTimestamp = int(expiry_ms)
+    # THE MARK — so he can see at a glance, in Pepperstone's own order list, that this one is the
+    # platform's and not his. Both fields read back on the broker's order history (proved: my test
+    # orders' labels came back off `get_order_history` on 2026-11-08) and the label follows the
+    # order onto the position it becomes.
+    if label and not label.startswith("cp-"):
+        req.label = label[:50]
+    if comment:
+        req.comment = comment[:100]
     log.info(f"[execution] STOP {side} {symbol} vol={req.volume} @ {req.stopPrice} "
-             f"SL {req.stopLoss} TP {req.takeProfit}")
+             f"SL {req.stopLoss} TP {req.takeProfit} label={req.label!r}")
     return req, None
 
 

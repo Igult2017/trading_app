@@ -49,14 +49,52 @@ _TYPE_DEAL_LIST_RES = ProtoOADealListRes().payloadType
 _resting_order_ids: set[int] | None = None
 
 
+#: EACH RESTING ORDER'S OWN STOP, from the same reply. Added 2026-11-08 for his ask: *"Im asking
+#: seeing the trade visually in pepperstone when it is placed so that i can adjust SL manually."*
+#:
+#: Adjusting it by hand could not work, because `signal_monitor.py:167` judges a setup against the
+#: stop stored in OUR database and never against the broker's live order — so a stop he widened was
+#: invisible, the platform kept measuring the original tight level, called the setup dead and
+#: withdrew the order he had just edited. The live stop was in this reply all along and this module
+#: kept only the ids. Reading it costs NO extra request.
+_resting_order_stops: dict[int, float] | None = None
+
+
 def _resting_ids(res) -> set[int]:
     """The ids of every pending order in a reconcile reply."""
     return {int(o.orderId) for o in res.order}
 
 
+def _resting_stops(res) -> dict[int, float]:
+    """order id -> its CURRENT stop loss, for every pending order carrying one.
+
+    Scaled by the same fixed 100,000 as every other price in this reply (see the module header). An
+    order with no stop is absent rather than present-as-zero: zero is a price, and "he has no stop"
+    must never be read as "his stop is at 0".
+    """
+    out: dict[int, float] = {}
+    for o in res.order:
+        sl = getattr(o, "stopLoss", 0) or 0
+        if sl:
+            out[int(o.orderId)] = float(sl) / 100_000
+    return out
+
+
 def last_resting_order_ids() -> set[int] | None:
     """Resting order ids from the most recent SUCCESSFUL read, or None if there has been none."""
     return None if _resting_order_ids is None else set(_resting_order_ids)
+
+
+def last_resting_stop(order_id: int | str) -> float | None:
+    """The stop THE BROKER currently holds for one resting order, or None if it cannot be said.
+
+    None covers three different things on purpose — never read, not resting any more, or resting with
+    no stop — because a caller must treat all three the same way: it does not know his stop, so it
+    must not act as though he has moved it.
+    """
+    if _resting_order_stops is None:
+        return None
+    return _resting_order_stops.get(int(order_id))
 
 
 @dataclass(frozen=True)
@@ -137,7 +175,7 @@ async def open_positions() -> list[Position] | None:
     open", None is "I could not find out". Alerting on the first is correct; alerting on the second
     would be inventing a fact.
     """
-    global _resting_order_ids
+    global _resting_order_ids, _resting_order_stops
     try:
         async with _req_lock:
             reader, writer = await _sess.get_connection()
@@ -161,6 +199,7 @@ async def open_positions() -> list[Position] | None:
         res = ProtoOAReconcileRes()
         res.ParseFromString(resp.payload)
         _resting_order_ids = _resting_ids(res)
+        _resting_order_stops = _resting_stops(res)
         out: list[Position] = []
         for p in res.position:
             name = _name_for(p.tradeData.symbolId)

@@ -42,6 +42,48 @@ from storage import autotrade_repo
 log = logging.getLogger(__name__)
 
 
+#: How far the broker's stop must sit from ours before we call it "he moved it". A price comparison
+#: needs SOME tolerance or float noise and the broker's own rounding read as a hand edit; one tenth
+#: of a pip is far below any stop he would set deliberately and far above either of those.
+_MOVED_EPS_PIPS = 0.1
+
+
+def _stop_he_moved(order_id) -> float | None:
+    """The stop the broker holds for our resting order, when it is NOT the one we placed.
+
+    None means "do not treat this as his" — and it covers every uncertain case on purpose: the
+    reconcile has never been read, the order is no longer resting, it rests with no stop at all, we
+    have no record of what we asked for, or the two agree. Each of those falls through to the normal
+    cancel, because leaving a dead order resting on a guess is the fault he reported on 2026-09-04
+    (a gold buy stop sitting 72 points offside), and it is worse than withdrawing one he had edited.
+
+    Never raises: a failure to read his stop must not stop the cancel from happening.
+    """
+    try:
+        from data import ctrader_positions
+        live = ctrader_positions.last_resting_stop(order_id)
+        # NOT-POSITIVE IS "NO STOP", NEVER "A STOP AT ZERO". `_resting_stops` already drops a zero
+        # rather than storing it, so this cannot fire today — it is here because the alternative
+        # reading is catastrophic and silent: a 0.0 would look like a stop he had moved miles away,
+        # the order would be kept alive, and the platform would judge the setup against a price
+        # nothing can reach. Caught by this file's own test, which stubbed the zero deliberately.
+        if live is None or float(live) <= 0:
+            return None
+        intent = autotrade_repo.intent_for(str(order_id)) or {}
+        ours, symbol = intent.get("sl"), intent.get("symbol")
+        if not ours or not symbol:
+            return None
+        from shared.pip import pip_size
+        pip = pip_size(symbol)
+        if not pip or pip <= 0:
+            return None
+        return live if abs(float(live) - float(ours)) > _MOVED_EPS_PIPS * pip else None
+    except Exception as exc:
+        log.warning(f"[canceller] could not compare the broker's stop for {order_id}: "
+                    f"{type(exc).__name__}: {exc}")
+        return None
+
+
 async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
     """Cancel the resting order this platform placed for `signal_id`. True only if it really went.
 
@@ -54,6 +96,40 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
         order_id = autotrade_repo.order_for_signal(signal_id)
         if not order_id:
             return False                    # nothing of ours resting for this signal — the normal case
+
+        # ── A STOP HE MOVED BY HAND IS HIS, AND IT IS NOT CANCELLED (2026-11-08) ────────────────
+        #
+        # HIS ASK: *"Im asking seeing the trade visually in pepperstone when it is placed so that i
+        # can adjust SL manually."* That could not work. `signal_monitor.py:167` judges a setup
+        # against `row.stop_loss` — OUR stored stop — and never against the broker's live order. So
+        # a stop he widened was invisible: the platform kept measuring the ORIGINAL tight level,
+        # decided the setup was dead, and withdrew the very order he had just edited.
+        #
+        # ⚠ AND HE WAS RIGHT THAT THE CANCEL ITSELF IS NOT THE PROBLEM: *"The cancel takes effect
+        # once the price has gone outside the SL band on the opposite side not the direction we
+        # predicted."* It is correctly targeted and is left exactly as it is. The only thing that
+        # changes is WHICH STOP it is judged against — his, when he has set one.
+        #
+        # The live stop comes from the reconcile reply the monitor already fetches every 30 seconds
+        # (`ctrader_positions.last_resting_stop`), so this costs no broker request.
+        #
+        # ⚠ IT FAILS TOWARD CANCELLING. `last_resting_stop` returns None for "never read", "not
+        # resting any more" and "resting with no stop" alike, and every one of those falls through
+        # to the cancel below — because a dead order left resting is the exact thing he complained
+        # about on 2026-09-04 (a gold buy stop sitting 72 points offside). Keeping an unwatched
+        # order alive on a guess is worse than cancelling one he had edited.
+        moved = _stop_he_moved(order_id)
+        if moved is not None:
+            from storage import signal_repo
+            signal_repo.adopt_stop(signal_id, moved)
+            log.info(f"[canceller] {symbol}: NOT cancelling order {order_id} — the stop at the "
+                     f"broker is {moved}, which is not the one we placed. Treating it as his and "
+                     f"judging the setup against it from now on.")
+            await withdrawal_notice.announce(
+                order_id, symbol,
+                f"left resting — you moved its stop to {moved}, so the platform is now using "
+                f"your level instead of its own", withdrawal_notice.NOT_WITHDRAWN)
+            return False
 
         from execution.account import load_account
         acct = await load_account()

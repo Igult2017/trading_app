@@ -174,9 +174,20 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
         expiry_ms = int(expires_at.timestamp() * 1000)
 
         from execution.broker import StopOrderClient  # noqa: local import keeps ctrader deps lazy
+        # MARKED, SO HE CAN SEE IT IN PEPPERSTONE AND ACT ON IT — his ask, 2026-11-08: *"Im asking
+        # seeing the trade visually in pepperstone when it is placed so that i can adjust SL
+        # manually."* The label is what makes a bot order distinguishable from one of his at a
+        # glance; the comment carries the plan, so the numbers he would need to judge it are on the
+        # order itself rather than only in a DM he has to go and find.
+        from execution.orders import order_label
+        strategy = signal.strategy_name or signal.strategy_id or "bot"
+        label = order_label(str(signal.strategy_id or strategy), getattr(signal, "id", None))
+        comment = (f"{strategy} {side} {lots}L "
+                   f"risk {settings.autotrade_risk_pct:g}% over {stop_pips:.1f}p")
         res = await StopOrderClient(creds, account_type).place_stop(
             symbol=symbol, side=side, volume=volume, lots=lots,
-            stop_price=entry, sl=sl, tp=tp, expiry_ms=expiry_ms)
+            stop_price=entry, sl=sl, tp=tp, expiry_ms=expiry_ms,
+            label=label, comment=comment)
 
         if not res.ok:
             log.error(f"[execution] {symbol} {side} REJECTED — {res.error}")

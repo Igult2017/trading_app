@@ -255,6 +255,40 @@ def update_status(signal_id: str, status: SignalStatus,
             setattr(row, timestamp_field, when or datetime.now(timezone.utc))
 
 
+def adopt_stop(signal_id: str, stop: float) -> bool:
+    """Record a stop HE set by hand at the broker as this signal's stop. True if it was written.
+
+    WHY THIS EXISTS — his ask, 2026-11-08: *"Im asking seeing the trade visually in pepperstone when
+    it is placed so that i can adjust SL manually."* Adjusting it could not work, because
+    `monitor/signal_monitor.py:167` judges the setup against `row.stop_loss` — THIS column — and
+    never against the broker's live order. A stop he widened was invisible: the platform kept
+    measuring the original tight level, decided the setup was dead, and `execution/canceller`
+    withdrew the very order he had just edited. Writing his level here is what makes every later
+    30-second pass judge against HIS stop instead.
+
+    ⚠ IT IS DELIBERATELY NOT IDEMPOTENT-BY-VALUE and overwrites whatever is there. He may move the
+    stop more than once, and the LAST thing he set is the one that counts. `mark_triggered` above
+    leaves an existing value alone for the opposite reason — a fill time is a fact that happened
+    once; a stop is an instruction he can change.
+
+    ⚠ THIS CHANGES WHAT THE PLATFORM CALLS THE PLANNED RISK, and that is correct rather than
+    incidental: once he has moved the stop, the risk he is taking IS his number. The auto-journal
+    reads R from the ENTRY ORDER at the broker (`project-autojournal-pipeline`), which carries the
+    same stop, so the two agree instead of drifting.
+    """
+    try:
+        with get_session() as s:
+            row = s.get(SignalModel, signal_id)
+            if row is None:
+                return False
+            row.stop_loss = stop
+            return True
+    except Exception as exc:
+        log.warning(f"[signal_repo] could not adopt the stop {stop} for {signal_id}: "
+                    f"{type(exc).__name__}: {exc}")
+        return False
+
+
 def mark_triggered(signal_id: str, when: datetime | None = None) -> None:
     """Stamp the moment the ENTRY actually filled. Status stays 'active' — the card is live either
     way; triggered_at is what separates an open POSITION (TP/SL outcomes are real) from a pending

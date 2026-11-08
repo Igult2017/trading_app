@@ -46,7 +46,8 @@ class StopOrderClient:
 
     async def place_stop(self, symbol: str, side: str, volume: int,
                          stop_price: float, sl: float, tp: float,
-                         expiry_ms: int | None = None, lots: float = 0.0) -> OrderResult:
+                         expiry_ms: int | None = None, lots: float = 0.0,
+                         label: str = "", comment: str = "") -> OrderResult:
         """`lots` is the size the RISK MATHS produced, carried through untouched.
 
         It is not redundant with `volume`. The caller converts lots to the API's integer units
@@ -54,7 +55,8 @@ class StopOrderClient:
         states its own `lotSize` for the symbol, `orders.build_stop` re-derives the volume from
         these lots and the caller's number is discarded. Left at 0 the old behaviour is kept exactly.
         """
-        return await self._run(("stop", symbol, side, volume, stop_price, sl, tp, expiry_ms, lots))
+        return await self._run(("stop", symbol, side, volume, stop_price, sl, tp, expiry_ms,
+                                 lots, label, comment))
 
     async def cancel(self, order_id: int) -> OrderResult:
         return await self._run(("cancel", int(order_id)))
@@ -127,9 +129,9 @@ class StopOrderClient:
         if cmd[0] == "amend":
             _, position_id, symbol, sl, tp = cmd
             return build_amend(acct, position_id, symbol, sl, tp), None
-        _, symbol, side, volume, stop_price, sl, tp, expiry_ms, lots = cmd
+        _, symbol, side, volume, stop_price, sl, tp, expiry_ms, lots, label, comment = cmd
         return build_stop(acct, symbol, side, volume, stop_price, sl, tp, expiry_ms, symbol_map,
-                          spec=spec, lots=lots)
+                          spec=spec, lots=lots, label=label, comment=comment)
 
     async def _await_verdict(self, sess, reader, cmd: tuple) -> OrderResult:
         """Read until the broker gives a verdict.
