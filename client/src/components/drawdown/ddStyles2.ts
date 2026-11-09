@@ -146,19 +146,6 @@ const DD_SECTIONS = `
   font-weight:700; font-size:12.5px; margin-bottom:8px;
 }
 
-/* ── SESSION CARDS ──────────────────────────────────────────────────────────── */
-.dp .dd-sess{
-  border-radius:4px; padding:16px; position:relative; overflow:hidden;
-  background:var(--t-inner); border:1px solid var(--line);
-}
-.dp .dd-sess-hot{ border-color:var(--t-rose-40); }
-.dp .dd-sess-glow{
-  position:absolute; top:0; right:0; width:64px; height:64px;
-  background:var(--t-rose-10); border-bottom-left-radius:9999px; pointer-events:none;
-}
-.dp .dd-sess-sub{ font-size:12.5px; color:var(--ink-dim); margin-top:12px; position:relative; }
-.dp .dd-sess-rule{ padding-top:8px; margin-top:8px; border-top:1px solid var(--t-line); }
-
 /* ── TRADE SEQUENCE ─────────────────────────────────────────────────────────── */
 .dp .dd-seq{
   display:flex; flex-wrap:wrap; align-items:center; gap:5px; padding:10px;

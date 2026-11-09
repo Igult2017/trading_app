@@ -142,30 +142,6 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
             ))}
           </div>
         </section>
-        {/* STRUCTURAL + THE FIVE SESSION CARDS */}
-        <section className="dd-card dd-stack">
-          <div className="dd-sec-head" style={{ paddingBottom: 12 }}>
-            <div><TextLine w={210} px={18} /><TextLine w={290} px={12} /></div>
-            <div className="dd-tabs" style={{ height: 34, minWidth: 150 }} />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {[150, 120, 170].map((w, i) => (
-              <div className="dd-inner-sm dd-between" key={i}>
-                <TextLine w={w} px={12} /><TextLine w={80} px={12} />
-              </div>
-            ))}
-          </div>
-          <div className="dd-grid dd-g5">
-            {[64, 70, 52, 58, 50].map((w, i) => (
-              <div className="dd-sess" key={i}>
-                <div className="dd-between"><TextLine w={w} px={14} /><TextLine w={46} px={14} /></div>
-                <div className="dd-sess-sub"><TextLine w={110} px={11} />
-                  <div className="dd-sess-rule"><TextLine w={70} px={10} /><TextLine w={90} px={11} /></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
         {/* STREAKS + R:R */}
         <section className="dd-grid dd-g2">
           <div className="dd-card">

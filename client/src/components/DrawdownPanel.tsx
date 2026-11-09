@@ -10,7 +10,6 @@ import { DdProfile } from '@/components/drawdown/ddProfile';
 import { DdBreakdown, type DirKey, type GroupKey } from '@/components/drawdown/ddBreakdown';
 import { DdRiskCards } from '@/components/drawdown/ddRiskCards';
 import { DdLossShare } from '@/components/drawdown/ddLossShare';
-import { DdStructural, type DiagKey } from '@/components/drawdown/ddStructural';
 import { DdStreaks } from '@/components/drawdown/ddStreaks';
 import { DdRR } from '@/components/drawdown/ddRR';
 import { DdMonthly } from '@/components/drawdown/ddMonthly';
@@ -63,7 +62,6 @@ export default function DrawdownPanel({
   // The request is now byte-for-byte what it was before the selector was ever added.
   const [dir, setDir] = useState<DirKey>('ALL');
   const [group, setGroup] = useState<GroupKey>('STRATEGY');
-  const [diag, setDiag] = useState<DiagKey>('CONTEXT');
   const [openMonth, setOpenMonth] = useState<string | null>(null);
 
 
@@ -155,9 +153,6 @@ export default function DrawdownPanel({
         <DdRiskCards risk={d.riskModel} mc={d.monteCarlo} recovery={d.recovery} />
 
         <DdLossShare lossShare={d.lossShare} />
-
-        <DdStructural structural={d.structural} sessions={d.sessions ?? []}
-                      diag={diag} onDiag={setDiag} />
 
         <section className="dd-grid dd-g2">
           <DdStreaks sk={d.streaks} />
