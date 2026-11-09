@@ -157,18 +157,26 @@ from strategies import vix1_spacing         # noqa: E402
 
 _B = 0.0002
 run_w = flat_series(110, size=_B, tf="H1")
-run_w.append(body(1.1, 1.1 + _B * 2.4, tf="H1", t=110))      # 2.4x: tradeable only through the margin
-run_w.append(body(1.1, 1.1 + _B * 3.0, tf="H1", t=111))      # 3.0x: momentum on the unchanged rule
+# ⚠ EACH ONE OPENS WHERE THE LAST CLOSED. Opening both at 1.1 put the 3.0x candle on the far
+# side of a 2.4x body that was 80% its size — his stomach rule refuses exactly that, so from
+# 2026-11-10 the run came back empty and this check failed for the wrong reason.
+_p = run_w[-1].close
+run_w.append(body(_p, _p + _B * 2.4, tf="H1", t=110))        # 2.4x: tradeable only through the margin
+_p = run_w[-1].close
+run_w.append(body(_p, _p + _B * 3.0, tf="H1", t=111))        # 3.0x: momentum on the unchanged rule
 s.check("a 2.4x candle WOULD qualify for a trade if it were the newest candle",
         qualifies_for_trade(run_w, 110, True, GBP), True)
 s.check("...but behind a newer momentum candle it is NOT part of the run — the run still starts at the newest",
         momentum_run(run_w, True, GBP), (111, 1))
 
 sp = flat_series(110, size=_B, tf="H1")
-sp.append(body(1.1, 1.1 + _B * 2.4, tf="H1", t=110))          # the traded candle, qualified through the margin
+_p = sp[-1].close
+sp.append(body(_p, _p + _B * 2.4, tf="H1", t=110))            # the traded candle, qualified through the margin
 for _k in (111, 113, 115):                                     # three more 2.4x candles, each after a small one
-    sp.append(body(1.1, 1.1 + _B, tf="H1", t=_k))
-    sp.append(body(1.1, 1.1 + _B * 2.4, tf="H1", t=_k + 1))
+    _p = sp[-1].close
+    sp.append(body(_p, _p + _B, tf="H1", t=_k))
+    _p = sp[-1].close
+    sp.append(body(_p, _p + _B * 2.4, tf="H1", t=_k + 1))
 _anchor = vix1_spacing.anchor_time(sp, sp[110].time + 3600 + 60, GBP)
 s.check("spacing recognises the traded candle even though only the margin qualified it", _anchor, sp[110].time)
 s.check("...but COUNTS none of the three later 2.4x candles — his three candles are counted unchanged",
@@ -189,10 +197,24 @@ print("   only candles that qualified ON THEIR OWN are remembered:")
 
 
 def series(sizes_and_hours, wicked_below=100):
-    """Bullish candles. The first `wicked_below` get an upper wick twice their body (67% against the move)."""
-    return [Candle(time=1700000000 + int(h * 3600), open=1.1, close=1.1 + sz, low=1.1,
-                   high=1.1 + sz + (2 * sz if k < wicked_below else 0.0), volume=0, timeframe="H1")
-            for k, (sz, h) in enumerate(sizes_and_hours)]
+    """Bullish candles, each OPENING WHERE THE LAST ONE CLOSED. The first `wicked_below` get an
+    upper wick twice their body (67% against the move).
+
+    ⚠ THEY USED TO ALL OPEN AT 1.1 — every candle at the same level as the one before it, which
+    is the exact shape his stomach rule refuses. Harmless while that rule only put words on the
+    DM; the moment it became a gate (2026-11-10) the fixture described a series no real market
+    produces, and three checks here went red for a reason that has nothing to do with the SIZE
+    memory this file measures. Real H1 bars open within a pip of the previous close 93.7% of the
+    time. THE SIZES ARE UNCHANGED — only the price each candle starts from.
+    """
+    bars, price = [], 1.1
+    for k, (sz, h) in enumerate(sizes_and_hours):
+        close = price + sz
+        bars.append(Candle(time=1700000000 + int(h * 3600), open=price, close=close, low=price,
+                           high=close + (2 * sz if k < wicked_below else 0.0), volume=0,
+                           timeframe="H1"))
+        price = close
+    return bars
 
 
 BACK = [(0.0001 if k % 2 == 0 else 0.0003, k) for k in range(100)]

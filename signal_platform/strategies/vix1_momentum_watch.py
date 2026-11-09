@@ -80,7 +80,11 @@ def check(h1_closed: list[Candle], symbol: str) -> tuple[Candle, bool, str | Non
     i = len(h1_closed) - 1
     bar = h1_closed[i]
     bullish = is_bullish(bar)
-    if not qualifies_for_trade(h1_closed, i, bullish, symbol):
+    # ⚠ `ignore_open_rule=True` AND IT IS THE ONLY CALLER ALLOWED TO. From 2026-11-10 the stomach
+    # rule DECIDES inside `qualifies_for_trade`, so without this the announcement would go silent
+    # for exactly the candles it turns away — and he would lose sight of the rule the moment it
+    # started to matter. Every momentum candle is still announced, with its verdict on line 2.
+    if not qualifies_for_trade(h1_closed, i, bullish, symbol, ignore_open_rule=True):
         return None
     return (bar, bullish, size_note(h1_closed, i, bullish, symbol),
             (vix1_open_rule.tag(h1_closed, i, bullish),
@@ -109,8 +113,9 @@ def note(symbol: str, bullish: bool, bar: Candle, pip: float, strategy_name: str
     `stomach` is his STOMACH RULE's verdict as (short tag, full sentence). The TAG goes in the
     label — the second line of the message — because the details list is capped at five bullets and
     this card already fills all five, so a verdict buried third was easy to miss. ⚠ A candle this
-    rule DISQUALIFIES is still announced: the announcement is unchanged, this is information beside
-    it, and it gates nothing until he approves.
+    rule DISQUALIFIES is still announced — and from 2026-11-10 that matters MORE, not less: the
+    rule now refuses the trade (`qualifies_for_trade`), so this message is the only place he sees
+    the candles it turned away. That is why this one caller passes `ignore_open_rule=True`.
     """
     side = "BUY" if bullish else "SELL"
     body = body_size(bar) / pip if pip else 0.0

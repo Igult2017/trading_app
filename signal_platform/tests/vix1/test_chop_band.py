@@ -25,6 +25,7 @@ import datetime
 from _harness import Suite, load
 
 from strategies import vix1_chop
+from strategies import vix1_open_rule   # stood aside in the sabotage check below
 from strategies.vix1_bias import detect_bias, _H1_SWING_N, _H1_TREND_BARS
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_trend import trend_state
@@ -118,11 +119,27 @@ print()
 print("WIRED AND FINAL — detect_bias returns on it")
 s.check("in a ranging market no bias is produced at all",
         detect_bias(sep[: at("2026-09-15 08:00") + 1], [], "EUR/USD"), None)
+# ⚠ TWO RULES REFUSE THIS TRADE NOW, so both stand aside for the sabotage to isolate the chop
+# gate. Since 2026-11-10 his STOMACH RULE refuses it on its own: 2026-09-15 08:00 is a SELL that
+# opened 1.4% along the previous candle's body, short of the stomach. Measured, not assumed —
+# with only the chop rule removed the trade stays away; with both removed it comes back. The
+# check keeps its teeth: it still proves the chop gate is what stops it.
+def _comes_back_without(*patches):
+    """Stand each (module, attribute, stand-in) aside, ask once, then put every one of them back."""
+    saved = [(m, a, getattr(m, a)) for m, a, _ in patches]
+    for m, a, stub in patches:
+        setattr(m, a, stub)
+    try:
+        return detect_bias(sep[: at("2026-09-15 08:00") + 1], [], "EUR/USD") is not None
+    finally:
+        for m, a, old in saved:
+            setattr(m, a, old)
+
+
 s.teeth("the gate is what stops it — with the rule removed the trade comes back",
-        (lambda: (setattr(vix1_chop, "_saved", vix1_chop.not_tradeable),
-                  setattr(vix1_chop, "not_tradeable", lambda *a, **k: None),
-                  detect_bias(sep[: at("2026-09-15 08:00") + 1], [], "EUR/USD") is not None,
-                  setattr(vix1_chop, "not_tradeable", vix1_chop._saved))[2])())
+        _comes_back_without(
+            (vix1_chop, "not_tradeable", lambda *a, **k: None),
+            (vix1_open_rule, "verdict", lambda *a, **k: (True, 1.0, "past-stomach"))))
 
 print()
 print("NO TUNED NUMBERS IN IT — his whole objection")

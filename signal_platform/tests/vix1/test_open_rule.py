@@ -17,10 +17,10 @@ GBP/USD H1 bars it refused 1,439 of 2,759 momentum candles — but 1,033 of thos
 sentence 3 QUALIFIES. It was wrongly refusing more than twice as many as it correctly refused. He
 found it by reading his own rule back: *"are we still doing this?"*
 
-⚠ THE MOST IMPORTANT CHECK IN THIS FILE IS SECTION 7: that the rule GATES NOTHING. He was explicit —
-*"first i need you to test it and when reporting momentum candles in the DM also report it there
-until i approve that it is working then we will integrate it"*. If it ever silently became a gate,
-the log would look perfectly normal.
+⚠ IT DECIDES, SINCE 2026-11-10 — *"Turn it on. I have seen it working and it is doing the job."*
+THIS FILE HOLDS WHAT THE RULE SAYS. **WHERE it is wired in now lives in `test_open_rule_wiring.py`**
+— who may read it, who may opt out of it, and whether it actually refuses a trade. Both run in the
+suite; a change to this rule that forgets the second one is the dangerous kind.
 
 THE CANDLES IN SECTIONS 1 AND 2 ARE REAL GBP/USD H1 BARS, copied from the saved cTrader history, not
 invented: his circled 15 July 2026 move and the two turn-backs in the same window.
@@ -35,6 +35,9 @@ from _harness import Suite  # noqa: F401
 
 from core.types import Candle                                   # noqa: E402
 from strategies import vix1_open_rule as rule                   # noqa: E402
+
+# the repo root, used by the last section to prove the size test reuses the shared helper
+root = Path(__file__).resolve().parents[2]
 
 _pass = _fail = 0
 
@@ -130,45 +133,9 @@ check("...and it says it was not judged", "not judged" in rule.line(doji, 1, Tru
 check("the very first bar -> approved", rule.verdict(MOVE, 0, True)[0], True)
 
 # ── 7. ⚠ IT GATES NOTHING ─────────────────────────────────────────────────────────────────────
-print("\n7. IT GATES NOTHING — the check this whole arrangement rests on:")
-root = Path(__file__).resolve().parents[2]
-users = []
-for f in root.rglob("*.py"):
-    if f.name in ("vix1_open_rule.py", "test_open_rule.py"):
-        continue
-    if "vix1_open_rule" in f.read_text(encoding="utf-8", errors="replace"):
-        users.append(f.relative_to(root).as_posix())
-check("only the DM card uses it", users, ["strategies/vix1_momentum_watch.py"])
-
-watch = (root / "strategies/vix1_momentum_watch.py").read_text(encoding="utf-8")
-teeth("the DM card puts it in the TEXT and the LABEL, never in a decision",
-      "vix1_open_rule.line(" in watch and "vix1_open_rule.tag(" in watch
-      and "vix1_open_rule.verdict(" not in watch)
-mom = (root / "strategies/vix1_momentum.py").read_text(encoding="utf-8")
-teeth("the momentum test itself does not know this rule exists", "vix1_open_rule" not in mom)
-teeth("...and the announcement still fires for a DISQUALIFIED candle",
-      "if not qualifies_for_trade" in watch and "open_rule" not in
-      watch.split("if not qualifies_for_trade")[1].split("return")[0])
-
-
-# ── 8. THE VERDICT MUST BE UNMISSABLE ─────────────────────────────────────────────────────────
-# His instruction, 2026-11-09: *"The DM message should clearly state that it is either approved by
-# that new rule or not."* The details list is capped at five bullets and this card already fills
-# all five, so the short tag goes in the LABEL - the second line of the message.
+# ── 7. HIS SENTENCES 1 AND 3 — THE SIZE TEST, which the first build left out entirely ─────────
 print("")
-print("8. the verdict is stated in the label, in one glance:")
-check("an approved candle says so", rule.tag(MOVE, 1, True), "STOMACH RULE: APPROVED")
-check("a refused candle says so", rule.tag(TURN_A, 1, False), "STOMACH RULE: DISQUALIFIED")
-check("nothing to judge says that too", rule.tag(doji, 1, True), "STOMACH RULE: NOT JUDGED")
-teeth("the card actually puts the tag in the label",
-      'stomach[0]' in watch and 'label' in watch.split('stomach[0]')[0][-220:])
-teeth("...and the rule is named after the real candlestick term",
-      'stomach' in rule.__doc__.lower() and 'midpoint' in rule.__doc__.lower())
-
-
-# ── 9. HIS SENTENCES 1 AND 3 — THE SIZE TEST, which the first build left out entirely ─────────
-print("")
-print("9. the SIZE of the candle before decides what a far-half open means:")
+print("7. the SIZE of the candle before decides what a far-half open means:")
 PREV_SMALL = bar(0, 1.3000, 1.3012, 1.2998, 1.3010)     # 10 pip body
 PREV_BIG = bar(0, 1.3000, 1.3035, 1.2998, 1.3030)       # 30 pip body
 PREV_HALF = bar(0, 1.3000, 1.3025, 1.2995, 1.3020)      # 20 pip body

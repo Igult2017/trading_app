@@ -31,10 +31,13 @@ Charts, 2008). ⚠ HIS RULE IS NOT THOSE PATTERNS: they are two-candle REVERSAL 
 the open AND the close past the line. His is a momentum QUALITY filter where only the OPEN matters.
 The LINE carries the standard name; the RULE is his.
 
-⚠ THIS GATES NOTHING. It is reported on the DM card and nowhere else, at his instruction: *"first i
-need you to test it and when reporting momentum candles in the DM also report it there until i
-approve that it is working then we will integrate it"*. Until he says otherwise, no caller may use
-this to accept or refuse a candle, a setup or a trade.
+⚠ IT DECIDES, SINCE 2026-11-10. It reported on the DM for a day first, exactly as he asked, and
+then he said: *"Turn it on. I have seen it working and it is doing the job."*
+`vix1_momentum.qualifies_for_trade` now refuses any candle this refuses — one place, through
+which the entry, the pre-close heads-up, the count-wait DM and spacing all ask.
+
+⚠ THE DM ANNOUNCEMENT IS THE ONE EXCEPTION (`ignore_open_rule=True`). It still reports EVERY
+momentum candle with its verdict, refused or not, so the rule stays visible now that it decides.
 
 WHERE HE EXPECTS IT TO EARN ITS KEEP, recorded because it is the reasoning: *"i think it works best
 for a pullback where the market was pulling back then going to a direction or when the market was
@@ -127,11 +130,14 @@ def line(h1: list[Candle], i: int, bullish: bool) -> str:
     point of putting it on the card is that he watches it and tells me what to change.
     """
     ok, pos, why = verdict(h1, i, bullish)
-    tail = " Watching only — this does not gate anything yet."
+    # ⚠ AN APPROVAL PROMISES NOTHING. Passing this rule is one gate of several — the trend, the
+    # range, the pullback and the candle count all still apply — so the approved wording makes no
+    # claim about a trade. Only the REFUSAL is certain, and it is worth stating plainly.
+    tail = " No signal will be taken from this candle."
 
     if why == "not-judged":
         return ("STOMACH RULE — not judged — the candle before it had no body to measure "
-                "against, so nothing was disqualified. (Watching only, it gates nothing yet.)")
+                "against, so this rule did not stand in the way.")
 
     where = ("GAPPED clear of the previous candle's body" if pos > 1.0
              else f"{pos:.0%} along the previous candle's body")
@@ -140,11 +146,11 @@ def line(h1: list[Candle], i: int, bullish: bool) -> str:
 
     if why == "past-stomach":
         return (f"STOMACH RULE — APPROVED: it opened {where}, on the far side of the stomach "
-                f"(the midpoint of that body) in the direction it is moving." + tail)
+                f"(the midpoint of that body) in the direction it is moving.")
     if why == "small-previous":
         return (f"STOMACH RULE — APPROVED: it opened {where}, which is short of the stomach — but "
                 f"the candle before it is only {share:.0%} the size of this one, far too small for "
-                f"its midpoint to mean anything." + tail)
+                f"its midpoint to mean anything.")
     return (f"STOMACH RULE — DISQUALIFIED: it opened {where}, short of the stomach (the midpoint "
             f"of that body){sized}, so the move doubled back instead of carrying on." + tail)
 

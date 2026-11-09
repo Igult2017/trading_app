@@ -140,6 +140,8 @@ TESTS = [
     "test_momentum_announce.py",     # EVERY qualifying momentum candle is announced to his DM,
                                      # setup or no setup — the one message no gate can silence
     "test_open_rule.py",            # his 2026-11-09 STOMACH RULE — REPORTED on the DM,
+    "test_open_rule_wiring.py",   # WHERE it is wired: who may
+    #                           read it, who may opt out, and that it really refuses
                                     # gating nothing until he approves it. Real 15 Jul bars.
 ]
 

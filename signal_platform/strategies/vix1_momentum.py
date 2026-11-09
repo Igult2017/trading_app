@@ -37,6 +37,10 @@ from statistics import median
 from core.types import Candle
 from shared.candle_math import body_size, full_range, upper_wick, lower_wick, is_bullish
 from shared.pip import pip_size
+# HIS STOMACH RULE, which decides from 2026-11-10. Imported the way the other strategy
+# modules import a sibling (`vix1_void.py:54`); it pulls in only `core.types` and
+# `shared.candle_math`, so there is no import cycle back into this file.
+from strategies import vix1_open_rule
 
 log = logging.getLogger(__name__)
 
@@ -296,7 +300,8 @@ def size_note(h1: list[Candle], i: int, bullish: bool, symbol: str) -> str | Non
             f"{mult * baseline_body(h1, j) / pip:.1f} pips remembered from the {when} candle")
 
 
-def qualifies_for_trade(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
+def qualifies_for_trade(h1: list[Candle], i: int, bullish: bool, symbol: str,
+                        ignore_open_rule: bool = False) -> bool:
     """THE LAST STAGE — may THIS candle be traded? His 2.5x rule PLUS the alternatives he added on 15 Sep
     (the 0.2 margin and the 24-hour memory) as other evidence that a good setup's candle is big enough.
     BIG FOR THE LAST ~4 MONTHS, BIGGER THAN THE ONE BEFORE IT, CLEAN and UNREJECTED still all apply.
@@ -310,8 +315,27 @@ def qualifies_for_trade(h1: list[Candle], i: int, bullish: bool, symbol: str) ->
     — the quiet-market test, spacing's three-candle count, the earlier candles of a run — asks
     `is_momentum_candle`, which is unchanged. When the first build let the alternatives into every
     caller, 6 of his 9 recorded dead markets (`test_tradeable.py`) looked awake and traded.
+
+    ⚠ SINCE 2026-11-10 IT ALSO ASKS HIS STOMACH RULE (`vix1_open_rule`) — WHERE the candle opened
+    along the body of the one before it, and HOW BIG that candle was next to this one. He turned it
+    on himself after watching it report on the DM: *"Turn it on. I have seen it working and it is
+    doing the job."* It refuses 408 of 2,759 real GBP/USD momentum candles (14.8%).
+
+    ⚠ IT IS ASKED HERE, IN THE ONE PLACE, and deliberately not in each caller — the entry
+    (`momentum_run`), the pre-close heads-up, the count-wait DM and spacing's recognition of a
+    taken candle all come through this function, so they cannot disagree. Scattering a rule across
+    callers is the exact mistake the paragraph above records.
+
+    `ignore_open_rule=True` IS FOR ONE CALLER ONLY: the DM announcement
+    (`vix1_momentum_watch`), which must keep reporting EVERY momentum candle with its verdict,
+    refused or not. Losing sight of the candles the rule turns away is how a bad gate goes
+    unnoticed. `test_open_rule.py` FAILS if any other caller passes it.
     """
-    return size_yardstick(h1, i, bullish, symbol) is not None
+    if size_yardstick(h1, i, bullish, symbol) is None:
+        return False
+    if ignore_open_rule:
+        return True
+    return vix1_open_rule.verdict(h1, i, bullish)[0]
 
 
 def traded_on_memory(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
