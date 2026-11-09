@@ -120,11 +120,12 @@ literally named `sans` that was Playfair Display.
 ### "Why does the Drawdown page say that?"
 
 A **panel inside Journal**, not its own route — sidebar item `drawdown`, rendered at
-`client/src/pages/Journal.tsx:1516`.
+`client/src/pages/Journal.tsx:1468`.
 
 | layer | where |
 |---|---|
-| the panel | `client/src/components/DrawdownPanel.tsx` (527 lines), `components/drawdown/diveProfile.tsx` (the underwater chart), `components/drawdown/dpStyles.ts` |
+| the panel | `client/src/components/DrawdownPanel.tsx` (174 lines) is a THIN ORCHESTRATOR — it owns the two queries and the view state, and every section of the page is its own file under `client/src/components/drawdown/` (`ddKpis`, `ddStreaks`, `ddMonthly`, …). The look is three files there: `ddTokens.ts` (the two colour themes), `ddStyles.ts` (core) and `ddStyles2.ts` (sections). `ddStyles.test.ts` guards all three |
+| the look | scoped to the class **`.dp`**, which `Journal.tsx` exempts from the rule that forces the journal font on everything. Rename the scope and the journal clobbers every face in the panel |
 | the route | `server/routes.ts:1723` — `/api/drawdown/compute`, cached 5 min per user+session, dropped when the trade count changes |
 | the maths | `server/services/drawdownCalculator.ts` spawns `server/python/drawdown/main.py` -> `core.py` -> 13 modules |
 

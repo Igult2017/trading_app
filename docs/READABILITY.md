@@ -738,3 +738,59 @@ elements, the 20 that were Montserrat changed family only, to Times New Roman; t
 elements are identical. He also asked to remove the *"Tracking Drawdown: Where Are You Losing? · Status :
 In Drawdown"* line — removed, with the styles only it used (`.eyebrow`, `.ask`, `.hero-head`,
 `.equity`, `.slabel`).
+
+---
+
+## 2026-11-08 — THE DRAWDOWN FACES (the section `ddStyles.ts` points at)
+
+His ask, in his own words: *"borrow some better looking font types from the audit page ... reduce
+the gaps between the cards ... reduce font size for the numbers with big fonts like the ones i have
+ticked ... see how border radius cards and gaps between cards have been reduced in the audit page."*
+
+### What the two faces are, and why they are not interchangeable
+
+| role | face | why |
+|---|---|---|
+| titles, big figures (`--dd-serif`) | **Playfair Display Variable**, never below weight **500** | his 2026-09-05 ruling on the audit page: *"even in the audit page i loved playfair but use a variant that is visible"*. Playfair is a **DISPLAY** serif — its thin strokes disappear below about 16px, which is cause 1 at the top of this doc. The fix he chose was never a different family, it was the **weight** axis |
+| everything columnar (`--dd-mono`) | **Times New Roman** | his 2026-09-14 ruling: *"replace DM mono with bold times new roman"*. Times is a **TEXT** serif, so unlike Playfair it stays legible at 10–12px, which is where the drawdown page's labels and captions live |
+| running body (`--dd-sans`) | **untouched** — follows the journal font picker | his 2026-08-29 *"it should inherit font type from journal"*. Changing it would quietly break that |
+
+### ⚠ The variable name has to come FIRST
+
+The Fontsource package registers the family as **"Playfair Display Variable"**, not "Playfair
+Display". A stack that names only the latter falls through to Georgia **in silence**. (This app
+happens to register both — `client/src/index.css:9` and `:16-19` — but the ordering is what makes
+the stack correct on its own terms.)
+
+### Sizes after this change
+
+| | was | now |
+|---|---|---|
+| page title (`h2.dd-title`) | 24px | **18px** |
+| section title (`h3.dd-title`) | 20px | **15px** |
+| the big KPI figure (`.dd-kpi-num`) | 30px, weight 400 | **22px, weight 600** |
+| the stat figures (`.fs-2xl`) | 24px | **19px** |
+
+⚠ **The weight moved with the size on purpose.** Playfair at weight 400 is the hairline cut this doc
+opens by warning about; dropping 30px → 22px while leaving it at 400 would have traded one
+readability problem for another.
+
+### ⚠ A defect this check turned up, fixed in the same change
+
+The **light** theme's faintest ink was still `#64748b` — the exact slate the **dark** theme had
+already replaced for being under the floor. Measured on the rendered page, a 10px caption on the
+`#f1f5f9` inner tile read **4.34:1**, under the 4.5 minimum. It is now `#5a687f`: **5.15:1** on that
+tile and **5.64:1** on a white card, still clearly lighter than `--ink-dim`, so no tier anywhere
+drops. `ddStyles.test.ts` now pins **both** themes, not just dark.
+
+### How it was measured, and the trap that was avoided
+
+A hand-picked list of selectors is what let the light caption survive the previous sweep. This time
+the sweep walked **every element in the panel that holds its own text** — 210 of them — computed the
+real painted background by climbing to the first non-transparent ancestor, and applied the large-text
+exemption only where the size and weight actually earn it. **0 failures in dark, 0 in light.**
+
+⚠ The dev server could not reach the journal route (it reports `Missing VITE_SUPABASE_URL`, so there
+is no way to log in locally). The check was run against the **real components and the real
+stylesheet**, server-rendered with sample data and injected into the running app's own document so
+the bundled faces were the ones measured — not against a hand-written copy of the markup.

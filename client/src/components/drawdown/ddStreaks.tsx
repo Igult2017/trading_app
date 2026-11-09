@@ -9,10 +9,13 @@ import { fmtRange } from '@/components/drawdown/ddBits';
  * average run before recovery, how often a streak was followed by revenge trading, the best winning
  * run, and the ordered outcome timeline.
  *
- * ⚠ THE TIMELINE IS CAPPED AT THE MOST RECENT 60 TRADES. His mock-up spells each outcome out in full
- * ("Break-even") against a seven-trade account, which is legible; a year of trading would be several
- * hundred of those chips wrapping down the page and burying every section under it. The cap is
- * stated on screen rather than silently applied, and the figures above it still cover every trade.
+ * ⚠ THE TIMELINE IS CAPPED AT THE MOST RECENT 60 TRADES. A year of trading is several hundred
+ * chips, which would wrap down the page and bury every section under it. The cap is stated on screen
+ * rather than silently applied, and the figures above it still cover every trade.
+ *
+ * ⚠ THE CHIPS READ W / L / B — his instruction, 2026-11-08: *"there is no need to write win , loss
+ * and breakeven. Just write W L and B."* The full word is kept as the hover text AND the accessible
+ * name, so a screen reader still says "Break-even" instead of spelling out "B".
  */
 const MAX_CHIPS = 60;
 
@@ -33,9 +36,9 @@ export function DdStreaks({ sk }: { sk: any }) {
 
   const chip = (c: string) => {
     const up = c.toUpperCase();
-    if (up === 'W') return { cls: 'dd-seq-win', text: 'Win' };
-    if (up === 'L') return { cls: 'dd-seq-loss', text: 'Loss' };
-    return { cls: 'dd-seq-be', text: 'Break-even' };
+    if (up === 'W') return { cls: 'dd-seq-win', text: 'W', full: 'Win' };
+    if (up === 'L') return { cls: 'dd-seq-loss', text: 'L', full: 'Loss' };
+    return { cls: 'dd-seq-be', text: 'B', full: 'Break-even' };
   };
 
   return (
@@ -74,7 +77,10 @@ export function DdStreaks({ sk }: { sk: any }) {
               ? <span className="dd-empty">No closed trades yet.</span>
               : shown.map((c, i) => {
                   const k = chip(c);
-                  return <div key={i} className={`dd-seq-chip ${k.cls}`} title={k.text}>{k.text}</div>;
+                  return (
+                    <div key={i} className={`dd-seq-chip ${k.cls}`}
+                         title={k.full} aria-label={k.full}>{k.text}</div>
+                  );
                 })}
           </div>
         </div>

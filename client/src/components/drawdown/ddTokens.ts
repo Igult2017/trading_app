@@ -110,7 +110,12 @@ export const DD_TOKENS_LIGHT = `
   --surface:#ffffff;
   --line:#e2e8f0;
   --line-strong:#cbd5e1;
-  --ink-faint:#64748b;
+  /* ⚠ #64748b -> #5a687f, 2026-11-08. The DARK theme replaced this same slate for being under the
+     floor; LIGHT kept it, and measured on the rendered page the 10px captions read 4.34:1 on the
+     #f1f5f9 inner tile - under 4.5. Found while checking this polish, fixed in the same change.
+     #5a687f measures 5.15:1 on that tile and 5.64:1 on a white card, and it is still clearly
+     lighter than --ink-dim, so no tier anywhere drops. */
+  --ink-faint:#5a687f;
   --ink-dim:#475569;
   --ink-soft:#334155;
   --ink:#1e293b;

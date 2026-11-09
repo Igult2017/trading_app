@@ -68,7 +68,7 @@ export function MonthDays({ cells, label }: { cells: DayCell[]; label: string })
 export const MONTH_DAYS_CSS = `
 .dp .mdays{display:grid;grid-template-columns:repeat(16,1fr);gap:4px;white-space:normal;}
 .dp .mday{display:flex;align-items:baseline;justify-content:center;gap:5px;line-height:1.15;
-  padding:6px 2px;border:1px solid var(--line);border-radius:6px;font-variant-numeric:tabular-nums;}
+  padding:6px 2px;border:1px solid var(--line);border-radius:3px;font-variant-numeric:tabular-nums;}
 .dp .mday .n{font-size:12px;font-weight:600;color:var(--ink3);}
 .dp .mday .m{font-size:12px;font-weight:800;letter-spacing:.03em;}
 .dp .mday.t .n{color:var(--ink);}

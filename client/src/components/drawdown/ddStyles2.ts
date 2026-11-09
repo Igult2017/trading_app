@@ -13,7 +13,7 @@ import { MONTH_DAYS_CSS } from '@/components/drawdown/monthDays';
 const DD_SECTIONS = `
 /* ── SECTION HEADERS + STATUS BADGES ───────────────────────────────────────── */
 .dp .dd-sec-head{
-  display:flex; flex-direction:column; gap:12px; justify-content:space-between;
+  display:flex; flex-direction:column; gap:4px; justify-content:space-between;
   border-bottom:1px solid var(--t-line); padding-bottom:14px;
 }
 @media (min-width:1024px){ .dp .dd-sec-head{ flex-direction:row; align-items:center; } }
@@ -22,7 +22,7 @@ const DD_SECTIONS = `
   font-size:12px; font-family:var(--dd-mono);
 }
 .dp .dd-badge{
-  padding:6px 12px; border-radius:12px; display:flex; align-items:center; gap:6px;
+  padding:6px 12px; border-radius:4px; display:flex; align-items:center; gap:6px;
   background:var(--t-line); border:1px solid var(--line-strong);
 }
 .dp .dd-badge-emerald{ background:var(--t-emerald-10); border-color:var(--t-emerald-30); }
@@ -38,11 +38,11 @@ const DD_SECTIONS = `
 /* ── TABS ───────────────────────────────────────────────────────────────────── */
 .dp .dd-tabs{
   display:flex; align-items:center; gap:4px; flex-wrap:wrap;
-  background:var(--surface-deep); padding:4px; border-radius:12px;
+  background:var(--surface-deep); padding:4px; border-radius:4px;
   border:1px solid var(--line); font-size:12px;
 }
 .dp .dd-tab{
-  padding:6px 12px; border-radius:8px; border:none; background:transparent;
+  padding:6px 12px; border-radius:3px; border:none; background:transparent;
   color:var(--ink-dim); cursor:pointer; transition:color .2s,background .2s;
   font-family:var(--dd-sans); font-weight:500;
 }
@@ -61,13 +61,13 @@ const DD_SECTIONS = `
 /* Chart labels follow the columnar face so the axes match the tables. */
 .dp .dd-chart svg text{ font-family:var(--dd-mono); }
 .dp .dd-chart-foot{
-  display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+  display:flex; justify-content:space-between; align-items:center; gap:4px; flex-wrap:wrap;
   font-size:12px; color:var(--ink-dim); padding-top:8px; border-top:1px solid var(--t-line);
 }
 .dp .dd-tt{
   position:absolute; pointer-events:none; z-index:20;
   background:var(--surface-deep); border:1px solid var(--line-strong);
-  padding:12px; border-radius:12px; box-shadow:0 20px 25px -5px rgba(0,0,0,.4);
+  padding:12px; border-radius:4px; box-shadow:0 20px 25px -5px rgba(0,0,0,.4);
   font-size:12px; font-family:var(--dd-mono); white-space:nowrap;
 }
 .dp .dd-tt .tt-h{
@@ -78,7 +78,7 @@ const DD_SECTIONS = `
 .dp .dd-hit{ fill:transparent; cursor:pointer; }
 
 /* ── TABLES ─────────────────────────────────────────────────────────────────── */
-.dp .dd-twrap{ overflow-x:auto; border-radius:12px; border:1px solid var(--t-line); }
+.dp .dd-twrap{ overflow-x:auto; border-radius:4px; border:1px solid var(--t-line); }
 .dp .dd-twrap table{
   width:100%; text-align:left; font-size:12px; font-family:var(--dd-mono); border-collapse:collapse;
 }
@@ -102,15 +102,11 @@ const DD_SECTIONS = `
 .dp .dd-track-w{ width:128px; min-width:72px; }
 .dp .dd-track > i{ display:block; height:100%; border-radius:9999px; background:var(--rose-mid); }
 .dp .dd-bigbar{
-  width:100%; background:var(--surface-deep); height:20px; border-radius:8px;
+  width:100%; background:var(--surface-deep); height:20px; border-radius:3px;
   overflow:hidden; border:1px solid var(--line); display:flex;
 }
-/* ⚠ THE LABEL COLOUR IS A TOKEN, NOT A FIXED NEAR-BLACK. The segment fills are mid-tone in light
-   mode so they stand out against a white card, and dark text on the lightest of them measured
-   4.29:1 — under the floor. --bar-ink flips to white there, where every fill clears 4.5:1. The fill
-   colour itself comes from --bar-1..5 (ddTokens) for the same reason.
-   (This comment lost its backticks after they ended the template literal and broke the build —
-   the very trap the file header warns about.) */
+/* ⚠ THE LABEL COLOUR IS A TOKEN (--bar-ink), NOT A FIXED NEAR-BLACK: dark text on the lightest
+   segment fill measured 4.29:1 in light mode, under the floor, so it flips to white there. */
 .dp .dd-bigbar > i{
   height:100%;
   display:flex; align-items:center; justify-content:flex-end; padding:0 8px;
@@ -120,7 +116,7 @@ const DD_SECTIONS = `
   display:flex; justify-content:space-between; font-size:10px;
   color:var(--ink-faint); font-family:var(--dd-mono); padding-top:8px;
 }
-.dp .dd-bucket{ background:var(--t-inner); border:1px solid var(--t-line); padding:12px; border-radius:12px; }
+.dp .dd-bucket{ background:var(--t-inner); border:1px solid var(--t-line); padding:12px; border-radius:4px; }
 .dp .dd-bucket + .dd-bucket{ margin-top:12px; }
 .dp .dd-bucket-track{
   width:100%; background:var(--surface); height:8px; border-radius:9999px;
@@ -134,14 +130,14 @@ const DD_SECTIONS = `
   border-top:1px solid var(--t-line); display:flex; align-items:center; gap:6px;
 }
 .dp .dd-insight{
-  background:var(--t-blue-10); border:1px solid var(--t-blue-20); border-radius:12px;
+  background:var(--t-blue-10); border:1px solid var(--t-blue-20); border-radius:4px;
   padding:12px; font-size:11px; color:var(--insight-ink);
   display:flex; align-items:flex-start; gap:10px; line-height:1.6;
 }
 .dp .dd-insight p{ margin:0; }
 .dp .dd-warn{
   background:var(--warn-grad); border:1px solid var(--t-rose-40);
-  border-radius:12px; padding:14px;
+  border-radius:4px; padding:14px;
 }
 .dp .dd-warn p{ margin:0; }
 .dp .dd-warn-head{
@@ -151,7 +147,7 @@ const DD_SECTIONS = `
 
 /* ── SESSION CARDS ──────────────────────────────────────────────────────────── */
 .dp .dd-sess{
-  border-radius:12px; padding:16px; position:relative; overflow:hidden;
+  border-radius:4px; padding:16px; position:relative; overflow:hidden;
   background:var(--t-inner); border:1px solid var(--line);
 }
 .dp .dd-sess-hot{ border-color:var(--t-rose-40); }
@@ -164,13 +160,15 @@ const DD_SECTIONS = `
 
 /* ── TRADE SEQUENCE ─────────────────────────────────────────────────────────── */
 .dp .dd-seq{
-  display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:12px;
-  background:var(--surface-deep); border-radius:12px; border:1px solid var(--line);
+  display:flex; flex-wrap:wrap; align-items:center; gap:5px; padding:10px;
+  background:var(--surface-deep); border-radius:4px; border:1px solid var(--line);
 }
+/* ONE LETTER, SO THE CHIP IS A FIXED SQUARE. Padding sized for "Break-even" would shrink-wrap a
+   single glyph and the row would read as specks of three different widths. 26px holds a 13px cap. */
 .dp .dd-seq-chip{
-  padding:6px 11px; min-height:36px; border-radius:8px;
+  width:26px; height:26px; padding:0; flex:0 0 auto; border-radius:3px;
   display:flex; align-items:center; justify-content:center;
-  font-family:var(--dd-mono); font-weight:700; font-size:12px;
+  font-family:var(--dd-mono); font-weight:700; font-size:13px; line-height:1;
   transition:transform .2s; white-space:nowrap;
 }
 @media (prefers-reduced-motion:no-preference){ .dp .dd-seq-chip:hover{ transform:scale(1.1); } }
@@ -184,9 +182,8 @@ const DD_SECTIONS = `
 .dp .dd-mrow{ cursor:pointer; }
 .dp .dd-mrow:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
 .dp .dd-mname{ display:flex; align-items:center; gap:8px; white-space:nowrap; }
-/* The leading marker in his ledger, and the expand affordance in one. FULL opacity, not the 55% it
-   had as a trailing hint: it now carries the month's dominant cause as its colour, and a faded
-   signal is not a signal. */
+/* His ledger's leading marker and the expand affordance in one. FULL opacity, not the 55% it had
+   as a trailing hint: it carries the month's dominant cause as its colour, and a faded signal is not. */
 .dp .dd-mchev{ display:inline-block; font-size:10px; flex-shrink:0; transition:transform .15s; }
 .dp .dd-mchev.open{ transform:rotate(90deg); }
 .dp .dd-live{

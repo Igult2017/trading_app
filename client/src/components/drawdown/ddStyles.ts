@@ -24,21 +24,18 @@ import { DD_TOKENS_DARK, DD_TOKENS_LIGHT } from '@/components/drawdown/ddTokens'
 const DD_CORE = `
 .dp{
   ${DD_TOKENS_DARK}
-  /* THREE FONT ROLES, as the mock-up has them.
-     --dd-serif  titles and the big figures (italic, his choice)
-     --dd-mono   tables, labels, axes, anything columnar
-     --dd-sans   running body text
-     The SANS role follows the journal font picker through --disp when one is passed, so the page
-     still visibly inherits from the journal (his 2026-08-29 "it should inherit font type from
-     journal"). Titles and figures are pinned to his new faces, because adopting them is the point of
-     this redesign - see docs/OPEN.md and the note in DrawdownPanel.tsx. */
-  --dd-serif:Georgia,"Playfair Display","Times New Roman",serif;
-  --dd-mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  /* THREE FONT ROLES: --dd-serif titles and big figures (italic, his choice), --dd-mono anything
+     columnar, --dd-sans running body. SANS follows the journal font picker through --disp, his
+     2026-08-29 "it should inherit font type from journal". The other two are the AUDIT PAGE's faces,
+     borrowed on his 2026-11-08 ask. Why these two, why the VARIABLE name must come FIRST, and why
+     nothing here is below weight 500: docs/READABILITY.md, "The Drawdown faces". */
+  --dd-serif:"Playfair Display Variable","Playfair Display",Georgia,serif;
+  --dd-serif-w:600;
+  --dd-mono:"Times New Roman",Georgia,"Liberation Serif",serif;
   --dd-sans:var(--disp,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif);
   background:var(--bg); color:var(--ink);
   font-family:var(--dd-sans); line-height:1.5;
-  /* Keeps every numeric column from going ragged whatever face is in force. Ignored by faces that
-     lack the feature, so it can never hurt. */
+  /* Keeps numeric columns from going ragged; faces without the feature just ignore it. */
   font-variant-numeric:tabular-nums;
   min-height:100%; -webkit-font-smoothing:antialiased;
   padding-bottom:28px;
@@ -50,9 +47,11 @@ const DD_CORE = `
 .dp svg.ic{ display:block; }
 
 /* ── LAYOUT ─────────────────────────────────────────────────────────────────── */
-/* 16px, down from the mock-up's 32px - his "reduce those gaps between the cards". */
-.dp .dd-stack > * + *{ margin-top:16px; }
-.dp .dd-grid{ display:grid; gap:12px; }
+/* THE GAPS BETWEEN CARDS, reduced twice on his ask: 32 -> 16 (2026-11-03) -> 4 (2026-11-08). The
+   vertical space counts as a gap between cards too, so it moves WITH the grid - leaving it at 16
+   would have answered half the ask. The audit page he pointed at uses 3. */
+.dp .dd-stack > * + *{ margin-top:4px; }
+.dp .dd-grid{ display:grid; gap:4px; }
 .dp .dd-g4,.dp .dd-g5,.dp .dd-g3,.dp .dd-g2{ grid-template-columns:repeat(1,1fr); }
 @media (min-width:640px){
   .dp .dd-g4,.dp .dd-g5{ grid-template-columns:repeat(2,1fr); }
@@ -68,18 +67,18 @@ const DD_CORE = `
 
 /* ── SURFACES ───────────────────────────────────────────────────────────────── */
 .dp .dd-card{
-  background:var(--t-card); border:1px solid var(--t-line); border-radius:16px;
+  background:var(--t-card); border:1px solid var(--t-line); border-radius:4px;
   padding:20px;
 }
 .dp .dd-card-xl{ box-shadow:0 20px 25px -5px rgba(0,0,0,0.30); position:relative; }
 .journal-light .dp .dd-card-xl{ box-shadow:0 4px 12px -4px rgba(15,23,42,0.10); }
 .dp .dd-inner{
   background:var(--t-inner); border:1px solid var(--t-line);
-  padding:12px; border-radius:12px;
+  padding:12px; border-radius:3px;
   display:flex; justify-content:space-between; align-items:center;
 }
 .dp .dd-inner-sm{
-  padding:10px; border-radius:8px;
+  padding:10px; border-radius:3px;
   background:var(--t-inner); border:1px solid var(--t-line-soft);
 }
 
@@ -90,11 +89,10 @@ const DD_CORE = `
   font-family:var(--dd-serif); font-style:italic; font-weight:700;
   color:var(--ink-strong); letter-spacing:-0.01em; margin:0;
 }
-.dp h2.dd-title{ font-size:24px; }
-.dp h3.dd-title{ font-size:20px; }
+/* SMALLER, 2026-11-08 - he ticked both titles: 24->18, 20->15. */
+.dp h2.dd-title{ font-size:18px; } .dp h3.dd-title{ font-size:15px; }
 .dp .dd-muted{ font-size:12px; color:var(--ink-dim); margin:0; }
-.dp .dd-mono{ font-family:var(--dd-mono); }
-.dp .dd-serif{ font-family:var(--dd-serif); }
+.dp .dd-mono{ font-family:var(--dd-mono); } .dp .dd-serif{ font-family:var(--dd-serif); font-weight:var(--dd-serif-w); }
 
 /* ── HEADER (the mock-up's nav, re-cast as an ordinary panel header) ────────── */
 .dp .dd-head{
@@ -104,7 +102,7 @@ const DD_CORE = `
 @media (min-width:768px){ .dp .dd-head{ flex-direction:row; align-items:center; } }
 .dp .dd-brand{ display:flex; align-items:center; gap:12px; }
 .dp .dd-brand-logo{
-  height:40px; width:40px; border-radius:12px; flex-shrink:0;
+  height:40px; width:40px; border-radius:4px; flex-shrink:0;
   background:linear-gradient(to top right,var(--t-amber-20),var(--t-amber-10),transparent);
   border:1px solid var(--t-amber-30);
   display:flex; align-items:center; justify-content:center; color:var(--amber);
@@ -112,7 +110,7 @@ const DD_CORE = `
 .dp .dd-controls{ display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
 .dp .dd-ctl{
   display:flex; align-items:center; gap:8px;
-  background:var(--surface); border:1px solid var(--line); border-radius:8px;
+  background:var(--surface); border:1px solid var(--line); border-radius:4px;
   padding:4px 10px; font-size:12px; color:var(--ink-soft);
 }
 .dp .dd-ctl select{
@@ -125,7 +123,7 @@ const DD_CORE = `
 
 /* ── BANNER ─────────────────────────────────────────────────────────────────── */
 .dp .dd-banner{
-  background:var(--t-card); border:1px solid var(--t-amber-30); border-radius:16px;
+  background:var(--t-card); border:1px solid var(--t-amber-30); border-radius:4px;
   padding:16px; display:flex; flex-direction:column; gap:12px;
   align-items:flex-start; justify-content:space-between; position:relative; overflow:hidden;
 }
@@ -137,13 +135,13 @@ const DD_CORE = `
 .dp .dd-banner-left{ display:flex; align-items:flex-start; gap:14px; position:relative; }
 .dp .dd-banner-icon{
   padding:10px; background:var(--t-amber-10); border:1px solid var(--t-amber-20);
-  border-radius:12px; color:var(--amber); flex-shrink:0;
+  border-radius:3px; color:var(--amber); flex-shrink:0;
 }
 .dp .dd-banner-meta{
   display:flex; align-items:center; gap:12px; flex-shrink:0; position:relative;
   font-size:12px; font-family:var(--dd-mono); color:var(--ink-dim);
   background:var(--t-inner); border:1px solid var(--t-line);
-  padding:8px 14px; border-radius:12px;
+  padding:8px 14px; border-radius:4px;
 }
 .dp .dd-pill{
   font-size:10px; font-family:var(--dd-mono); font-weight:700;
@@ -154,7 +152,7 @@ const DD_CORE = `
 
 /* ── KPI CARDS ──────────────────────────────────────────────────────────────── */
 .dp .dd-kpi{
-  background:var(--t-card); border:1px solid var(--t-line); border-radius:16px;
+  background:var(--t-card); border:1px solid var(--t-line); border-radius:4px;
   padding:16px; transition:background .3s,border-color .3s; position:relative; overflow:hidden;
 }
 .dp .dd-kpi:hover{ background:var(--t-card-hi); border-color:var(--line-strong); }
@@ -163,14 +161,16 @@ const DD_CORE = `
   color:var(--ink-dim); margin-bottom:8px; gap:8px;
 }
 .dp .dd-kpi-label{ font-size:12px; font-weight:500; text-transform:uppercase; letter-spacing:.05em; }
-.dp .dd-kpi-ico{ padding:8px; border-radius:8px; flex-shrink:0; }
+.dp .dd-kpi-ico{ padding:8px; border-radius:3px; flex-shrink:0; }
 .dp .ico-rose{ background:var(--t-rose-10); color:var(--rose); border:1px solid var(--t-rose-20); }
 .dp .ico-amber{ background:var(--t-amber-10); color:var(--amber); border:1px solid var(--t-amber-20); }
 .dp .ico-emerald{ background:var(--t-emerald-10); color:var(--emerald); border:1px solid var(--t-emerald-20); }
 .dp .ico-blue{ background:var(--t-blue-10); color:var(--blue); border:1px solid var(--t-blue-20); }
 .dp .dd-kpi-val{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
 .dp .dd-kpi-num{
-  font-size:30px; font-weight:400; font-family:var(--dd-serif);
+  /* 30->22px AND weight 400->600, 2026-11-08: he ticked -0.46%. 400 is the hairline cut that
+     vanishes in this face; his own fix was always the weight axis, never a smaller size alone. */
+  font-size:22px; font-weight:var(--dd-serif-w); font-family:var(--dd-serif);
   color:var(--ink-strong); letter-spacing:-0.01em;
 }
 .dp .dd-kpi-chip{ font-size:12px; font-family:var(--dd-mono); padding:2px 6px; border-radius:4px; }
@@ -191,10 +191,10 @@ const DD_CORE = `
 .dp .c-rose{ color:var(--rose); } .dp .c-rose-mid{ color:var(--rose-mid); } .dp .c-blue{ color:var(--blue); }
 .dp .fw-bold{ font-weight:700; } .dp .fw-semi{ font-weight:600; } .dp .fw-med{ font-weight:500; }
 .dp .fs-10{ font-size:10px; } .dp .fs-11{ font-size:11px; } .dp .fs-xs{ font-size:12px; }
-.dp .fs-sm{ font-size:14px; } .dp .fs-base{ font-size:16px; } .dp .fs-2xl{ font-size:24px; }
+.dp .fs-sm{ font-size:14px; } .dp .fs-base{ font-size:16px; } .dp .fs-2xl{ font-size:19px; }
 .dp .dd-between{ display:flex; justify-content:space-between; align-items:center; }
 .dp .dd-colbetween{ display:flex; flex-direction:column; justify-content:space-between; }
-.dp .dd-ico-badge{ padding:8px; border-radius:12px; flex-shrink:0; }
+.dp .dd-ico-badge{ padding:8px; border-radius:3px; flex-shrink:0; }
 `;
 
 export const DD_CORE_CSS = DD_CORE;

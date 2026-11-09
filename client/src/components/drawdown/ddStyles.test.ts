@@ -97,7 +97,10 @@ const defined = (block: string) => new Set(
   [...block.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
 const dark = defined(DARK), light = defined(LIGHT);
 // Names the panel sets itself rather than inheriting from a theme block.
-const SELF_SET = new Set(['--dd-serif', '--dd-mono', '--dd-sans', '--disp', '--mono']);
+// `--dd-serif-w` joined this list on 2026-11-08 with the weight axis. It is a NUMBER, not a colour,
+// so it has nothing to do with either theme — and the check caught it on the first run, which is the
+// behaviour this list exists to allow for rather than to silence.
+const SELF_SET = new Set(['--dd-serif', '--dd-serif-w', '--dd-mono', '--dd-sans', '--disp', '--mono']);
 const missingDark = [...used].filter((t) => !dark.has(t) && !SELF_SET.has(t));
 const missingLight = [...used].filter((t) => !light.has(t) && !SELF_SET.has(t));
 check('every token used has a dark value', missingDark, []);
@@ -108,9 +111,14 @@ check('the two theme blocks define the same names',
 // ── 4. THE GAPS HE ASKED TO REDUCE ───────────────────────────────────────────
 // His instruction, 2026-11-03: "reduce those gaps between the cards ... they are too large".
 // The mock-up had 32px between sections, 24/16/14px grid gaps and 24px card padding.
-check('sections sit 16px apart, not the mock-up 32px',
-      /\.dd-stack > \* \+ \*\{ margin-top:16px; \}/.test(css), true);
-check('card grids use one 12px gap', /\.dd-grid\{ display:grid; gap:12px; \}/.test(css), true);
+// ⚠ 16 -> 4 and 12 -> 4 on 2026-11-08. He asked for the SAME thing a second time — "reduce the gaps
+// between the cards ... see how border radius cards and gaps between cards have been reduced in the
+// audit page" — and that page uses 3. These pins moved deliberately; they are not a loosened test.
+check('sections sit 4px apart, not the mock-up 32px',
+      /\.dd-stack > \* \+ \*\{ margin-top:4px; \}/.test(css), true);
+check('card grids use one 4px gap', /\.dd-grid\{ display:grid; gap:4px; \}/.test(css), true);
+teeth('the 2026-11-03 pair of gaps is gone, both of them',
+      !/margin-top:16px/.test(css) && !/\.dd-grid\{ display:grid; gap:12px; \}/.test(css));
 check('card padding is 20px, not 24px', /\.dd-card\{[\s\S]{0,160}padding:20px;/.test(css), true);
 teeth('the old 32px section gap is gone', !/margin-top:2rem/.test(css) && !/margin-top:32px/.test(css));
 
@@ -120,6 +128,43 @@ teeth('the old 32px section gap is gone', !/margin-top:2rem/.test(css) && !/marg
 teeth('the faintest dark ink is NOT his sub-minimum #64748b',
       !/--ink-faint:#64748b/.test(DARK));
 check('it is the measured replacement', /--ink-faint:#7987a3/.test(DARK), true);
+// LIGHT had been left on that same sub-minimum slate: 4.34:1 for a 10px caption on the #f1f5f9
+// inner tile. Measured on the rendered page 2026-11-08 and replaced in the same change.
+teeth('and NEITHER is the faintest light ink', !/--ink-faint:#64748b/.test(LIGHT));
+check('the light replacement is the measured one', /--ink-faint:#5a687f/.test(LIGHT), true);
+
+// ── 6b. THE TYPOGRAPHY HE ASKED FOR ON 2026-11-08 ────────────────────────────
+// "borrow some better looking font types from the audit page". Two traps, both already paid for:
+//  * the Fontsource package registers "Playfair Display Variable", NOT "Playfair Display", so the
+//    VARIABLE name must come FIRST or the whole stack falls through to Georgia in silence
+//    (reference-fontsource-variable-name-trap);
+//  * Playfair is a DISPLAY serif and disappears at small sizes, which is why the figures use Times
+//    New Roman — a TEXT serif — and why nothing in this face is set below weight 500.
+check('the variable Playfair name comes first in --dd-serif',
+      /--dd-serif:"Playfair Display Variable","Playfair Display"/.test(css), true);
+check('the figures face is Times New Roman, as on the audit page',
+      /--dd-mono:"Times New Roman"/.test(css), true);
+teeth('nothing sets this display serif below weight 500',
+      Number(/--dd-serif-w:(\d+)/.exec(css)?.[1] ?? 0) >= 500);
+check('the two titles he ticked came down to 18 and 15',
+      /h2\.dd-title\{ font-size:18px; \}/.test(css) && /h3\.dd-title\{ font-size:15px; \}/.test(css),
+      true);
+check('the big KPI figure he ticked came down to 22px',
+      /\.dd-kpi-num\{[\s\S]{0,400}font-size:22px;/.test(css), true);
+
+// ── 6c. THE TIMELINE READS W / L / B ─────────────────────────────────────────
+// His instruction, 2026-11-08: "there is no need to write win , loss and breakeven. Just write W L
+// and B." The chip must be a FIXED SQUARE — padding that was sized for "Break-even" would collapse
+// to a sliver around a single glyph and the row would read as specks of three different widths.
+const streaks = here('ddStreaks.tsx');
+check('the chips carry the single letters',
+      ["'W'", "'L'", "'B'"].every((x) => streaks.includes(`text: ${x}`)), true);
+teeth('and the spelt-out words are no longer the chip text',
+      !streaks.includes("text: 'Win'") && !streaks.includes("text: 'Break-even'"));
+check('the full word survives as the accessible name, not just a tooltip',
+      streaks.includes('aria-label={k.full}'), true);
+check('the chip is a fixed square so one letter cannot collapse it',
+      /\.dd-seq-chip\{[\s\S]{0,200}width:26px; height:26px;/.test(css), true);
 
 // ── 6. THE SCOPE NAME IS STILL `.dp` ─────────────────────────────────────────
 // Journal.tsx exempts exactly this selector from the rule that forces a font on every descendant of
