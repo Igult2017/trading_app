@@ -25,7 +25,7 @@ export type DiagKey = 'CONTEXT' | 'ENTRY';
 function tone(avgDdPct: number): string {
   const abs = Math.abs(Number(avgDdPct) || 0);
   if (abs < 1.0) return 'c-emerald';
-  if (abs < 2.5) return 'c-amber';
+  if (abs < 2.5) return 'c-accent';
   return 'c-rose';
 }
 

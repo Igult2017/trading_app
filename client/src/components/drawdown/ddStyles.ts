@@ -43,7 +43,7 @@ const DD_CORE = `
 .journal-light .dp{ ${DD_TOKENS_LIGHT} }
 
 .dp *{ box-sizing:border-box; }
-.dp ::selection{ background:var(--t-amber-30); color:var(--amber-soft); }
+.dp ::selection{ background:var(--t-accent-30); color:var(--accent-soft); }
 .dp svg.ic{ display:block; }
 
 /* ── LAYOUT ─────────────────────────────────────────────────────────────────── */
@@ -83,15 +83,17 @@ const DD_CORE = `
 }
 
 /* ── TYPE ───────────────────────────────────────────────────────────────────── */
-/* ITALIC SERIF TITLES. Flagged openly because a change of mine that italicised journal titles was
-   reverted on 14 Sep; this time the italic is his, from the mock-up he supplied. */
+/* UPRIGHT, NOT ITALIC. These titles were italic because his 2026-11-03 mock-up drew them that way;
+   on 2026-11-09 he asked for the italics out. Noted so the old reasoning is not read back as a rule
+   and the italic quietly returns. */
 .dp .dd-title{
-  font-family:var(--dd-serif); font-style:italic; font-weight:700;
+  font-family:var(--dd-serif); font-weight:700;
   color:var(--ink-strong); letter-spacing:-0.01em; margin:0;
 }
-/* SMALLER, 2026-11-08 - he ticked both titles: 24->18, 20->15. */
-.dp h2.dd-title{ font-size:18px; } .dp h3.dd-title{ font-size:15px; }
-.dp .dd-muted{ font-size:12px; color:var(--ink-dim); margin:0; }
+/* THE AUDIT PAGE'S SCALE, 2026-11-09 on his "copy font types and sizes from the audit page".
+   That page runs on 12.5 / 13 / 14 / 17 / 22 and nothing else; its headings are 17. */
+.dp h2.dd-title{ font-size:17px; } .dp h3.dd-title{ font-size:17px; }
+.dp .dd-muted{ font-size:12.5px; color:var(--ink-dim); margin:0; }
 .dp .dd-mono{ font-family:var(--dd-mono); } .dp .dd-serif{ font-family:var(--dd-serif); font-weight:var(--dd-serif-w); }
 
 /* ── HEADER (the mock-up's nav, re-cast as an ordinary panel header) ────────── */
@@ -101,50 +103,40 @@ const DD_CORE = `
 }
 @media (min-width:768px){ .dp .dd-head{ flex-direction:row; align-items:center; } }
 .dp .dd-brand{ display:flex; align-items:center; gap:12px; }
-.dp .dd-brand-logo{
-  height:40px; width:40px; border-radius:4px; flex-shrink:0;
-  background:linear-gradient(to top right,var(--t-amber-20),var(--t-amber-10),transparent);
-  border:1px solid var(--t-amber-30);
-  display:flex; align-items:center; justify-content:center; color:var(--amber);
-}
 .dp .dd-controls{ display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
 .dp .dd-ctl{
   display:flex; align-items:center; gap:8px;
   background:var(--surface); border:1px solid var(--line); border-radius:4px;
-  padding:4px 10px; font-size:12px; color:var(--ink-soft);
+  padding:4px 10px; font-size:12.5px; color:var(--ink-soft);
 }
 .dp .dd-ctl select{
   background:transparent; color:var(--ink-soft); font-weight:500;
   border:none; outline:none; cursor:pointer; padding:5px 4px;
-  font-family:var(--dd-sans); font-size:12px; max-width:min(60vw,22rem);
+  font-family:var(--dd-sans); font-size:12.5px; max-width:min(60vw,22rem);
 }
 .dp .dd-ctl select option{ background:var(--surface); color:var(--ink); }
-.dp .dd-ctl select:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; border-radius:4px; }
+.dp .dd-ctl select:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
 
 /* ── BANNER ─────────────────────────────────────────────────────────────────── */
 .dp .dd-banner{
-  background:var(--t-card); border:1px solid var(--t-amber-30); border-radius:4px;
+  background:var(--t-card); border:1px solid var(--t-accent-30); border-radius:4px;
   padding:16px; display:flex; flex-direction:column; gap:12px;
   align-items:flex-start; justify-content:space-between; position:relative; overflow:hidden;
 }
 @media (min-width:768px){ .dp .dd-banner{ flex-direction:row; align-items:center; } }
 .dp .dd-banner-glow{
   position:absolute; top:0; right:0; width:256px; height:100%;
-  background:linear-gradient(to left,var(--t-amber-10),transparent); pointer-events:none;
+  background:linear-gradient(to left,var(--t-accent-10),transparent); pointer-events:none;
 }
 .dp .dd-banner-left{ display:flex; align-items:flex-start; gap:14px; position:relative; }
-.dp .dd-banner-icon{
-  padding:10px; background:var(--t-amber-10); border:1px solid var(--t-amber-20);
-  border-radius:3px; color:var(--amber); flex-shrink:0;
-}
 .dp .dd-banner-meta{
   display:flex; align-items:center; gap:12px; flex-shrink:0; position:relative;
-  font-size:12px; font-family:var(--dd-mono); color:var(--ink-dim);
+  font-size:12.5px; font-family:var(--dd-mono); color:var(--ink-dim);
   background:var(--t-inner); border:1px solid var(--t-line);
   padding:8px 14px; border-radius:4px;
 }
 .dp .dd-pill{
-  font-size:10px; font-family:var(--dd-mono); font-weight:700;
+  font-size:12.5px; font-family:var(--dd-mono); font-weight:700;
   padding:2px 8px; border-radius:9999px; white-space:nowrap;
 }
 .dp .dd-pill-emerald{ background:var(--t-emerald-20); color:var(--emerald); border:1px solid var(--t-emerald-30); }
@@ -160,12 +152,7 @@ const DD_CORE = `
   display:flex; align-items:center; justify-content:space-between;
   color:var(--ink-dim); margin-bottom:8px; gap:8px;
 }
-.dp .dd-kpi-label{ font-size:12px; font-weight:500; text-transform:uppercase; letter-spacing:.05em; }
-.dp .dd-kpi-ico{ padding:8px; border-radius:3px; flex-shrink:0; }
-.dp .ico-rose{ background:var(--t-rose-10); color:var(--rose); border:1px solid var(--t-rose-20); }
-.dp .ico-amber{ background:var(--t-amber-10); color:var(--amber); border:1px solid var(--t-amber-20); }
-.dp .ico-emerald{ background:var(--t-emerald-10); color:var(--emerald); border:1px solid var(--t-emerald-20); }
-.dp .ico-blue{ background:var(--t-blue-10); color:var(--blue); border:1px solid var(--t-blue-20); }
+.dp .dd-kpi-label{ font-size:12.5px; font-weight:500; text-transform:uppercase; letter-spacing:.05em; }
 .dp .dd-kpi-val{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
 .dp .dd-kpi-num{
   /* 30->22px AND weight 400->600, 2026-11-08: he ticked -0.46%. 400 is the hairline cut that
@@ -173,28 +160,31 @@ const DD_CORE = `
   font-size:22px; font-weight:var(--dd-serif-w); font-family:var(--dd-serif);
   color:var(--ink-strong); letter-spacing:-0.01em;
 }
-.dp .dd-kpi-chip{ font-size:12px; font-family:var(--dd-mono); padding:2px 6px; border-radius:4px; }
+.dp .dd-kpi-chip{ font-size:12.5px; font-family:var(--dd-mono); padding:2px 6px; border-radius:4px; }
 .dp .chip-rose{ color:var(--rose); background:var(--t-rose-10); }
-.dp .chip-amber{ color:var(--amber); background:var(--t-amber-10); }
+.dp .chip-accent{ color:var(--accent); background:var(--t-accent-10); }
 .dp .chip-emerald{ color:var(--emerald); background:var(--t-emerald-10); }
 .dp .chip-slate{ color:var(--ink-dim); background:var(--t-line); }
 .dp .dd-kpi-foot{
   margin-top:12px; padding-top:12px; border-top:1px solid var(--t-line-soft);
-  display:flex; justify-content:space-between; gap:8px; font-size:11px; color:var(--ink-dim);
+  display:flex; justify-content:space-between; gap:8px; font-size:12.5px; color:var(--ink-dim);
 }
 
 /* ── COLOUR + WEIGHT UTILITIES (his class names, mapped onto the tokens) ────── */
 .dp .c-strong{ color:var(--ink-strong); } .dp .c-ink{ color:var(--ink); }
 .dp .c-soft{ color:var(--ink-soft); } .dp .c-dim{ color:var(--ink-dim); }
-.dp .c-faint{ color:var(--ink-faint); } .dp .c-amber{ color:var(--amber); }
-.dp .c-amber-soft{ color:var(--amber-soft); } .dp .c-emerald{ color:var(--emerald); }
+.dp .c-faint{ color:var(--ink-faint); } .dp .c-accent{ color:var(--accent); }
+.dp .c-accent-soft{ color:var(--accent-soft); } .dp .c-emerald{ color:var(--emerald); }
 .dp .c-rose{ color:var(--rose); } .dp .c-rose-mid{ color:var(--rose-mid); } .dp .c-blue{ color:var(--blue); }
 .dp .fw-bold{ font-weight:700; } .dp .fw-semi{ font-weight:600; } .dp .fw-med{ font-weight:500; }
-.dp .fs-10{ font-size:10px; } .dp .fs-11{ font-size:11px; } .dp .fs-xs{ font-size:12px; }
-.dp .fs-sm{ font-size:14px; } .dp .fs-base{ font-size:16px; } .dp .fs-2xl{ font-size:19px; }
+/* ⚠ THE WHOLE SCALE IS THE AUDIT PAGE'S, 2026-11-09. It runs 12.5 for almost everything (77 uses),
+   then 13, 14, 17 and 22 - and nothing below 12.5. This page used to go down to 10px, so the three
+   small steps all collapse onto 12.5. That RAISES the smallest text, which is a bonus rather than a
+   side effect: the 10px captions are the ones that failed the readability floor a day earlier. */
+.dp .fs-10{ font-size:12.5px; } .dp .fs-11{ font-size:12.5px; } .dp .fs-xs{ font-size:12.5px; }
+.dp .fs-sm{ font-size:13px; } .dp .fs-base{ font-size:14px; } .dp .fs-2xl{ font-size:22px; }
 .dp .dd-between{ display:flex; justify-content:space-between; align-items:center; }
 .dp .dd-colbetween{ display:flex; flex-direction:column; justify-content:space-between; }
-.dp .dd-ico-badge{ padding:8px; border-radius:3px; flex-shrink:0; }
 `;
 
 export const DD_CORE_CSS = DD_CORE;

@@ -57,7 +57,7 @@ export function WLB({ wins, losses, breakevens, size = 12 }: {
       <span className="c-emerald">{w}</span>
       <span className="c-faint">/</span>
       <span className="c-rose">{l}</span>
-      {b > 0 && <><span className="c-faint">/</span><span className="c-amber">{b}</span></>}
+      {b > 0 && <><span className="c-faint">/</span><span className="c-accent">{b}</span></>}
     </span>
   );
 }

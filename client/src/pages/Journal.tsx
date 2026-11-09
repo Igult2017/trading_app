@@ -1466,9 +1466,7 @@ export default function Journal() {
                handleSelectSession, because that helper also jumps to the dashboard — which would
                throw you off the drawdown page the moment you switched account. */
             <DrawdownPanel sessionId={activeSessionId ?? undefined}
-                           dispFont={F.stack} bodyFont={F.bodyStack ?? F.stack}
-                           sessions={sessions}
-                           onSessionChange={setActiveSessionId} />
+                           dispFont={F.stack} bodyFont={F.bodyStack ?? F.stack} />
           ) : activeNav === 'fsdai' ? (
             <TraderAI sessionId={activeSessionId ?? undefined} darkMode={T.dark} />
           ) : activeNav === 'sync' ? (

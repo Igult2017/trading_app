@@ -1,5 +1,4 @@
 import React from 'react';
-import { Zap } from 'lucide-react';
 
 /**
  * ddBanner — the status strip under the header, from his 2026-11-03 mock-up.
@@ -25,7 +24,6 @@ export function DdBanner({ cur, uw }: { cur: any; uw: any }) {
     <div className="dd-banner">
       <div className="dd-banner-glow" aria-hidden />
       <div className="dd-banner-left">
-        <div className="dd-banner-icon" aria-hidden><Zap width={20} height={20} /></div>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span className="c-strong fw-semi fs-sm">

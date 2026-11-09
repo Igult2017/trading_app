@@ -1,5 +1,4 @@
 import React from 'react';
-import { Flame } from 'lucide-react';
 import { fmtRange } from '@/components/drawdown/ddBits';
 
 /**
@@ -46,7 +45,6 @@ export function DdStreaks({ sk }: { sk: any }) {
       <div>
         <div className="dd-between" style={{ marginBottom: 12 }}>
           <h3 className="dd-title">Loss Streaks &amp; Sequence</h3>
-          <span className="dd-ico-badge ico-amber" aria-hidden><Flame width={16} height={16} /></span>
         </div>
 
         <div className="dd-grid dd-mono"

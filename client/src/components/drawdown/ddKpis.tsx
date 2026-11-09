@@ -1,5 +1,4 @@
 import React from 'react';
-import { TrendingDown, Activity, Award, BarChart3 } from 'lucide-react';
 
 /**
  * ddKpis — the four headline cards, from his 2026-11-03 mock-up.
@@ -30,21 +29,21 @@ export function DdKpis({ ts, series }: { ts: any; series?: number[] }) {
 
   const cards = [
     {
-      label: 'Max Drawdown', ico: 'ico-rose', Icon: TrendingDown,
+      label: 'Max Drawdown',
       num: fmtDd(ts?.maxDrawdown), numColor: undefined,
       chip: fmtDd(deepest), chipCls: 'chip-rose',
       footL: 'Peak-to-Trough Drop', footR: 'Deepest recorded', footCls: 'c-ink',
     },
     {
-      label: 'Avg. Drawdown', ico: 'ico-amber', Icon: Activity,
+      label: 'Avg. Drawdown',
       num: fmtDd(ts?.avgDrawdown), numColor: undefined,
-      chip: 'Mean depth', chipCls: 'chip-amber',
+      chip: 'Mean depth', chipCls: 'chip-accent',
       footL: 'Mean Depth per Dip',
       footR: Math.abs(Number(ts?.avgDrawdown ?? 0)) < 1 ? 'Controlled' : 'Elevated',
-      footCls: Math.abs(Number(ts?.avgDrawdown ?? 0)) < 1 ? 'c-ink' : 'c-amber',
+      footCls: Math.abs(Number(ts?.avgDrawdown ?? 0)) < 1 ? 'c-ink' : 'c-accent',
     },
     {
-      label: 'Recovery Factor', ico: 'ico-emerald', Icon: Award,
+      label: 'Recovery Factor',
       num: rf ? String(rf) : '—', numColor: 'var(--emerald)',
       chip: 'Net Profit / Max DD', chipCls: 'chip-emerald',
       footL: 'Resilience Index',
@@ -52,7 +51,7 @@ export function DdKpis({ ts, series }: { ts: any; series?: number[] }) {
       footCls: rf >= 3 ? 'c-emerald fw-bold' : 'c-dim',
     },
     {
-      label: 'Trend Alignment', ico: 'ico-blue', Icon: BarChart3,
+      label: 'Trend Alignment',
       num: `${trend}%`, numColor: undefined,
       chip: trend > 0 ? 'HTF agreement' : 'Unclassified', chipCls: 'chip-slate',
       footL: 'HTF Bias Sync', footR: trend > 0 ? 'Tagged' : 'Needs Tagging', footCls: 'c-dim',
@@ -65,7 +64,6 @@ export function DdKpis({ ts, series }: { ts: any; series?: number[] }) {
         <div className="dd-kpi" key={c.label}>
           <div className="dd-kpi-head">
             <span className="dd-kpi-label">{c.label}</span>
-            <div className={`dd-kpi-ico ${c.ico}`} aria-hidden><c.Icon width={16} height={16} /></div>
           </div>
           <div className="dd-kpi-val">
             <span className="dd-kpi-num" style={c.numColor ? { color: c.numColor } : undefined}>{c.num}</span>

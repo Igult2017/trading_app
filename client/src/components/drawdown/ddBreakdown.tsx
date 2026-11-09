@@ -87,7 +87,7 @@ export function DdBreakdown({
               const share = totalLoss > 0 ? (loss / totalLoss) * 100 : 0;
               return (
                 <tr className="dd-rowhover" key={`${r.name}-${i}`}>
-                  <td className="fw-bold c-amber">{String(i + 1).padStart(2, '0')}</td>
+                  <td className="fw-bold c-accent">{String(i + 1).padStart(2, '0')}</td>
                   <td className="fw-semi c-strong">{r.name}</td>
                   <td className="c-soft">
                     <span className="dd-tag">{r.trades} trade{r.trades === 1 ? '' : 's'}</span>

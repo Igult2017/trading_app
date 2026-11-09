@@ -2,7 +2,7 @@
  * ddTokens.ts — the palette for the Drawdown panel's new design (2026-11-03).
  *
  * WHERE THESE VALUES COME FROM: his own HTML mock-up, verbatim. The names are his too
- * (`--slate-400`, `--amber-500`), and keeping them means every rule in `ddStyles.ts` reads exactly as
+ * (`--slate-400`, `--indigo-500`), and keeping them means every rule in `ddStyles.ts` reads exactly as
  * it did in the design he handed over — so "recreate, do not redesign" is checkable line by line
  * rather than taken on trust.
  *
@@ -34,7 +34,7 @@ const ALIASES = `
   --ink3:var(--ink-faint);
   --gain:var(--emerald); --gain-d:var(--t-emerald-10);
   --loss:var(--rose);    --loss-d:var(--t-rose-10);
-  --warn:var(--amber);   --warn-d:var(--t-amber-10);
+  --warn:var(--accent);  --warn-d:var(--t-accent-10);
 `;
 
 /** His mock-up's values, unchanged. */
@@ -58,10 +58,17 @@ export const DD_TOKENS_DARK = `
   --ink-soft:#cbd5e1;
   --ink:#e2e8f0;
   --ink-strong:#ffffff;
-  --amber-soft:#fcd34d;
-  --amber:#fbbf24;
-  --amber-mid:#f59e0b;
-  --amber-deep:#d97706;
+  /* ⚠ NO YELLOW ON THIS PAGE. His instruction, 2026-11-09: *"I dont want yellow color in the
+     drawndown page. I hate yellow."* These were the yellow ramp; they are RENAMED as well as
+     recoloured, because a token still named for a colour it no longer is becomes a lie the next
+     person trips over. The hue is the AUDIT PAGE's own blue (#6366f1, StrategyAudit.tsx), taken
+     from there rather than invented, because he asked to copy that page.
+     NOTE: no backticks in here - this comment sits INSIDE a template literal and one would end it
+     (feedback-template-literal-backticks; tsc caught it, which is why the test exists). */
+  --accent-soft:#a5b4fc;
+  --accent:#818cf8;
+  --accent-mid:#6366f1;
+  --accent-deep:#4f46e5;
   --emerald:#34d399;
   --emerald-mid:#10b981;
   --rose:#fb7185;
@@ -70,9 +77,9 @@ export const DD_TOKENS_DARK = `
   --blue-mid:#3b82f6;
   /* Tints, pre-mixed because the design uses them in a dozen places and a light theme needs its own.
      Written out rather than computed so the file stays greppable against the mock-up. */
-  --t-amber-10:rgba(245,158,11,0.10);
-  --t-amber-20:rgba(245,158,11,0.20);
-  --t-amber-30:rgba(245,158,11,0.30);
+  --t-accent-10:rgba(99,102,241,0.12);
+  --t-accent-20:rgba(99,102,241,0.22);
+  --t-accent-30:rgba(99,102,241,0.32);
   --t-emerald-10:rgba(16,185,129,0.10);
   --t-emerald-20:rgba(16,185,129,0.20);
   --t-emerald-30:rgba(16,185,129,0.30);
@@ -91,7 +98,13 @@ export const DD_TOKENS_DARK = `
   /* The loss-share bar segments and the text sitting ON them. Separate from the text tokens above
      because a colour that reads well AS text on a card is not the same as one that works as a FILL
      with a label on top — see the note in ddStyles2. */
-  --bar-1:#f43f5e; --bar-2:#fb7185; --bar-3:#f59e0b; --bar-4:#fbbf24; --bar-5:#60a5fa;
+  /* ⚠ TWO OF THESE WERE YELLOW, and they are the yellow in the wide stacked Loss Contribution
+     bar - the one thing a search for the colour NAME could never have found, because the tokens
+     are named --bar-N. (The old values are in git; they are not written here, because the test
+     greps this stylesheet for yellow and a comment quoting one would fail it - correctly.)
+     The five still have to stay apart at a glance, so the ramp runs
+     rose -> light rose -> violet -> indigo -> sky. */
+  --bar-1:#f43f5e; --bar-2:#fb7185; --bar-3:#a78bfa; --bar-4:#6366f1; --bar-5:#38bdf8;
   --bar-ink:#020617;
   ${ALIASES}
 `;
@@ -99,7 +112,7 @@ export const DD_TOKENS_DARK = `
 /**
  * The light-theme remap — same names, values chosen for a light surface.
  *
- * ⚠ ACCENTS ARE DARKENED, NOT REUSED. `#fbbf24` amber on white is roughly 1.8:1 — invisible. Each
+ * ⚠ ACCENTS ARE DARKENED, NOT REUSED. `#818cf8` on white is roughly 2.4:1 — too faint. Each
  * accent moves to its 600/700 step so small text keeps a real contrast ratio instead of merely
  * existing. `docs/READABILITY.md`: 4.5:1 is a FLOOR, not a target, and a palette swap must never
  * lower a tier.
@@ -120,19 +133,20 @@ export const DD_TOKENS_LIGHT = `
   --ink-soft:#334155;
   --ink:#1e293b;
   --ink-strong:#0f172a;
-  --amber-soft:#92400e;
-  --amber:#b45309;
-  --amber-mid:#d97706;
-  --amber-deep:#92400e;
+  /* Darkened for white, the same reason the old ramp was: #818cf8 on white is about 2.4:1. */
+  --accent-soft:#3730a3;
+  --accent:#4338ca;
+  --accent-mid:#4f46e5;
+  --accent-deep:#3730a3;
   --emerald:#047857;
   --emerald-mid:#059669;
   --rose:#be123c;
   --rose-mid:#e11d48;
   --blue:#1d4ed8;
   --blue-mid:#2563eb;
-  --t-amber-10:rgba(180,83,9,0.08);
-  --t-amber-20:rgba(180,83,9,0.16);
-  --t-amber-30:rgba(180,83,9,0.28);
+  --t-accent-10:rgba(67,56,202,0.08);
+  --t-accent-20:rgba(67,56,202,0.16);
+  --t-accent-30:rgba(67,56,202,0.28);
   --t-emerald-10:rgba(4,120,87,0.08);
   --t-emerald-20:rgba(4,120,87,0.16);
   --t-emerald-30:rgba(4,120,87,0.28);
@@ -151,7 +165,7 @@ export const DD_TOKENS_LIGHT = `
   /* Mid-tone fills so a solid bar still reads against a WHITE card (4.70-6.70:1), with white text on
      top (the same 4.70-6.70:1). The dark theme's lighter fills with dark text would have given a
      bar you could barely see and a label at 4.29:1. */
-  --bar-1:#e11d48; --bar-2:#be123c; --bar-3:#b45309; --bar-4:#1d4ed8; --bar-5:#047857;
+  --bar-1:#e11d48; --bar-2:#be123c; --bar-3:#7c3aed; --bar-4:#1d4ed8; --bar-5:#047857;
   --bar-ink:#ffffff;
   ${ALIASES}
 `;

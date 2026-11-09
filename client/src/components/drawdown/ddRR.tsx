@@ -1,19 +1,18 @@
 import React from 'react';
-import { BarChart3 } from 'lucide-react';
 
 /**
  * ddRR — "RR Distribution", from his 2026-11-03 mock-up.
  *
  * From `rrBuckets` (server/python/drawdown/distribution.py): four reward-to-risk bands, each with a
  * `label`, a plain-words `note`, a trade `count` and a `pct`. The colour per band is the mock-up's:
- * red below 1:1, amber to 1:2, green in the target range, blue for the outliers.
+ * red below 1:1, accent to 1:2, green in the target range, blue for the outliers.
  *
  * The closing line is kept from the old panel — it is the one sentence that turns the four bars into
  * a finding, and the mock-up's static "classifications will update dynamically" text said nothing.
  */
 const TONE: Record<string, string> = {
   '< 1:1': 'var(--rose-mid)',
-  '1:1 – 1:2': 'var(--amber-mid)',
+  '1:1 – 1:2': 'var(--accent-mid)',
   '1:2 – 1:3': 'var(--emerald-mid)',
   '> 1:3': 'var(--blue-mid)',
 };
@@ -30,7 +29,6 @@ export function DdRR({ buckets }: { buckets: any[] }) {
       <div>
         <div className="dd-between" style={{ marginBottom: 12 }}>
           <h3 className="dd-title">RR Distribution</h3>
-          <span className="dd-ico-badge ico-blue" aria-hidden><BarChart3 width={16} height={16} /></span>
         </div>
 
         {rows.length === 0 ? (

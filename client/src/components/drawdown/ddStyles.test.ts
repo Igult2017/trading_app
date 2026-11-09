@@ -146,9 +146,29 @@ check('the figures face is Times New Roman, as on the audit page',
       /--dd-mono:"Times New Roman"/.test(css), true);
 teeth('nothing sets this display serif below weight 500',
       Number(/--dd-serif-w:(\d+)/.exec(css)?.[1] ?? 0) >= 500);
-check('the two titles he ticked came down to 18 and 15',
-      /h2\.dd-title\{ font-size:18px; \}/.test(css) && /h3\.dd-title\{ font-size:15px; \}/.test(css),
+// ⚠ 18/15 -> 17/17 on 2026-11-09: "copy font types and sizes from the audit page", and that page's
+// headings are 17. The pin moved deliberately; it is not a loosened test.
+check('both titles sit on the audit page heading size, 17',
+      /h2\.dd-title\{ font-size:17px; \}/.test(css) && /h3\.dd-title\{ font-size:17px; \}/.test(css),
       true);
+teeth('nothing on the page is smaller than the audit page floor of 12.5px',
+      ![...css.matchAll(/font-size:(\d+(?:\.\d+)?)px/g)].some((m) => Number(m[1]) < 12.5));
+
+// ── 6d. HIS THREE RULES OF 2026-11-09 ────────────────────────────────────────
+// "remove these unnecessary icons plus itallizing of text", "I dont want yellow color in the
+// drawndown page. I hate yellow", and "for the progress bars, copy the sizes from the audit page".
+console.log('');
+console.log('6d. the icons, the italics and the yellow are gone:');
+teeth('NO yellow anywhere - not even a token name that would invite it back',
+      !/amber|#fbbf24|#f59e0b|#fcd34d|245,158,11/i.test(css));
+check('the accent is the audit page indigo', /--accent-mid:#6366f1/.test(css), true);
+teeth('titles are upright, not italic', !/font-style:italic/.test(css));
+teeth('the icon boxes went with the icons',
+      !/dd-kpi-ico|dd-ico-badge|dd-brand-logo|dd-banner-icon/.test(css));
+check('the progress bar is the audit page size, 3px with a 1px corner',
+      /\.dd-track\{[^}]*height:3px; border-radius:1px/.test(css), true);
+teeth('...and the LABELLED stacked bar is deliberately left alone',
+      /\.dd-bigbar\{[\s\S]{0,120}height:20px/.test(css));
 check('the big KPI figure he ticked came down to 22px',
       /\.dd-kpi-num\{[\s\S]{0,400}font-size:22px;/.test(css), true);
 

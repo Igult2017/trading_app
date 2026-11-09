@@ -153,7 +153,7 @@ export function DdChart({ series, deepestLabel }: { series: number[]; deepestLab
 
       <div className="dd-chart-foot">
         <span>Scale: percentage relative to peak equity{wasDownsampled ? ` · grouped ${bucket} trades per point` : ''}</span>
-        <span className="dd-mono c-amber">Deepest Point: {minVal.toFixed(2)}%{deepestLabel ? ` (${deepestLabel})` : ''}</span>
+        <span className="dd-mono c-accent">Deepest Point: {minVal.toFixed(2)}%{deepestLabel ? ` (${deepestLabel})` : ''}</span>
       </div>
     </>
   );

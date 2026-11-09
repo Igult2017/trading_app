@@ -97,7 +97,7 @@ export function DdMonthly({
               const retStr = ret == null ? '—' : ret === 0 ? '0.00%' : `${ret > 0 ? '+' : ''}${ret.toFixed(2)}%`;
               const retCls = ret == null ? 'c-dim' : ret > 0 ? 'c-emerald' : ret < 0 ? 'c-rose' : 'c-dim';
               const dot = m.dominantCauseClass === 'bad' ? 'var(--rose)'
-                        : m.dominantCauseClass === 'good' ? 'var(--emerald)' : 'var(--amber)';
+                        : m.dominantCauseClass === 'good' ? 'var(--emerald)' : 'var(--accent)';
               const monthIdx = MONTH_ABBR.indexOf(m.month);
               const mKey = `${m.year}-${monthIdx + 1}`;
               const isOpen = openMonth === mKey;
@@ -116,11 +116,11 @@ export function DdMonthly({
                       {/* HIS SHAPE: the triangle comes FIRST, then the month, and there is no separate
                           dot — matching the mock-up he sent on 2026-11-03.
                           ⚠ THE TRIANGLE IS TINTED BY THE MONTH'S DOMINANT CAUSE (red bad / green good /
-                          amber otherwise) rather than being a flat amber. His mock-up drops the little
+                          accent otherwise) rather than being a flat accent. His mock-up drops the little
                           coloured dot the old ledger carried, and that dot was the only thing saying at a
                           glance what drove each month; colouring the triangle he already has keeps that
                           signal without adding anything to his layout. Say the word and it goes flat
-                          amber. */}
+                          accent. */}
                       <span className="dd-mname">
                         <span aria-hidden className={`dd-mchev ${isOpen ? 'open' : ''}`}
                               style={{ color: isLive ? 'var(--blue)' : dot }}>▶</span>

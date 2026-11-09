@@ -1,5 +1,4 @@
 import React from 'react';
-import { Target, RefreshCw, Shield, Info, AlertTriangle } from 'lucide-react';
 
 /**
  * ddRiskCards — the three-card row from his 2026-11-03 mock-up: Edge & Risk Model, Monte-Carlo
@@ -68,25 +67,23 @@ export function DdRiskCards({ risk, mc, recovery }: { risk: any; mc: any; recove
         <div>
           <div className="dd-between" style={{ marginBottom: 12 }}>
             <h3 className="dd-title">Edge &amp; Risk Model</h3>
-            <span className="dd-ico-badge ico-amber" aria-hidden><Target width={16} height={16} /></span>
           </div>
           <div className="dd-mono" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Row label="Win Rate" value={`${risk?.winRate ?? 0}%`} cls="c-emerald" />
             <Row label="Payoff Ratio" sub="Avg Win / Avg Loss" value={`${risk?.payoff ?? 0}x`}
                  cls={Number(risk?.payoff ?? 0) >= 1 ? 'c-emerald' : 'c-rose'} />
-            <Row label="Kelly Optimal Risk" sub="Full Kelly sizing model" value={`${kelly}%`} cls="c-amber" />
+            <Row label="Kelly Optimal Risk" sub="Full Kelly sizing model" value={`${kelly}%`} cls="c-accent" />
             <Row label="Loss Streak" sub="Actual vs Expected" value={`${actual} / ${expected}`}
                  cls={withinExp ? 'c-strong' : 'c-rose'} />
             {/* Only when the API actually measured it — the old panel showed this and dropping it
                 would have lost a real figure that the mock-up simply had no row for. */}
             {risk?.mae?.hasData && (
               <Row label="Loser vs Winner MAE" sub="How much deeper losers ran"
-                   value={`${risk.mae.ratio}x deeper`} cls="c-amber" />
+                   value={`${risk.mae.ratio}x deeper`} cls="c-accent" />
             )}
           </div>
         </div>
         <div className="dd-note">
-          <Info width={14} height={14} style={{ color: 'var(--amber)', flexShrink: 0 }} aria-hidden />
           <span>
             {kelly > 0
               ? 'Kelly is a ceiling, not a target — sizing below it protects the capital buffer.'
@@ -105,11 +102,10 @@ export function DdRiskCards({ risk, mc, recovery }: { risk: any; mc: any; recove
                 {hasMc ? `${Number(mc.runs).toLocaleString()} simulated trading sequences` : 'Not yet available'}
               </p>
             </div>
-            <span className="dd-ico-badge ico-blue" aria-hidden><RefreshCw width={16} height={16} /></span>
           </div>
           {hasMc ? (
             <div className="dd-mono fs-xs" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <MiniRow label="Expected Max DD:" value={fmtDd(mc.expectedMaxDd)} cls="c-amber" />
+              <MiniRow label="Expected Max DD:" value={fmtDd(mc.expectedMaxDd)} cls="c-accent" />
               <MiniRow label="Worst Case (95% Conf.):" value={fmtDd(mc.worstCase95)} cls="c-rose" />
               <MiniRow label="Worst Case (99% Conf.):" value={fmtDd(mc.worstCase99)} cls="c-rose-mid" />
               <MiniRow label={`Risk of Ruin (>${Math.abs(Number(mc.ruinThreshold ?? 50))}% DD):`}
@@ -121,7 +117,6 @@ export function DdRiskCards({ risk, mc, recovery }: { risk: any; mc: any; recove
         </div>
         {hasMc && (
           <div className="dd-insight">
-            <Info width={16} height={16} style={{ color: 'var(--blue)', flexShrink: 0, marginTop: 2 }} aria-hidden />
             <p>
               <strong className="c-strong">{mc.actualPercentile}%</strong> of {Number(mc.runs).toLocaleString()}{' '}
               simulated histories had a drawdown as deep or deeper than yours ({fmtDd(mc.actualMaxDd)}).
@@ -135,7 +130,6 @@ export function DdRiskCards({ risk, mc, recovery }: { risk: any; mc: any; recove
         <div>
           <div className="dd-between" style={{ marginBottom: 12 }}>
             <h3 className="dd-title">Recovery Pattern</h3>
-            <span className="dd-ico-badge ico-amber" aria-hidden><Shield width={16} height={16} /></span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div className="dd-inner-sm" style={{ display: 'block', padding: 14 }}>
@@ -158,11 +152,10 @@ export function DdRiskCards({ risk, mc, recovery }: { risk: any; mc: any; recove
             ) : risky ? (
               <div className="dd-warn">
                 <div className="dd-warn-head">
-                  <AlertTriangle width={16} height={16} style={{ flexShrink: 0 }} aria-hidden />
                   <span>Behavioural Risk Detected</span>
                 </div>
                 <p className="fs-xs c-soft" style={{ lineHeight: 1.6 }}>
-                  You trade <strong className="c-amber-soft">LARGER ({ratio}x)</strong> when underwater —
+                  You trade <strong className="c-accent-soft">LARGER ({ratio}x)</strong> when underwater —
                   elevated revenge-recovery risk across {recovery.underwaterCount} underwater trade
                   {recovery.underwaterCount === 1 ? '' : 's'}.
                 </p>

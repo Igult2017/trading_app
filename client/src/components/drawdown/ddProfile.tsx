@@ -26,7 +26,7 @@ export function DdProfile({ intel, topStats, tradeCount }: {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <h2 className="dd-title">Drawdown Profile &amp; Underwater Depth</h2>
-            <span className="dd-badge dd-badge-amber c-amber">
+            <span className="dd-badge dd-badge-accent c-accent">
               {tradeCount} trade{tradeCount === 1 ? '' : 's'} tracked
             </span>
           </div>
@@ -50,7 +50,7 @@ export function DdProfile({ intel, topStats, tradeCount }: {
           </div>
           <div className="dd-badge">
             <span className="c-dim">Longest Underwater:</span>
-            <span className="c-amber fw-bold">
+            <span className="c-accent fw-bold">
               {uw.longestTrades ?? 0} trades · {uw.longestDays ?? 0}d
             </span>
           </div>

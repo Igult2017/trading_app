@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { authFetch } from '@/lib/queryClient';
-import { TrendingDown } from 'lucide-react';
 import { useDelayedLoading } from '@/lib/useDelayedLoading';
 import { DrawdownSkeleton } from '@/components/skeletons/DrawdownSkeleton';
 import { ddPanelCss } from '@/components/drawdown/ddStyles2';
-import { DdHeader, type SessionOption } from '@/components/drawdown/ddHeader';
 import { DdBanner } from '@/components/drawdown/ddBanner';
 import { DdKpis } from '@/components/drawdown/ddKpis';
 import { DdProfile } from '@/components/drawdown/ddProfile';
@@ -16,7 +14,6 @@ import { DdStructural, type DiagKey } from '@/components/drawdown/ddStructural';
 import { DdStreaks } from '@/components/drawdown/ddStreaks';
 import { DdRR } from '@/components/drawdown/ddRR';
 import { DdMonthly } from '@/components/drawdown/ddMonthly';
-import { periodQuery, type PeriodKey } from '@/components/drawdown/ddPeriods';
 import { EMPTY_DRAWDOWN } from '@/components/drawdown/ddEmpty';
 
 /**
@@ -44,32 +41,36 @@ import { EMPTY_DRAWDOWN } from '@/components/drawdown/ddEmpty';
  * every face above.
  */
 export default function DrawdownPanel({
-  sessionId, dispFont, bodyFont, sessions = [], onSessionChange,
+  sessionId, dispFont, bodyFont,
 }: {
   sessionId?: string | null;
   dispFont?: string;
   bodyFont?: string;
-  /** The journal's own session list, so the new account selector is not a second source of truth. */
-  sessions?: SessionOption[];
-  onSessionChange?: (id: string) => void;
 }) {
   // `--disp` feeds the SANS role in ddStyles; `--mono` is kept for the reused month-grid CSS.
   const dpStyle = dispFont
     ? ({ ['--disp' as any]: dispFont, ['--mono' as any]: bodyFont ?? dispFont } as React.CSSProperties)
     : undefined;
 
-  const [period, setPeriod] = useState<PeriodKey>('ALL');
+  // ⚠ NO PERIOD SELECTOR ANY MORE. His instruction, 2026-11-09, pointing at a screenshot of the
+  // header: *"The first image is the whole part i need you to remove."* That strip held the ACCOUNT
+  // and PERIOD pickers, so both went with it — the account still comes from the journal
+  // (`sessionId`), and the range is simply everything.
+  //
+  // `ddPeriods.ts` was DELETED rather than left in place: with only "all time" ever asked for, every
+  // branch of its range logic became unreachable, and a disabled path that still reads like live
+  // code is how the next session concludes the feature exists. Git holds it if the picker returns.
+  // The request is now byte-for-byte what it was before the selector was ever added.
   const [dir, setDir] = useState<DirKey>('ALL');
   const [group, setGroup] = useState<GroupKey>('STRATEGY');
   const [diag, setDiag] = useState<DiagKey>('CONTEXT');
   const [openMonth, setOpenMonth] = useState<string | null>(null);
 
-  const pq = periodQuery(period);
 
   const { data: result, isLoading, isError, error } = useQuery<any>({
     // The period is part of the key, so switching it refetches rather than showing the last range's
     // numbers under the new label.
-    queryKey: ['/api/drawdown/compute', sessionId, period],
+    queryKey: ['/api/drawdown/compute', sessionId],
     enabled: !!sessionId,
     // Always pull fresh on open: treat cached data as stale and refetch every mount, so a redeploy
     // (or any recompute fix) shows up on the next visit with NO manual cache-bust. The server still
@@ -80,7 +81,7 @@ export default function DrawdownPanel({
     retry: 2,
     retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
     queryFn: async () => {
-      const r = await authFetch(`/api/drawdown/compute?sessionId=${sessionId}${pq}`);
+      const r = await authFetch(`/api/drawdown/compute?sessionId=${sessionId}`);
       if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
       const json = await r.json();
       if (!json.success) throw new Error(json.error || 'Drawdown computation failed');
@@ -108,11 +109,12 @@ export default function DrawdownPanel({
   const showLoader = useDelayedLoading(!!sessionId && isLoading);
   if (showLoader) return <DrawdownSkeleton style={dpStyle} />;
 
-  const centered = (tone: string, title: string, subtitle: string) => (
+  // NO ICON HERE EITHER — his 2026-11-09 instruction was *"All the icons in that page"*, and the
+  // empty state is part of the page. `tone` went with it: it only ever coloured that icon.
+  const centered = (title: string, subtitle: string) => (
     <div className="dp" style={dpStyle}><style>{ddPanelCss()}</style>
       <div style={{ minHeight: 420, display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-        <TrendingDown style={{ width: 30, height: 30, color: tone }} />
         <p style={{ fontSize: 12, letterSpacing: '.18em', textTransform: 'uppercase',
                     fontWeight: 600, color: 'var(--ink-dim)' }}>{title}</p>
         <p style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{subtitle}</p>
@@ -121,10 +123,10 @@ export default function DrawdownPanel({
   );
 
   if (!sessionId)
-    return centered('var(--ink-faint)', 'No session selected',
+    return centered('No session selected',
                     'Select or create a session to view drawdown analysis');
   if (isError)
-    return centered('var(--rose)', 'Failed to load drawdown data',
+    return centered('Failed to load drawdown data',
                     (error as Error)?.message || 'Check server logs or try refreshing');
 
   // When the session has no logged trades the API returns no analysis. Rather than one blank screen,
@@ -141,9 +143,6 @@ export default function DrawdownPanel({
     <div className="dp" style={dpStyle}>
       <style>{ddPanelCss()}</style>
       <div className="dd-stack">
-
-        <DdHeader sessions={sessions} sessionId={sessionId} onSessionChange={onSessionChange}
-                  period={period} onPeriodChange={setPeriod} tradeCount={tradeCount} />
 
         <DdBanner cur={cur} uw={intel.underwater ?? {}} />
 
