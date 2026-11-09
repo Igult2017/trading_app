@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { supabase } from '@/lib/supabase';
 import Brand from '@/components/Brand';
+import { readableAuthError } from '@/lib/authMessages';
+
+/** Said when the attempt failed with nothing to go on at all. */
+const FAILED = 'Could not update the password. Please request a new reset link and try again.';
 
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
@@ -72,7 +76,7 @@ export default function ResetPasswordPage() {
     setBusy(true);
     try {
       const { error: err } = await supabase.auth.updateUser({ password });
-      if (err) { setError(err.message); return; }
+      if (err) { setError(readableAuthError(err.message, FAILED)); return; }
       setDone(true);
       // HIS CHOICE 2026-11-08 (B1): sign out BEFORE the sign-in screen, which used to be shown
       // while still signed in on the recovery session.
@@ -86,9 +90,7 @@ export default function ResetPasswordPage() {
        * included. With no error boundary anywhere in client/src, a throw changed nothing on screen.
        * NO OUTCOME OF THIS BUTTON MAY LEAVE THE SCREEN AS IT WAS. See docs/MAP.md.
        */
-      setError(err?.message
-        ? `Could not update the password: ${err.message}`
-        : 'Could not update the password. Please request a new reset link and try again.');
+      setError(readableAuthError(err?.message, FAILED));
     } finally {
       setBusy(false);
     }

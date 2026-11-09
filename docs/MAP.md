@@ -318,6 +318,14 @@ unsubscribes, catches thrown failures, and signs out before showing the sign-in 
 the Supabase dashboard. The fix above makes reset work without it, but until it is set, every reset
 link keeps bouncing off the homepage first.
 
+**A smaller version of the same fault, found while PROVING the fix and fixed in the same change.**
+With the network blocked, the page showed the browser's raw **"Failed to fetch"** — a message, which
+beats the silence it replaced, but not one he can act on, and the point of the change was that every
+outcome says something useful. `client/src/lib/authMessages.ts` now holds that wording, **shared by
+both screens that change a password**, because those two had already drifted apart once (the reset
+page could not report a thrown failure at all; the profile box could not clear its spinner). It never
+invents a reason: anything it does not recognise is passed through untouched.
+
 ⚠ **NOT FIXED, and not guessed at:** an **expired** link comes back as
 `#error=access_denied&error_code=otp_expired` with **no `type`**, which is indistinguishable from an
 expired sign-up confirmation — so there is no honest way to pick a destination for it. It still lands

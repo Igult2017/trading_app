@@ -15,6 +15,10 @@ import { useState } from 'react';
 import { authFetch } from '@/lib/queryClient';
 import { supabase } from '@/lib/supabase';
 import { CSS } from './profileSettingsCss';
+import { readableAuthError } from '@/lib/authMessages';
+
+/** Said when the change failed with nothing to go on at all. */
+const COULD_NOT = 'Could not change the password. Please try again.';
 
 
 type Msg = { s: 'ok' | 'err' | null; m: string };
@@ -62,11 +66,11 @@ export default function ProfileSettings({ email, plan, displayName, onBack, onNa
     // "Changing…" for ever with no message at all.
     try {
       const { error } = await supabase.auth.updateUser({ password: pw1 });
-      if (error) return setPwMsg({ s: 'err', m: error.message });
+      if (error) return setPwMsg({ s: 'err', m: readableAuthError(error.message, COULD_NOT) });
       setPw1(''); setPw2('');
       setPwMsg({ s: 'ok', m: 'Password changed.' });
     } catch (err: any) {
-      setPwMsg({ s: 'err', m: err?.message ? `Could not change it: ${err.message}` : 'Could not change it. Please try again.' });
+      setPwMsg({ s: 'err', m: readableAuthError(err?.message, COULD_NOT) });
     } finally {
       setSavingPw(false);
     }

@@ -91,6 +91,18 @@ teeth('the submit has a catch, not just a finally', /\}\s*catch\s*\(/.test(submi
 teeth('…and the catch actually puts something on screen',
       /catch[\s\S]{0,900}setError\(/.test(submit));
 check('the success path still reports success', submit.includes('setDone(true)'), true);
+// ⚠ FOUND IN MY OWN FIX: with the network blocked the page showed the browser's raw "Failed to
+// fetch". A message, yes - but not one he can act on, and both paths must give the same words.
+teeth('BOTH paths go through the shared wording, so they cannot drift apart',
+      /setError\(readableAuthError\(err\.message/.test(submit) && /setError\(readableAuthError\(err\?\.message/.test(submit));
+const words = here('../lib/authMessages.ts');
+teeth('...which turns the raw network words into something actionable',
+      /failed to fetch[\s\S]{0,200}Check your connection/i.test(words));
+teeth('...and never invents a reason for something it does not recognise',
+      words.includes('return m;'));
+// The two screens that change a password had already drifted apart once - that is half of C17.
+teeth('the profile box uses the SAME wording, not a second copy',
+      /readableAuthError\(error\.message/.test(profile) && /readableAuthError\(err\?\.message/.test(profile));
 // His choice B1, 2026-11-08.
 teeth('it signs out BEFORE sending you to the sign-in screen',
       submit.indexOf('signOut()') > 0 && submit.indexOf('signOut()') < submit.indexOf("navigate('/auth')"));
@@ -102,7 +114,8 @@ const savePw = profile.slice(profile.indexOf('async function savePw'),
 teeth('savePw has a catch', /\}\s*catch\s*\(/.test(savePw));
 teeth('…and the spinner is cleared in a finally, so it cannot stick on "Changing…"',
       /finally\s*\{\s*\n?\s*setSavingPw\(false\);/.test(savePw));
-check('it still reports a handed-back failure too', savePw.includes("s: 'err', m: error.message"), true);
+check('it still reports a handed-back failure too',
+      /if \(error\) return setPwMsg\(\{ s: 'err', m: readableAuthError\(error\.message/.test(savePw), true);
 
 console.log(`\n${failed === 0 ? 'ALL PASS' : `${failed} FAILED`} — ${count} checks\n`);
 process.exit(failed === 0 ? 0 : 1);

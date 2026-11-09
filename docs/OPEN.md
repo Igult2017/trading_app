@@ -1693,7 +1693,11 @@ Three faults; the full evidence table is in `docs/MAP.md` under 2026-11-08.
 
 Fixed in `lib/supabase.ts` (route a `type=recovery` address to the reset page before `createClient`),
 `ResetPasswordPage.tsx` (ask `getSession()`, accept any event, name a dead link, unsubscribe, catch
-throws, sign out after success) and `ProfileSettings.tsx` (the same missing `catch`).
+throws, sign out after success) and `ProfileSettings.tsx` (the same missing `catch`). While proving
+it, a blocked network showed the raw **"Failed to fetch"** — so `lib/authMessages.ts` now holds one
+set of words **shared by both screens that change a password**, and it never invents a reason for a
+message it does not recognise. Guarded by `ResetPasswordPage.test.ts`, 21 checks, 7 of them
+sabotage-verified.
 
 #### ⚠ STILL OPEN — two things, and the first needs HIM
 
