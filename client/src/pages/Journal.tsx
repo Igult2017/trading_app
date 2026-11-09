@@ -30,6 +30,7 @@ import AccountsPage from '@/pages/AccountsPage';
 import AssetPage from '@/pages/AssetPage';
 import Leaderboard from '@/components/Leaderboard';
 import { useJournalSettings, THEMES, FONTS } from '@/hooks/useJournalSettings';
+import { NeonLineChart } from '@/components/shared/NeonLineChart';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12 8.5 8.5" strokeWidth="2"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M6.5 17.5a7 7 0 0 1 0-11" strokeWidth="1.4" opacity="0.4"/><path d="M17.5 17.5a7 7 0 0 0 0-11" strokeWidth="1.4" opacity="0.4"/><line x1="12" y1="3" x2="12" y2="4.5" strokeWidth="1.4"/><line x1="3" y1="12" x2="4.5" y2="12" strokeWidth="1.4"/><line x1="21" y1="12" x2="19.5" y2="12" strokeWidth="1.4"/><line x1="6.2" y1="6.2" x2="7.2" y2="7.2" strokeWidth="1.4"/><line x1="17.8" y1="6.2" x2="16.8" y2="7.2" strokeWidth="1.4"/></svg>,
@@ -234,52 +235,6 @@ const StatCard = ({ stat }: { stat: { id: string; label: string; value: string; 
   </div>
 );
 
-function catmullRomPath(pts: { x: number; y: number }[]) {
-  if (pts.length < 2) return '';
-  let d = `M ${pts[0].x} ${pts[0].y}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(i-1,0)], p1 = pts[i], p2 = pts[i+1], p3 = pts[Math.min(i+2,pts.length-1)];
-    const cp1x = p1.x+(p2.x-p0.x)/6, cp1y = p1.y+(p2.y-p0.y)/6;
-    const cp2x = p2.x-(p3.x-p1.x)/6, cp2y = p2.y-(p3.y-p1.y)/6;
-    d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
-  }
-  return d;
-}
-
-const NeonLineChart = ({ data }: { data: { label: string; pnl: number }[] }) => {
-  const W=600, H=240, PL=36, PR=16, PT=18, PB=30;
-  const vals = data.map(d=>d.pnl);
-  const minV=Math.min(...vals), maxV=Math.max(...vals), range=maxV-minV||1;
-  const toX = (i: number) => PL+(i/(data.length-1))*(W-PL-PR);
-  const toY = (v: number) => PT+(1-(v-minV)/range)*(H-PT-PB);
-  const pts = data.map((d,i)=>({x:toX(i),y:toY(d.pnl)}));
-  const linePath = catmullRomPath(pts);
-  const areaPath = linePath+` L ${pts[pts.length-1].x} ${H-PB} L ${pts[0].x} ${H-PB} Z`;
-  const last = pts[pts.length-1];
-  const labelIdxs = data.length<=7 ? data.map((_,i)=>i) : [0,Math.floor(data.length*.2),Math.floor(data.length*.4),Math.floor(data.length*.6),Math.floor(data.length*.8),data.length-1];
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" style={{display:'block'}} preserveAspectRatio="none">
-      <defs>
-        <filter id="glow"><feGaussianBlur stdDeviation="4" result="b1"/><feGaussianBlur stdDeviation="8" result="b2"/><feMerge><feMergeNode in="b2"/><feMergeNode in="b1"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        <linearGradient id="neonFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.35"/>
-          <stop offset="100%" stopColor="#7c3aed" stopOpacity="0"/>
-        </linearGradient>
-      </defs>
-      <rect x="0" y="0" width={W} height={H} fill="var(--jr-chart,#080d18)"/>
-      {[0.25,0.5,0.75,1].map((t,i)=><line key={i} x1={PL} y1={PT+(1-t)*(H-PT-PB)} x2={W-PR} y2={PT+(1-t)*(H-PT-PB)} stroke="rgba(99,120,180,0.15)" strokeWidth="1" strokeDasharray="4 4"/>)}
-      {[0,1,2,3].map(i=>{const v=minV+(i/3)*range; return <text key={i} x={PL-5} y={toY(v)+4} textAnchor="end" fontSize="12" fill="var(--jr-cap,#A8AEB8)" fontFamily="Montserrat,sans-serif" fontWeight="700">{v>=1000?`${(v/1000).toFixed(1)}k`:Math.round(v)}</text>;})}
-      {labelIdxs.map(i=><text key={i} x={toX(i)} y={H-PB+16} textAnchor="middle" fontSize="12" fill="var(--jr-cap,#A8AEB8)" fontFamily="Montserrat,sans-serif" fontWeight="700">{data[i].label}</text>)}
-      <path d={areaPath} fill="url(#neonFill)"/>
-      <path d={linePath} fill="none" stroke="#7c6fff" strokeWidth="6" strokeOpacity="0.2" filter="url(#glow)" strokeLinecap="round"/>
-      <path d={linePath} fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d={linePath} fill="none" stroke="#c4b5fd" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)"/>
-      <circle cx={last.x} cy={last.y} r="8" fill="#a78bfa" opacity="0.2"/>
-      <circle cx={last.x} cy={last.y} r="5" fill="var(--jr-chart,#080d18)" stroke="#a78bfa" strokeWidth="2"/>
-      <circle cx={last.x} cy={last.y} r="2" fill="#c4b5fd"/>
-    </svg>
-  );
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SMART DATE PARSER

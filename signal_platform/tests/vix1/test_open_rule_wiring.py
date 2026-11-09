@@ -61,9 +61,13 @@ root = Path(__file__).resolve().parents[2]
 print("\nVIX.1 STOMACH RULE — where it is wired in, now that it DECIDES\n")
 
 print("1. it decides in ONE place, and only two files read it at all:")
+# THE SCAN COVERS PRODUCTION CODE ONLY. A test may legitimately name the rule to stand it aside
+# while isolating a different gate - `test_chop_band.py` does exactly that, and must. The risk
+# this check exists for is a PRODUCTION caller quietly reading or bypassing the rule.
 users = []
 for f in root.rglob("*.py"):
-    if f.name.startswith("test_open_rule") or f.name == "vix1_open_rule.py":
+    rel = f.relative_to(root).as_posix()
+    if rel.startswith("tests/") or f.name == "vix1_open_rule.py":
         continue
     if "vix1_open_rule" in f.read_text(encoding="utf-8", errors="replace"):
         users.append(f.relative_to(root).as_posix())
@@ -81,7 +85,7 @@ teeth("the decision is taken inside qualifies_for_trade, not scattered across it
 print("\n2. exactly ONE caller may opt out of the gate — the DM announcement:")
 optouts = []
 for f in root.rglob("*.py"):
-    if f.name.startswith("test_open_rule"):
+    if f.relative_to(root).as_posix().startswith("tests/"):   # production callers only, as above
         continue
     if ", ignore_open_rule=True" in f.read_text(encoding="utf-8", errors="replace"):
         optouts.append(f.relative_to(root).as_posix())

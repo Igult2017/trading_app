@@ -53,14 +53,6 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
             ))}
           </div>
         </div>
-        {/* BANNER */}
-        <div className="dd-banner">
-          <div className="dd-banner-left">
-            <Skeleton className="rounded-xl" style={{ width: 40, height: 40, opacity: 0.12 }} />
-            <div><TextLine w={240} px={14} /><TextLine w="92%" px={12} lh={1.6} /></div>
-          </div>
-          <div className="dd-banner-meta"><TextLine w={180} px={12} /></div>
-        </div>
         {/* FOUR KPI CARDS */}
         <section className="dd-grid dd-g4">
           {[96, 104, 122, 124].map((k, i) => (
@@ -70,7 +62,6 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
                 <Skeleton className="rounded-lg" style={{ width: 32, height: 32, opacity: 0.12 }} />
               </div>
               <TextLine w={92} px={30} lh={1.1} />
-              <div className="dd-kpi-foot"><TextLine w={110} px={11} /><TextLine w={64} px={11} /></div>
             </div>
           ))}
         </section>

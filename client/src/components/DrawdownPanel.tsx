@@ -4,7 +4,6 @@ import { authFetch } from '@/lib/queryClient';
 import { useDelayedLoading } from '@/lib/useDelayedLoading';
 import { DrawdownSkeleton } from '@/components/skeletons/DrawdownSkeleton';
 import { ddPanelCss } from '@/components/drawdown/ddStyles2';
-import { DdBanner } from '@/components/drawdown/ddBanner';
 import { DdKpis } from '@/components/drawdown/ddKpis';
 import { DdProfile } from '@/components/drawdown/ddProfile';
 import { DdBreakdown, type DirKey, type GroupKey } from '@/components/drawdown/ddBreakdown';
@@ -142,7 +141,6 @@ export default function DrawdownPanel({
       <style>{ddPanelCss()}</style>
       <div className="dd-stack">
 
-        <DdBanner cur={cur} uw={intel.underwater ?? {}} />
 
         <DdKpis ts={d.topStats ?? {}} series={series} />
 

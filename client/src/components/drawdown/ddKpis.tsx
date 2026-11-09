@@ -32,29 +32,21 @@ export function DdKpis({ ts, series }: { ts: any; series?: number[] }) {
       label: 'Max Drawdown',
       num: fmtDd(ts?.maxDrawdown), numColor: undefined,
       chip: fmtDd(deepest), chipCls: 'chip-rose',
-      footL: 'Peak-to-Trough Drop', footR: 'Deepest recorded', footCls: 'c-ink',
     },
     {
       label: 'Avg. Drawdown',
       num: fmtDd(ts?.avgDrawdown), numColor: undefined,
       chip: 'Mean depth', chipCls: 'chip-accent',
-      footL: 'Mean Depth per Dip',
-      footR: Math.abs(Number(ts?.avgDrawdown ?? 0)) < 1 ? 'Controlled' : 'Elevated',
-      footCls: Math.abs(Number(ts?.avgDrawdown ?? 0)) < 1 ? 'c-ink' : 'c-accent',
     },
     {
       label: 'Recovery Factor',
       num: rf ? String(rf) : '—', numColor: 'var(--emerald)',
       chip: 'Net Profit / Max DD', chipCls: 'chip-emerald',
-      footL: 'Resilience Index',
-      footR: rf >= 3 ? 'Excellent (>3.0)' : rf > 0 ? 'Building' : 'No data',
-      footCls: rf >= 3 ? 'c-emerald fw-bold' : 'c-dim',
     },
     {
       label: 'Trend Alignment',
       num: `${trend}%`, numColor: undefined,
       chip: trend > 0 ? 'HTF agreement' : 'Unclassified', chipCls: 'chip-slate',
-      footL: 'HTF Bias Sync', footR: trend > 0 ? 'Tagged' : 'Needs Tagging', footCls: 'c-dim',
     },
   ];
 
@@ -68,10 +60,6 @@ export function DdKpis({ ts, series }: { ts: any; series?: number[] }) {
           <div className="dd-kpi-val">
             <span className="dd-kpi-num" style={c.numColor ? { color: c.numColor } : undefined}>{c.num}</span>
             <span className={`dd-kpi-chip ${c.chipCls}`}>{c.chip}</span>
-          </div>
-          <div className="dd-kpi-foot">
-            <span>{c.footL}</span>
-            <span className={`${c.footCls} dd-mono fw-med`}>{c.footR}</span>
           </div>
         </div>
       ))}

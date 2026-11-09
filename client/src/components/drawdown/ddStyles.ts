@@ -117,30 +117,12 @@ const DD_CORE = `
 .dp .dd-ctl select option{ background:var(--surface); color:var(--ink); }
 .dp .dd-ctl select:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
 
-/* ── BANNER ─────────────────────────────────────────────────────────────────── */
-.dp .dd-banner{
-  background:var(--t-card); border:1px solid var(--t-accent-30); border-radius:4px;
-  padding:16px; display:flex; flex-direction:column; gap:12px;
-  align-items:flex-start; justify-content:space-between; position:relative; overflow:hidden;
-}
-@media (min-width:768px){ .dp .dd-banner{ flex-direction:row; align-items:center; } }
-.dp .dd-banner-glow{
-  position:absolute; top:0; right:0; width:256px; height:100%;
-  background:linear-gradient(to left,var(--t-accent-10),transparent); pointer-events:none;
-}
-.dp .dd-banner-left{ display:flex; align-items:flex-start; gap:14px; position:relative; }
-.dp .dd-banner-meta{
-  display:flex; align-items:center; gap:12px; flex-shrink:0; position:relative;
-  font-size:12.5px; font-family:var(--dd-mono); color:var(--ink-dim);
-  background:var(--t-inner); border:1px solid var(--t-line);
-  padding:8px 14px; border-radius:4px;
-}
+/* ── PILLS (ddMonthly's LIVE marker — the banner that also used these is gone) ─ */
 .dp .dd-pill{
   font-size:12.5px; font-family:var(--dd-mono); font-weight:700;
   padding:2px 8px; border-radius:9999px; white-space:nowrap;
 }
 .dp .dd-pill-emerald{ background:var(--t-emerald-20); color:var(--emerald); border:1px solid var(--t-emerald-30); }
-.dp .dd-pill-rose{ background:var(--t-rose-20); color:var(--rose); border:1px solid var(--t-rose-40); }
 
 /* ── KPI CARDS ──────────────────────────────────────────────────────────────── */
 .dp .dd-kpi{
@@ -165,10 +147,6 @@ const DD_CORE = `
 .dp .chip-accent{ color:var(--accent); background:var(--t-accent-10); }
 .dp .chip-emerald{ color:var(--emerald); background:var(--t-emerald-10); }
 .dp .chip-slate{ color:var(--ink-dim); background:var(--t-line); }
-.dp .dd-kpi-foot{
-  margin-top:12px; padding-top:12px; border-top:1px solid var(--t-line-soft);
-  display:flex; justify-content:space-between; gap:8px; font-size:12.5px; color:var(--ink-dim);
-}
 
 /* ── COLOUR + WEIGHT UTILITIES (his class names, mapped onto the tokens) ────── */
 .dp .c-strong{ color:var(--ink-strong); } .dp .c-ink{ color:var(--ink); }
