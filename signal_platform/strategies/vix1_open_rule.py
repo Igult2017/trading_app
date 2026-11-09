@@ -1,4 +1,15 @@
-"""VIX.1 — WHERE THE MOMENTUM CANDLE OPENED, relative to the candle before it.
+"""VIX.1 — THE STOMACH RULE: where the momentum candle OPENED, relative to the candle before it.
+
+WHY IT IS CALLED THAT, and the name was researched rather than invented. In candlestick
+terminology the midpoint of a candle's REAL BODY is called THE STOMACH — *"The midpoint of the
+first real body is the stomach"*, and explicitly *"Add the open and the close, then divide by two.
+Shadows are ignored"*. Wicks do not move it, which is exactly the line his rule draws. The named
+patterns ABOVE THE STOMACH and BELOW THE STOMACH use the same line (Thomas Bulkowski published a
+tested definition in Encyclopedia of Candlestick Charts, 2008).
+
+⚠ HIS RULE IS NOT THOSE PATTERNS. They are two-candle REVERSAL patterns that need BOTH the open
+AND the close past the line. His is a momentum QUALITY filter where only the OPEN matters, in
+either direction. So the LINE carries the standard name and the RULE is his own.
 
 ⚠ THIS GATES NOTHING. It is reported on the DM card and nowhere else, at his instruction,
 2026-11-09: *"first i need you to test it and when reporting momentum candles in the DM also report
@@ -85,13 +96,28 @@ def line(h1: list[Candle], i: int, bullish: bool) -> str | None:
     """
     ok, pos = verdict(h1, i, bullish)
     if pos is None:
-        return ("OPEN-POSITION RULE: not judged — the candle before it had no body to measure "
+        return ("STOMACH RULE — not judged — the candle before it had no body to measure "
                 "against, so nothing was disqualified. (Watching only, it gates nothing yet.)")
-    where = ("GAPPED beyond the previous candle's body" if pos > 1.0
+    where = ("GAPPED clear of the previous candle's body" if pos > 1.0
              else f"{pos:.0%} along the previous candle's body")
     if ok:
-        return (f"OPEN-POSITION RULE: APPROVED — it opened {where}, the half nearest the "
-                f"direction it is moving. (Watching only, it gates nothing yet.)")
-    return (f"OPEN-POSITION RULE: DISQUALIFIED — it opened {where}, through the halfway mark and "
-            f"into the far half, so the move doubled back instead of carrying on. "
-            f"(Watching only, it gates nothing yet.)")
+        return (f"STOMACH RULE — APPROVED: it opened {where}, on the far side of the stomach "
+                f"(the midpoint of that body) in the direction it is moving. "
+                f"Watching only — this does not gate anything yet.")
+    return (f"STOMACH RULE — DISQUALIFIED: it opened {where}, which is back through the stomach "
+            f"(the midpoint of that body), so the move doubled back instead of carrying on. "
+            f"Watching only — this does not gate anything yet.")
+
+
+def tag(h1: list[Candle], i: int, bullish: bool) -> str:
+    """The short verdict for the card's LABEL — the SECOND line of the message.
+
+    ⚠ IT GOES IN THE LABEL BECAUSE THE DETAILS LIST IS CAPPED AT FIVE BULLETS
+    (telegram_formatter.py:52) and this card already fills all five, so the verdict sat third and
+    was easy to miss. His instruction, 2026-11-09: *"The DM message should clearly state that it is
+    either approved by that new rule or not."*
+    """
+    ok, pos = verdict(h1, i, bullish)
+    if pos is None:
+        return "STOMACH RULE: NOT JUDGED"
+    return f"STOMACH RULE: {'APPROVED' if ok else 'DISQUALIFIED'}"

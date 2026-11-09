@@ -64,7 +64,7 @@ TURN_A = [bar(1784044800, 1.33820, 1.33918, 1.33751, 1.33887),
 TURN_B = [bar(1784095200, 1.34096, 1.34196, 1.34096, 1.34144),
           bar(1784098800, 1.34141, 1.34195, 1.34006, 1.34017)]    # 15 Jul 07:00
 
-print("\nVIX.1 OPEN-POSITION RULE — his 2026-11-09 rule, watched on the DM, gating nothing\n")
+print("\nVIX.1 THE STOMACH RULE — his 2026-11-09 rule, watched on the DM, gating nothing\n")
 
 print("1. his circled 15 July move — every candle must be APPROVED:")
 for i in range(1, len(MOVE)):
@@ -90,7 +90,7 @@ gap = [bar(0, 1.3000, 1.3025, 1.2995, 1.3020), bar(1, 1.3030, 1.3080, 1.3028, 1.
 ok, pos = rule.verdict(gap, 1, True)
 check("an open above the whole previous body is approved", ok, True)
 teeth("...and it is reported as a gap, not as a percentage",
-      "gapped beyond" in rule.line(gap, 1, True).lower())
+      "gapped clear" in rule.line(gap, 1, True).lower())
 
 print("\n5. a SELL is the mirror image, not a special case:")
 dn = [bar(0, 1.3020, 1.3025, 1.2995, 1.3000), bar(1, 1.3000, 1.3002, 1.2950, 1.2955)]
@@ -116,13 +116,32 @@ for f in root.rglob("*.py"):
 check("only the DM card uses it", users, ["strategies/vix1_momentum_watch.py"])
 
 watch = (root / "strategies/vix1_momentum_watch.py").read_text(encoding="utf-8")
-teeth("the DM card puts it in the TEXT, never in a decision",
-      "vix1_open_rule.line(" in watch and "vix1_open_rule.verdict(" not in watch)
+teeth("the DM card puts it in the TEXT and the LABEL, never in a decision",
+      "vix1_open_rule.line(" in watch and "vix1_open_rule.tag(" in watch
+      and "vix1_open_rule.verdict(" not in watch)
 mom = (root / "strategies/vix1_momentum.py").read_text(encoding="utf-8")
 teeth("the momentum test itself does not know this rule exists", "vix1_open_rule" not in mom)
 teeth("...and the announcement still fires for a DISQUALIFIED candle",
       "if not qualifies_for_trade" in watch and "open_rule" not in
       watch.split("if not qualifies_for_trade")[1].split("return")[0])
 
-print(f"\n{'ALL PASS' if _fail == 0 else f'{_fail} FAILED'} — {_pass + _fail} checks\n")
+
+# ── 8. THE VERDICT MUST BE UNMISSABLE ─────────────────────────────────────────────────────────
+# His instruction, 2026-11-09: *"The DM message should clearly state that it is either approved by
+# that new rule or not."* The details list is capped at five bullets and this card already fills
+# all five, so the short tag goes in the LABEL - the second line of the message.
+print("")
+print("8. the verdict is stated in the label, in one glance:")
+check("an approved candle says so", rule.tag(MOVE, 1, True), "STOMACH RULE: APPROVED")
+check("a refused candle says so", rule.tag(TURN_A, 1, False), "STOMACH RULE: DISQUALIFIED")
+check("nothing to judge says that too", rule.tag(doji, 1, True), "STOMACH RULE: NOT JUDGED")
+teeth("the card actually puts the tag in the label",
+      'stomach[0]' in watch and 'label' in watch.split('stomach[0]')[0][-220:])
+teeth("...and the rule is named after the real candlestick term",
+      'stomach' in rule.__doc__.lower() and 'midpoint' in rule.__doc__.lower())
+
+
+print("")
+print(("ALL PASS" if _fail == 0 else f"{_fail} FAILED") + f" - {_pass + _fail} checks")
+print("")
 sys.exit(0 if _fail == 0 else 1)

@@ -59,7 +59,7 @@ _MIN_BARS = 20
 
 def check(h1_closed: list[Candle], symbol: str) -> tuple[Candle, bool, str | None, str | None] | None:
     """Is the NEWEST CLOSED 1H bar a qualifying momentum candle?
-    -> (bar, bullish, how_it_qualified, open_rule_line), else None.
+    -> (bar, bullish, how_it_qualified, (stomach_tag, stomach_sentence)), else None.
 
     `h1_closed` must already have the forming bar removed (`shared.mtf_utils.closed_only`). The
     direction is the candle's OWN colour, not a side being tested: `qualifies_for_trade` refuses a
@@ -71,7 +71,7 @@ def check(h1_closed: list[Candle], symbol: str) -> tuple[Candle, bool, str | Non
     because this is the only place that still holds the full bar list and the index — `note()` gets
     one candle and could not re-derive it.
 
-    The fourth is his OPEN-POSITION rule (`vix1_open_rule`), read here for the same reason. ⚠ It is
+    The fourth is his STOMACH RULE (`vix1_open_rule`), read here for the same reason. ⚠ It is
     REPORTED, never applied: it cannot change this function's answer, and nothing downstream reads
     it except the card. His instruction, 2026-11-09 — watch it on the DM first, integrate later.
     """
@@ -83,7 +83,8 @@ def check(h1_closed: list[Candle], symbol: str) -> tuple[Candle, bool, str | Non
     if not qualifies_for_trade(h1_closed, i, bullish, symbol):
         return None
     return (bar, bullish, size_note(h1_closed, i, bullish, symbol),
-            vix1_open_rule.line(h1_closed, i, bullish))
+            (vix1_open_rule.tag(h1_closed, i, bullish),
+             vix1_open_rule.line(h1_closed, i, bullish)))
 
 
 def dedup_key(symbol: str, bar: Candle) -> str:
@@ -97,16 +98,19 @@ def dedup_key(symbol: str, bar: Candle) -> str:
 
 
 def note(symbol: str, bullish: bool, bar: Candle, pip: float, strategy_name: str,
-         admitted_note: str | None = None, open_rule_note: str | None = None) -> Signal:
+         admitted_note: str | None = None,
+         stomach: tuple[str, str] | None = None) -> Signal:
     """The DM card. No entry, no stop, no target — this is NOT a trade, and must not read as one.
 
     `admitted_note` is `check`'s third value: how the candle qualified, stated only when the
     24-hour memory let it in on an earlier candle's yardstick. Shown rather than hidden, so the
     basis for a borderline announcement is visible on the card itself.
 
-    `open_rule_note` is his OPEN-POSITION rule's verdict, on the card so he can watch it decide in
-    the open before it is allowed to decide anything. ⚠ A candle this rule DISQUALIFIES is still
-    announced — the announcement is unchanged, the line is information beside it.
+    `stomach` is his STOMACH RULE's verdict as (short tag, full sentence). The TAG goes in the
+    label — the second line of the message — because the details list is capped at five bullets and
+    this card already fills all five, so a verdict buried third was easy to miss. ⚠ A candle this
+    rule DISQUALIFIES is still announced: the announcement is unchanged, this is information beside
+    it, and it gates nothing until he approves.
     """
     side = "BUY" if bullish else "SELL"
     body = body_size(bar) / pip if pip else 0.0
@@ -132,12 +136,13 @@ def note(symbol: str, bullish: bool, bar: Candle, pip: float, strategy_name: str
         primary_timeframe = TF.H1,
         confidence        = 0.0,
         headline          = titles.MOMENTUM_ANNOUNCEMENT,
-        label             = f"{side} · ANNOUNCEMENT ONLY",
+        label             = (f"{side} · ANNOUNCEMENT ONLY"
+                             + (f" · {stomach[0]}" if stomach else "")),
         chart_marks       = [(bar.time, "MOMENTUM")],
         technical_reasons = [r for r in [
             f"A {side} momentum candle has CLOSED on the 1H — {body:.1f} pip body, grade {grade}.",
             admitted_note and f"How it qualified: {admitted_note}",
-            open_rule_note,
+            stomach and stomach[1],
             "THIS IS AN ANNOUNCEMENT, NOT A SIGNAL. It says only that a momentum candle closed. It "
             "says nothing about the trend, the range, the pullback or the candle count, and the "
             "strategy may well have refused this setup already.",
