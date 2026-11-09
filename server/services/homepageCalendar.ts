@@ -3,6 +3,7 @@ import * as path from "path";
 import { PYTHON_BIN } from "../lib/pythonBin";
 import { cacheGet, cacheSet } from "../lib/cache";
 import { upsertCalendarEvents, loadCalendarFromDb, storeReleasedValues } from "./calendarDb";
+import { myfxbookRowsIfFresh } from "./myfxbookIngest";
 import type { ReleasedValue } from "./calendarDb";
 export type { CalendarEvent, RateEntry } from "./calendarDb";
 import type { CalendarEvent, RateEntry } from "./calendarDb";
@@ -47,17 +48,12 @@ export function getCalendarServiceStatus() {
   };
 }
 
-// HOW LONG EACH PYTHON RUN MAY TAKE — one budget per job, because they are not the same job.
-//
-// A single shared number was wrong in both directions. It was raised to 240 seconds when the
-// calendar needed a real browser to clear MyFXBook's challenge; that also meant a hung RATES run
-// sat there for four minutes before anyone was told.
-//
-// The calendar is a single JSON request again as of 2026-09-09 — measured at ~1.3 seconds — so 30
-// seconds is generous and a hang gets reported instead of waited out. The rates run visits eight
-// central banks plus Trading Economics and legitimately takes longer, so it keeps a wide budget.
-// `actuals` visits four Trading Economics country pages, each possibly through the TLS-impersonation
-// fallback, so it needs a rates-sized budget rather than the calendar's single-request one.
+// ONE BUDGET PER JOB, because they are not the same job — a single shared number was wrong in both
+// directions. `calendar` here is the ForexFactory FALLBACK only, one plain request measured at
+// ~1.3s, so 30s is generous. `rates` visits eight central banks and `actuals` four Trading
+// Economics pages, so both keep a wide budget.
+// ⚠ MyFXBook does NOT run on these budgets. It needs a browser and takes 3.5-6.4 minutes, which is
+// exactly why it runs in its own container outside this one — see services/myfxbookIngest.ts.
 const PY_TIMEOUT_MS: Record<"calendar" | "rates" | "actuals", number> = {
   calendar:  30_000,
   rates:    180_000,
@@ -90,6 +86,15 @@ function runPython(mode: "calendar" | "rates" | "actuals"): Promise<string> {
 
 async function _refreshCalendar(): Promise<CalendarEvent[]> {
   _lastAttemptAt = Date.now();
+
+  // ⚠ ONE WRITER AT A TIME: `upsertCalendarEvents` REPLACES the span a batch covers, so ForexFactory
+  // stands down while MyFXBook is fresh. Why, in full: myfxbookIngest.ts `myfxbookRowsIfFresh`.
+  const fresh = await myfxbookRowsIfFresh();
+  if (fresh) {
+    _source = "myfxbook"; _calErr = null; _count = fresh.length;
+    return fresh;
+  }
+
   try {
     const { stdout } = JSON.parse(await runPython("calendar"));
     const data: CalendarEvent[] = JSON.parse(stdout);

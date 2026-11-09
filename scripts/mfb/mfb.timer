@@ -1,0 +1,20 @@
+# Wakes the runner every 5 minutes. THE TIMER DOES NOT DECIDE ANYTHING — it only asks the app
+# whether a fetch is due, which is a cheap local HTTP call. The app answers "no" almost every time:
+# the real work is a sweep every 4 hours plus a visit after a release, so roughly 3-9 fetches a day.
+#
+# Five minutes is the resolution, not the rate. A release lands at a known minute and the number is
+# wanted about six minutes later; waking less often would blur that, and waking more often would
+# only ask the same question more times for nothing.
+[Unit]
+Description=Ask the app whether a MyFXBook calendar fetch is due
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+# Keeps several machines (or a restart loop) from all asking on the same second.
+RandomizedDelaySec=45
+AccuracySec=30s
+Unit=mfb.service
+
+[Install]
+WantedBy=timers.target

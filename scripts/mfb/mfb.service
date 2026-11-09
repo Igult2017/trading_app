@@ -1,0 +1,20 @@
+# One run of the MyFXBook calendar fetcher. Started by mfb.timer; never enabled on its own.
+#
+# ⚠ Type=oneshot WITH NO Restart=. A scraper that restarts itself on failure is precisely how a
+# site decides to block you for good — being refused has to mean waiting longer, and that waiting
+# is the app's job (server/scrapers/mfbLimits.ts), not systemd's.
+[Unit]
+Description=Fetch the MyFXBook economic calendar (one run)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/mfb/run.sh
+# The script's own cap is 780s; this is the outer backstop so a wedged docker cannot hold the unit.
+TimeoutStartSec=900
+# The secret lives in /opt/mfb/env (chmod 600), read by the script — never written into this file,
+# which systemd keeps world-readable.
+WorkingDirectory=/opt/mfb
+StandardOutput=append:/var/log/mfb.log
+StandardError=append:/var/log/mfb.log

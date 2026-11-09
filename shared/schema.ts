@@ -407,6 +407,9 @@ export const scrapeRuns = pgTable("scrape_runs", {
   ok:         boolean("ok").default(false),
   blocked:    boolean("blocked").default(false),     // refused by Cloudflare -> drives the backoff
   rowCount:   integer("row_count").default(0),
+  /** Events that arrived which we did NOT already hold. The sweep interval is a STARTING
+   *  POINT (4h), and this is what turns it into a measured one. */
+  newCount:   integer("new_count").default(0),
   tookMs:     integer("took_ms"),
   error:      text("error"),
 }, (t) => [

@@ -126,6 +126,30 @@ def fetch(url: str = CALENDAR_URL) -> dict:
     }
 
 
+def _post(body: str) -> bool | None:
+    """Hand the result to the app. None = nowhere to send it; False = sending failed.
+
+    ⚠ `x-admin-secret`, NOT `Authorization: Bearer`. That is the header the app's own
+    `requireAdminSecret` guard reads (server/routes.ts:2771-2776); a bearer token is simply a 401,
+    and I had written the wrong one before checking the guard.
+    """
+    url, secret = os.getenv("MFB_INGEST_URL"), os.getenv("MFB_SECRET")
+    if not (url and secret):
+        return None
+    import urllib.request
+    req = urllib.request.Request(
+        url, data=body.encode("utf-8"), method="POST",
+        headers={"Content-Type": "application/json", "x-admin-secret": secret},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            print(f"posted -> HTTP {r.status}", file=sys.stderr)
+        return True
+    except Exception as e:
+        print(f"POST failed: {type(e).__name__}: {e}", file=sys.stderr)
+        return False
+
+
 def main() -> int:
     try:
         payload = fetch()
@@ -133,29 +157,24 @@ def main() -> int:
         # ⚠ FAIL LOUDLY AND SAY WHY. A silent empty result reads as "no events today", and an empty
         # calendar is a money defect here: it starved VIX.1's two news guards once already
         # (server/services/calendarDb.ts).
-        print(json.dumps({"source": "myfxbook", "ok": False, "error": f"{type(e).__name__}: {e}"}), flush=True)
+        fail = {"source": "myfxbook", "ok": False, "error": f"{type(e).__name__}: {e}",
+                "runId": os.getenv("MFB_RUN_ID") or None, "kind": os.getenv("MFB_KIND") or "sweep"}
+        # ⚠ A FAILURE IS REPORTED TOO, not just printed. If a refusal never reached the app the
+        # backoff would never engage and being blocked would cost us nothing.
+        _post(json.dumps(fail))
+        print(json.dumps(fail), flush=True)
         return 1
 
     payload["ok"] = True
+    # The app handed out this id when it allowed the fetch. Sending it back is what makes one
+    # fetch exactly one row in `scrape_runs` — the rate limiter counts those rows.
+    payload["runId"] = os.getenv("MFB_RUN_ID") or None
+    payload["kind"] = os.getenv("MFB_KIND") or "sweep"
     body = json.dumps(payload)
 
-    url, secret = os.getenv("MFB_INGEST_URL"), os.getenv("MFB_SECRET")
-    if url and secret:
-        import urllib.request
-        # ⚠ `x-admin-secret`, NOT `Authorization: Bearer`. That is the header the app's own
-        # `requireAdminSecret` guard reads (server/routes.ts:2771-2776); a bearer token there is
-        # simply a 401, and I had written the wrong one before checking the guard.
-        req = urllib.request.Request(
-            url, data=body.encode("utf-8"), method="POST",
-            headers={"Content-Type": "application/json", "x-admin-secret": secret},
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=60) as r:
-                print(f"posted {len(payload['events'])} events -> HTTP {r.status}", file=sys.stderr)
-        except Exception as e:
-            print(f"POST failed: {type(e).__name__}: {e}", file=sys.stderr)
-            print(body, flush=True)       # still print, so the run is not wasted
-            return 2
+    if _post(body) is False:
+        print(body, flush=True)           # still print, so the run is not wasted
+        return 2
 
     print(body, flush=True)
     return 0

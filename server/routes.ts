@@ -3108,7 +3108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/internal/calendar/ingest", requireAdminSecret, async (req: Request, res: Response) => {
     const body = (req.body ?? {}) as any;
-    const kind = body.kind === "release" ? "release" : "horizon";
+    const kind = body.kind === "release" ? "release" : "sweep";
     const runId: string | null = typeof body.runId === "string" ? body.runId : null;
     const tookMs = Number.isFinite(body.tookS) ? Math.round(body.tookS * 1000) : undefined;
 
@@ -3123,7 +3123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const events = Array.isArray(body.events) ? body.events : [];
     try {
       const stored = await ingestMyfxbookEvents(events);
-      if (runId) await finishRun(runId, { ok: true, rowCount: stored.events, tookMs });
+      if (runId) await finishRun(runId, { ok: true, rowCount: stored.events, newCount: stored.newEvents, tookMs });
       return res.json({ ok: true, ...stored });
     } catch (e: any) {
       const error = `ingest failed: ${e?.message ?? e}`;
@@ -3135,7 +3135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   /** Claim a slot. Returns the run id the scraper must hand back, so one fetch is one row. */
   app.post("/api/internal/calendar/claim", requireAdminSecret, async (req: Request, res: Response) => {
-    const kind = (req.body as any)?.kind === "release" ? "release" : "horizon";
+    const kind = (req.body as any)?.kind === "release" ? "release" : "sweep";
     const d = await decideDue();
     // ⚠ RE-CHECKED HERE, not trusted from the caller. The timer asked a minute ago; between then
     // and now another run could have started. The claim is the only moment that counts.

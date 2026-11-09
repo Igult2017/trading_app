@@ -1,4 +1,8 @@
-import { upsertCalendarEvents, storeReleasedValues } from "./calendarDb";
+import { db } from "../db";
+import { economicEvents } from "@shared/schema";
+import { and, gte, lte } from "drizzle-orm";
+import { upsertCalendarEvents, storeReleasedValues, loadCalendarFromDb } from "./calendarDb";
+import { lastGoodMyfxbookAt } from "../scrapers/mfbSchedule";
 import type { CalendarEvent, ReleasedValue } from "./calendarDb";
 
 /**
@@ -56,7 +60,24 @@ function toCalendarEvent(r: MfbRow): CalendarEvent | null {
   };
 }
 
-export interface IngestResult { events: number; released: number; skipped: number; }
+export interface IngestResult {
+  events: number;
+  released: number;
+  skipped: number;
+  /** How many arriving events we did NOT already hold.
+   *
+   *  ⚠ THIS IS THE WHOLE POINT OF THE SWEEP. His instruction, 2026-11-09: *"check at a good
+   *  interval for any news that has been posted that we did not persist so that we dont miss
+   *  anything."* The sweep interval is currently 4 hours, which is a STARTING POINT. This number
+   *  is what turns it into a measured one: if every sweep finds 0 new, 4 hours is too eager; if a
+   *  sweep keeps finding events that are due within hours, it is too slow. */
+  newEvents: number;
+}
+
+/** Counted the way a human would: same currency, same day, same event name. Not by database id —
+ *  the rows are replaced wholesale on every write, so ids tell us nothing about what is new. */
+const identity = (currency: string, iso: string, title: string) =>
+  `${currency}|${iso.slice(0, 10)}|${title.trim().toLowerCase()}`;
 
 /**
  * Store a scraped batch. Returns what actually landed, not what arrived — the difference is the
@@ -73,7 +94,29 @@ export async function ingestMyfxbookEvents(rows: MfbRow[]): Promise<IngestResult
 
   // ⚠ NO ROWS MEANS DO NOTHING, and `upsertCalendarEvents` already refuses an empty batch for the
   // reason above. Returning early just makes that explicit at the point a caller would read it.
-  if (events.length === 0) return { events: 0, released: 0, skipped };
+  if (events.length === 0) return { events: 0, released: 0, skipped, newEvents: 0 };
+
+  // COUNT WHAT IS NEW **BEFORE** WRITING. After the write everything matches, so asking afterwards
+  // would always answer zero — a number that looks like a healthy "nothing missed" while actually
+  // measuring nothing at all.
+  let newEvents = 0;
+  try {
+    const times = events.map((e) => new Date(e.eventTime).getTime());
+    const held = await db.select({
+      currency: economicEvents.currency,
+      eventTime: economicEvents.eventTime,
+      title: economicEvents.title,
+    }).from(economicEvents).where(and(
+      gte(economicEvents.eventTime, new Date(Math.min(...times))),
+      lte(economicEvents.eventTime, new Date(Math.max(...times))),
+    ));
+    const seen = new Set(held.map((h) =>
+      identity(h.currency, new Date(h.eventTime).toISOString(), h.title)));
+    newEvents = events.filter((e) => !seen.has(identity(e.currency, e.eventTime, e.event))).length;
+  } catch (e: any) {
+    // A failed count must never cost us the data it was only measuring.
+    console.warn("[mfb] could not count new events:", e?.message ?? e);
+  }
 
   await upsertCalendarEvents(events);
 
@@ -93,5 +136,29 @@ export async function ingestMyfxbookEvents(rows: MfbRow[]): Promise<IngestResult
     }));
 
   const filled = released.length ? await storeReleasedValues(released) : 0;
-  return { events: events.length, released: filled, skipped };
+  if (newEvents > 0) {
+    console.log(`[mfb] sweep found ${newEvents} event(s) we were not holding — ` +
+                `that is what the interval exists to catch`);
+  }
+  return { events: events.length, released: filled, skipped, newEvents };
+}
+
+/** How stale MyFXBook has to get before ForexFactory takes over again. The sweep runs every 4
+ *  hours, so 6 allows one missed sweep of slack before the fallback steps in. */
+const STALE_AFTER_MS = 6 * 60 * 60_000;
+
+/**
+ * The stored calendar IF MyFXBook is still fresh, otherwise null — null means "ForexFactory, your
+ * turn". Never throws: not knowing whether MyFXBook is fresh must never stop the fallback running.
+ */
+export async function myfxbookRowsIfFresh(): Promise<CalendarEvent[] | null> {
+  try {
+    const at = await lastGoodMyfxbookAt();
+    if (!at || Date.now() - at.getTime() >= STALE_AFTER_MS) return null;
+    const rows = await loadCalendarFromDb();
+    return rows.length ? rows : null;     // fresh but empty is NOT fresh enough to stand down for
+  } catch (e: any) {
+    console.warn("[mfb] freshness check failed, letting ForexFactory run:", e?.message ?? e);
+    return null;
+  }
 }

@@ -818,9 +818,11 @@ CREATE TABLE IF NOT EXISTS scrape_runs (
   ok           BOOLEAN      DEFAULT FALSE,
   blocked      BOOLEAN      DEFAULT FALSE,
   row_count    INTEGER      DEFAULT 0,
+  new_count    INTEGER      DEFAULT 0,
   took_ms      INTEGER,
   error        TEXT
 );
+ALTER TABLE scrape_runs ADD COLUMN IF NOT EXISTS new_count INTEGER DEFAULT 0;
 CREATE INDEX IF NOT EXISTS scrape_runs_source_started_idx ON scrape_runs (source, started_at);
 
 -- ── Done ─────────────────────────────────────────────────────────────────────
