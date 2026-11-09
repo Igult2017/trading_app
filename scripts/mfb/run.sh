@@ -28,6 +28,16 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP="${APP:-http://localhost:5000}"
 SECRET="${SECRET:-}"
 IMAGE="${IMAGE:-pyd4vinci/scrapling:latest}"
+APP_CONTAINER="${APP_CONTAINER:-dm96yia8e3dmg5lhjc2bu2de}"
+
+# ⚠ THE SECRET IS NOT KEPT IN A FILE HERE. It is read out of the running app container, which
+# already holds it — so there is no second copy on disk to leak, and nothing goes stale when it is
+# rotated. A $DIR/env file still wins if one exists, for a machine where this does not run beside
+# the app, but nothing has to be written for the normal case.
+if [ -z "$SECRET" ]; then
+  cid="$(docker ps --filter "name=^${APP_CONTAINER}" --format '{{.Names}}' | head -1)"
+  [ -n "$cid" ] && SECRET="$(docker exec "$cid" printenv ADMIN_SECRET 2>/dev/null || true)"
+fi
 
 log() { echo "[mfb $(date -u '+%H:%M:%S')] $*"; }
 
