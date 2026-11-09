@@ -25,7 +25,11 @@ set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 [ -f "$DIR/env" ] && . "$DIR/env"
-APP="${APP:-http://localhost:5000}"
+# ⚠ NOT localhost. This script runs on the HOST, and the app listens inside its own container —
+# measured on the first real run: `Failed to connect to localhost port 5000`, and the script
+# correctly refused to scrape rather than going ahead blind. The public address is the one route
+# that works from out here. Override with APP= in $DIR/env on another machine.
+APP="${APP:-https://app.dorixe.com}"
 SECRET="${SECRET:-}"
 IMAGE="${IMAGE:-pyd4vinci/scrapling:latest}"
 APP_CONTAINER="${APP_CONTAINER:-dm96yia8e3dmg5lhjc2bu2de}"
