@@ -67,7 +67,7 @@ else:
         got = mw.check(win, SYM)
         s.check(f"{when} UTC — announced", got is not None, True)
         if got:
-            bar, bullish, _how = got
+            bar, bullish, _how, _openrule = got
             s.check(f"{when} UTC — body is the real {want_body} pips",
                     round(abs(bar.close - bar.open) / PIP, 1), want_body)
             s.check(f"{when} UTC — direction is the candle's own colour", bullish, is_bullish(bar))
@@ -101,7 +101,7 @@ else:
     s.check("09:00 — and it is announced ANYWAY", mw.check(w9, SYM) is not None, True)
 
     # ── 4. IT IS NOT A SIGNAL ───────────────────────────────────────────────────────────────
-    bar, bullish, how = mw.check(w9, SYM)
+    bar, bullish, how, _openrule = mw.check(w9, SYM)
     n = mw.note(SYM, bullish, bar, PIP, "VIX.1", how)
     s.check("the card is alert-only", n.alert_only, True)
     s.check("it takes no watching row", n.persist_watch, False)

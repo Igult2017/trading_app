@@ -174,10 +174,10 @@ class Vix1Strategy(BaseStrategy):
         # returns. Nothing downstream reads its result, so it cannot change what gets traded.
         ann = vix1_momentum_watch.check(h1, sym)
         if ann is not None:
-            abar, a_bull, a_how = ann
+            abar, a_bull, a_how, a_open = ann
             akey = vix1_momentum_watch.dedup_key(sym, abar)
             if not delivery_ledger.is_delivered(akey):
-                anote = vix1_momentum_watch.note(sym, a_bull, abar, pip, self.name, a_how)
+                anote = vix1_momentum_watch.note(sym, a_bull, abar, pip, self.name, a_how, a_open)
                 anote.dedup_key = akey    # committed only once the DM actually lands
                 out.append(anote)
                 vix1_log.say_always(f"[vix1] {sym} MOMENTUM ANNOUNCEMENT — "
