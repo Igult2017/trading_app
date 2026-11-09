@@ -33,7 +33,11 @@ function dbWindow() {
   return { from: new Date(now - 2 * 86_400_000), to: new Date(now + 14 * 86_400_000) };
 }
 
-function toRow(e: CalendarEvent) {
+/** ⚠ THE SOURCE IS PASSED IN, NOT ASSUMED. This said `"forexfactory"` for every row, and
+ *  after MyFXBook went live on 2026-11-09 all 500 of ITS rows were stored under that name —
+ *  wrong provenance on real data, which makes "where did this number come from?" unanswerable
+ *  exactly when someone needs to ask it of a figure the bot acted on. */
+function toRow(e: CalendarEvent, source: string) {
   const geo = GEO[e.currency] ?? { country: e.currency, region: "Global" };
   return {
     title:         e.event,
@@ -46,7 +50,7 @@ function toRow(e: CalendarEvent) {
     expectedValue: e.forecast !== "-" ? e.forecast : null,
     previousValue: e.previous !== "-" ? e.previous : null,
     actualValue:   e.actual   !== "-" ? e.actual   : null,
-    sourceSite:    "forexfactory",
+    sourceSite:    source,
     lastScraped:   new Date(),
   };
 }
@@ -86,12 +90,12 @@ function fromRow(row: typeof economicEvents.$inferSelect): CalendarEvent {
  *
  *  The guard is therefore on the ROWS, not on the input. "We received something" is not the
  *  question; "we have something to put back" is. */
-export async function upsertCalendarEvents(events: CalendarEvent[]): Promise<void> {
+export async function upsertCalendarEvents(events: CalendarEvent[], source = "forexfactory"): Promise<void> {
   if (!events.length) return;
 
   // Work out the replacement BEFORE touching the table. If a scrape brings back only events we
   // cannot store, the right outcome is to keep what is already there and say so.
-  const rows = events.filter(e => e.eventTime).map(toRow);
+  const rows = events.filter(e => e.eventTime).map((e) => toRow(e, source));
   if (!rows.length) {
     console.warn(
       `[calendarDb] ${events.length} event(s) arrived but none carry a scheduled time — ` +

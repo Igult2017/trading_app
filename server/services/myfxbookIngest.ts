@@ -118,7 +118,8 @@ export async function ingestMyfxbookEvents(rows: MfbRow[]): Promise<IngestResult
     console.warn("[mfb] could not count new events:", e?.message ?? e);
   }
 
-  await upsertCalendarEvents(events);
+  // Named, so a stored row says which source it actually came from.
+  await upsertCalendarEvents(events, "myfxbook");
 
   // The released numbers ride in on the SAME fetch, which is the real gain over the arrangement
   // this replaces: the events came from one source and the numbers from another, so they had to be
