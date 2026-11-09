@@ -388,6 +388,33 @@ export const insertEconomicEventSchema = createInsertSchema(economicEvents).omit
 export type InsertEconomicEvent = z.infer<typeof insertEconomicEventSchema>;
 export type EconomicEvent = typeof economicEvents.$inferSelect;
 
+/** EVERY ATTEMPT TO SCRAPE A CALENDAR SOURCE, SUCCESSFUL OR NOT — the rate limiter's memory.
+ *
+ *  ⚠ IT HAS TO BE IN THE DATABASE, NOT IN A VARIABLE. The counter's whole job is to stop us asking
+ *  MyFXBook too often, and the thing most likely to happen on a bad day is the app restarting in a
+ *  loop. An in-memory counter resets with it, so the one moment we most need the brake is exactly
+ *  when it would be released. The rows survive a restart and a redeploy.
+ *
+ *  FAILURES ARE RECORDED TOO, and that is the point of `blocked`: a Cloudflare refusal must slow the
+ *  next attempt down, so it has to be counted, not thrown away.
+ */
+export const scrapeRuns = pgTable("scrape_runs", {
+  id:         varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  source:     text("source").notNull(),              // 'myfxbook' | 'forexfactory'
+  kind:       text("kind").notNull(),                // 'horizon' (the daily one) | 'release'
+  startedAt:  timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  ok:         boolean("ok").default(false),
+  blocked:    boolean("blocked").default(false),     // refused by Cloudflare -> drives the backoff
+  rowCount:   integer("row_count").default(0),
+  tookMs:     integer("took_ms"),
+  error:      text("error"),
+}, (t) => [
+  index("scrape_runs_source_started_idx").on(t.source, t.startedAt),
+]);
+
+export type ScrapeRun = typeof scrapeRuns.$inferSelect;
+
 export const telegramSubscribers = pgTable("telegram_subscribers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   chatId: text("chat_id").notNull().unique(),

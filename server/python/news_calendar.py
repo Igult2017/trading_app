@@ -75,52 +75,14 @@ HEADERS = {
 # Calendar: what counts as an event, and what never reaches the page           #
 # --------------------------------------------------------------------------- #
 
-# THE CALENDAR CARRIES TWO KINDS OF EVENT AND NO OTHERS.
+# WHAT COUNTS AS AN EVENT NOW LIVES IN ONE PLACE: `calendar_filter`.
 #
-# His instruction, 2026-09-07: *"I dont need crypto and stock news. You can remove and delete there
-# sections from the calendar. I only need commodity and forex news."*
-#
-# So `_categorize` now answers with 'Commodities' or 'Currencies' only, and `_DROP_CATEGORY` below
-# is what actually removes a stock or crypto row from the output. They are separate on purpose: the
-# categoriser says what a row IS, and the caller decides what to keep — collapsing a stock row into
-# 'Currencies' would have hidden it in the forex list instead of removing it.
-# "INDEX", "EARNINGS" AND "STOCK" ARE NOT STOCK-MARKET WORDS ON AN ECONOMIC CALENDAR — fixed
-# 2026-09-09, and this was a money defect, not tidying.
-#
-# The stock test used to match the bare words 'stock', 'earnings' and 'index' anywhere in the name.
-# Run against the real feed that dropped SEVEN genuine economic releases in a single week —
-# `M2 Money Stock y/y` (monetary data), `Average Cash Earnings y/y` (wages), `Index of Services`,
-# `Final GDP Price Index`, `NFIB Small Business Index`, `BusinessNZ Manufacturing Index`,
-# `BSI Manufacturing Index`. Those seven were all Low impact, so nothing was lost that week.
-#
-# THE ONE THAT MATTERS IS `Core PCE Price Index` — a HIGH-impact US release. The old rule would have
-# deleted it from the calendar before it was ever stored, and VIX.1 reads that calendar to decide
-# when NOT to enter (vix1.py:285,288). A guard with the event missing looks exactly like a guard
-# that is passing, which is why nothing would have reported it.
-#
-# So the equity words must be unambiguous PHRASES. His rule is unchanged — no crypto, no stock-market
-# news (2026-09-07: *"I dont need crypto and stock news... I only need commodity and forex news."*) —
-# this only stops the rule firing on economic data that happens to share a word.
-_EQUITY_PHRASES = (
-    'stock market', 'equity', 'equities', 'earnings call', 'earnings report', 'earnings season',
-    'nasdaq', 's&p 500', 'dow jones', 'ftse', 'nikkei 225', 'share index',
-)
-
-
-def _categorize(name: str, currency: str) -> str:
-    n = name.lower()
-    if any(w in n for w in ('oil', 'crude', 'gold', 'silver', 'gas', 'commodity', 'eia')):
-        return 'Commodities'
-    if currency in ('BTC', 'ETH', 'XRP'):
-        return 'Crypto'
-    if any(w in n for w in _EQUITY_PHRASES):
-        return 'Stocks'
-    return 'Currencies'
-
-
-# Categories that never reach the calendar. Commodities is tested FIRST in `_categorize` above, so
-# an event like "Crude Oil Inventories" is judged a commodity before the equity test ever runs.
-_DROP_CATEGORY = ('Crypto', 'Stocks')
+# It used to be written out here, which was fine while ForexFactory was the only source.
+# MyFXBook is now a second one (myfxbook_calendar.py), and two copies of his "no crypto, no
+# stock news" rule is exactly how the two sources would start disagreeing about what he asked
+# to see. The reasoning, and the seven real releases the old word-matching rule deleted, are
+# in that module's docstring.
+from calendar_filter import categorize as _categorize, DROP_CATEGORY as _DROP_CATEGORY  # noqa: E402
 
 
 # --------------------------------------------------------------------------- #

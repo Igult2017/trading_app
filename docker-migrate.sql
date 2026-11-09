@@ -802,5 +802,26 @@ BEGIN
   END IF;
 END $$;
 
+-- ── scrape_runs: the calendar rate limiter's memory ─────────────────────────
+-- Every attempt to scrape a calendar source, successful or not.
+--
+-- IT LIVES IN THE DATABASE ON PURPOSE. The counter exists to stop us asking MyFXBook too often, and
+-- the likeliest thing on a bad day is the app restarting in a loop. An in-memory counter resets with
+-- it, so the brake would be released exactly when it is most needed. Failures are recorded too:
+-- `blocked` marks a Cloudflare refusal, which has to slow the NEXT attempt down.
+CREATE TABLE IF NOT EXISTS scrape_runs (
+  id           VARCHAR      PRIMARY KEY DEFAULT gen_random_uuid(),
+  source       TEXT         NOT NULL,
+  kind         TEXT         NOT NULL,
+  started_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  finished_at  TIMESTAMPTZ,
+  ok           BOOLEAN      DEFAULT FALSE,
+  blocked      BOOLEAN      DEFAULT FALSE,
+  row_count    INTEGER      DEFAULT 0,
+  took_ms      INTEGER,
+  error        TEXT
+);
+CREATE INDEX IF NOT EXISTS scrape_runs_source_started_idx ON scrape_runs (source, started_at);
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

@@ -111,6 +111,10 @@ import { getStocksData } from "./services/stocksService";
 // endpoint always reported google-genai as unavailable with a misleading reason. esbuild does not
 // typecheck, so this shipped; `tsc --noEmit` is what surfaced it.
 import { PYTHON_BIN } from "./lib/pythonBin";
+// The MyFXBook calendar: when we are ALLOWED to scrape (mfbSchedule) and what to do with
+// what came back (myfxbookIngest). The scrape itself runs outside this container.
+import { decideDue, startRun, finishRun, looksBlocked } from "./scrapers/mfbSchedule";
+import { ingestMyfxbookEvents } from "./services/myfxbookIngest";
 
 // ── Metrics in-memory cache ───────────────────────────────────────────────────
 // Avoids spawning a Python process on every request when data hasn't changed.
@@ -3076,6 +3080,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
       stored++;
     }
     return res.json({ ok: true, stored });
+  });
+
+  // ── MYFXBOOK CALENDAR: the two ends of a scrape that happens OUTSIDE this container ──────────
+  //
+  // The browser cannot live here. This image's own Dockerfile forbids it, because on 2026-09-07 a
+  // Chrome that failed to shut down was started every 15 minutes until the box ran out of memory
+  // and both this site and Coolify stopped answering. So the scrape runs in a container that EXITS,
+  // and talks to these two endpoints: one to ask whether it should run at all, one to hand the
+  // rows back.
+  //
+  // ⚠ THE DECISION LIVES HERE, NOT IN THE SCRAPER. Only the app knows what is in the calendar and
+  // how often we have already asked, so only the app can say "a figure is missing" or "you have
+  // had enough for today". A scraper that decided for itself would be a second copy of the rule.
+
+  app.get("/api/internal/calendar/due", requireAdminSecret, async (_req: Request, res: Response) => {
+    try {
+      const d = await decideDue();
+      return res.json(d);
+    } catch (e: any) {
+      // Never answer "due" on an error. If we cannot read the limiter, we do not get to spend a
+      // six-minute browser on a guess.
+      console.error("[mfb] due check failed:", e?.message ?? e);
+      return res.json({ due: false, kind: null, reason: `due check failed: ${e?.message ?? e}` });
+    }
+  });
+
+  app.post("/api/internal/calendar/ingest", requireAdminSecret, async (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as any;
+    const kind = body.kind === "release" ? "release" : "horizon";
+    const runId: string | null = typeof body.runId === "string" ? body.runId : null;
+    const tookMs = Number.isFinite(body.tookS) ? Math.round(body.tookS * 1000) : undefined;
+
+    // A FAILED RUN IS STILL A RUN. It has to be recorded, or being blocked would cost nothing and
+    // the backoff would never engage.
+    if (body.ok !== true) {
+      const error = String(body.error ?? "scraper reported failure");
+      if (runId) await finishRun(runId, { ok: false, blocked: looksBlocked(error), tookMs, error });
+      return res.status(202).json({ ok: false, recorded: true, blocked: looksBlocked(error) });
+    }
+
+    const events = Array.isArray(body.events) ? body.events : [];
+    try {
+      const stored = await ingestMyfxbookEvents(events);
+      if (runId) await finishRun(runId, { ok: true, rowCount: stored.events, tookMs });
+      return res.json({ ok: true, ...stored });
+    } catch (e: any) {
+      const error = `ingest failed: ${e?.message ?? e}`;
+      if (runId) await finishRun(runId, { ok: false, tookMs, error });
+      console.error("[mfb]", error);
+      return res.status(500).json({ ok: false, error });
+    }
+  });
+
+  /** Claim a slot. Returns the run id the scraper must hand back, so one fetch is one row. */
+  app.post("/api/internal/calendar/claim", requireAdminSecret, async (req: Request, res: Response) => {
+    const kind = (req.body as any)?.kind === "release" ? "release" : "horizon";
+    const d = await decideDue();
+    // ⚠ RE-CHECKED HERE, not trusted from the caller. The timer asked a minute ago; between then
+    // and now another run could have started. The claim is the only moment that counts.
+    if (!d.due) return res.status(409).json({ ok: false, reason: d.reason });
+    const runId = await startRun(kind);
+    return res.json({ ok: true, runId, kind: d.kind });
   });
 
   /**
