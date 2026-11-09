@@ -1565,8 +1565,13 @@ in the build); 103 client `/api/` URLs all resolve against 227 routes; no produc
 `create_all`); `/api/analytics` classification; `TradeVault` (normalises with `.toUpperCase()` on
 load, line 97); `AdminPanel`'s `manual_outcome`.
 
-### C6 — The economic calendar now covers ONE WEEK and has no released "actual" figure
-**Verified 09 Sep — both are deliberate trade-offs of the source swap, not faults.**
+### C6 — ~~The economic calendar covers ONE WEEK and has no released "actual" figure~~ FIXED 2026-11-09
+**Both halves are closed.** MyFXBook is the source again, through a stealth browser with the Cloudflare
+solver on, and it carries Previous/Consensus/**Actual** in one row. Measured on the first live sweep:
+`economic_events` **101 -> 501 rows**, rows with a released value **0 -> 24**, horizon **this week -> 19 Nov**.
+The text below is kept because its reasoning was right for the tools available in September.
+
+**Verified 09 Sep — both were deliberate trade-offs of the source swap, not faults.**
 
 MyFXBook is gone. Its Cloudflare challenge stopped yielding to real, visible Chrome even **from a
 home connection** — two runs on 09 Sep, 0 events, Ray IDs `a3817c1769c6c68f` and `a38181189d4018a5`.
