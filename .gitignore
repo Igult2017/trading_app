@@ -25,3 +25,9 @@ docs/reference/SD.pdf
 # nobody reviews. His rule: 'if a file is not needed anymore it is deleted.'
 .tmpdeploy/
 scratch/
+
+# Scratch files that live beside the project but are not part of it.
+# PLAN.md is the per-task note the check-plan PreToolUse hook requires on disk; it is rewritten
+# every task and the autocommit hook was committing each version. scheduled_tasks.lock is a lock.
+.claude/PLAN.md
+.claude/scheduled_tasks.lock
