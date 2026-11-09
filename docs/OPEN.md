@@ -1677,6 +1677,36 @@ that touches who can become admin, so it gets looked at rather than assumed.
 
 ---
 
+### C17 — Password reset could never be completed, and the button failed in silence. FIXED 2026-11-08
+
+His report: *"After clicking reset password and resetting, it dint take effect like saying 'it was
+successful'."* **Reproduced on the deployed site** with a real link from
+`POST /auth/v1/admin/generate_link` (sends no email) against a throwaway user, since deleted.
+Three faults; the full evidence table is in `docs/MAP.md` under 2026-11-08.
+
+| | |
+|---|---|
+| the link went to the **homepage**, not the reset page | Supabase dropped the path from `redirect_to` — `/auth/reset-password` is **not on the Redirect URLs allow-list** since the 2026-11-02 move |
+| the homepage swallowed it | nothing in `client/src` read the address fragment but `AuthCallbackPage.tsx:21`. Silently signed in, no password form anywhere |
+| the reset page would not show the form anyway | it gated on the one-shot `PASSWORD_RECOVERY` announcement; the library wipes the token out of the address once read, so after any refresh it can never fire. Measured: valid session present, `hasPasswordInput: false` |
+| the button could not report a thrown failure | `try/finally` with **no `catch`**; the library re-throws anything that is not a login error. No error boundary anywhere in `client/src` |
+
+Fixed in `lib/supabase.ts` (route a `type=recovery` address to the reset page before `createClient`),
+`ResetPasswordPage.tsx` (ask `getSession()`, accept any event, name a dead link, unsubscribe, catch
+throws, sign out after success) and `ProfileSettings.tsx` (the same missing `catch`).
+
+#### ⚠ STILL OPEN — two things, and the first needs HIM
+
+1. **Add `https://app.dorixe.com/**` to Redirect URLs in the Supabase dashboard.** No code can do
+   this. Reset now works without it, but until it is set every link bounces off the homepage first,
+   and the same stale list will bite any other emailed link.
+2. **An EXPIRED link still says nothing.** It comes back as
+   `#error=access_denied&error_code=otp_expired` with **no `type`**, which is indistinguishable from
+   an expired sign-up confirmation — so there is no honest way to choose a destination for it. It
+   lands on the homepage and is silently dropped. Deliberately NOT guessed at.
+
+---
+
 ## D. cTrader & copy trading
 
 ### D66 — he could not see the bot's order in Pepperstone, and a stop he moved by hand was undone. FIXED 2026-11-08

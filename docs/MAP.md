@@ -285,6 +285,45 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 
 ## PROGRESS — what actually happened, newest first
 
+**2026-11-08 — password reset could never be completed, and the button failed in silence.**
+His report: *"After clicking reset password and resetting, it dint take effect like saying 'it was
+successful'."* **Three faults, all reproduced on the deployed site** with a real link made by
+`POST /auth/v1/admin/generate_link` (which sends no email) against a throwaway user, since deleted.
+
+| # | measured | what it means |
+|---|---|---|
+| 1 | asked Supabase for `https://app.dorixe.com/auth/reset-password`; it answered `redirect_to=https://app.dorixe.com` — **the path dropped** | that address is **not on the project's Redirect URLs allow-list**, so Supabase substituted the Site URL. The app only moved to app.dorixe.com on 2026-11-02 |
+| 2 | the link landed on `https://app.dorixe.com/#access_token=…`, the hash was wiped, and `sb-…-auth-token` appeared in storage | the **homepage** swallowed the token. Nothing in `client/src` read the address fragment except `AuthCallbackPage.tsx:21` (errors only), so the visitor was **silently signed in with no password form anywhere** |
+| 3 | on `/auth/reset-password` with a valid session present: `stillSignedIn: true`, `hasPasswordInput: false` | the page gated the form on the one-shot `PASSWORD_RECOVERY` announcement (GoTrueClient.js:303-330). The library **wipes the token out of the address once read** (`:3103`), so after any refresh that announcement can never be made again and the page sat on *"Verifying reset link…"* for ever |
+
+**The login service itself was never at fault** — `PUT /auth/v1/user` on that session returned **200**
+and changed the password.
+
+**The silent button he actually described:** `ResetPasswordPage.tsx` had `try { … } finally { … }`
+and **no `catch`**, so it could report a failure handed back to it and none thrown at it. The library
+hands back what it recognises as a login error and **re-throws everything else**
+(GoTrueClient.js:2672-2678) — its own 5-second lock timeout among them (`lib/locks.js:35`,
+`GoTrueClient.js:28`), a plain error. There is **no error boundary anywhere in `client/src`**
+(0 hits for `componentDidCatch` / `ErrorBoundary` / `getDerivedStateFromError`), so a thrown failure
+reached nothing and the screen did not change. The same hole was in
+`ProfileSettings.tsx` savePw, where it also left the button stuck on "Changing…".
+
+**Fixed:** `lib/supabase.ts` now routes a `type=recovery` address to the reset page **before**
+`createClient` runs (it has to be before — the library wipes the token as soon as it starts), so the
+flow works **even while the allow-list is stale**. `ResetPasswordPage.tsx` asks `getSession()` instead
+of waiting to be told, accepts the session from any event, names a dead link instead of spinning,
+unsubscribes, catches thrown failures, and signs out before showing the sign-in screen (his B1).
+
+⚠ **STILL HIS TO DO, and no code can do it:** add `https://app.dorixe.com/**` to **Redirect URLs** in
+the Supabase dashboard. The fix above makes reset work without it, but until it is set, every reset
+link keeps bouncing off the homepage first.
+
+⚠ **NOT FIXED, and not guessed at:** an **expired** link comes back as
+`#error=access_denied&error_code=otp_expired` with **no `type`**, which is indistinguishable from an
+expired sign-up confirmation — so there is no honest way to pick a destination for it. It still lands
+on the homepage and says nothing. Logged in `docs/OPEN.md`.
+
+
 **2026-09-03 — a LONG was recorded as a SHORT, its loss recorded as a win, and the metrics page could
 not tell what any synced trade was.**
 

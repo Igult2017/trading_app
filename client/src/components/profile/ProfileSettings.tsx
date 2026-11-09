@@ -55,11 +55,21 @@ export default function ProfileSettings({ email, plan, displayName, onBack, onNa
     if (pw1 !== pw2)    return setPwMsg({ s: 'err', m: 'The two do not match.' });
     if (!supabase)      return setPwMsg({ s: 'err', m: 'Unavailable right now.' });
     setSavingPw(true); setPwMsg({ s: null, m: '' });
-    const { error } = await supabase.auth.updateUser({ password: pw1 });
-    setSavingPw(false);
-    if (error) return setPwMsg({ s: 'err', m: error.message });
-    setPw1(''); setPw2('');
-    setPwMsg({ s: 'ok', m: 'Password changed.' });
+    // ⚠ THE SAME HOLE THE RESET PAGE HAD, found while fixing that one on 2026-11-08. This handled a
+    // failure HANDED BACK to it and none THROWN at it — and the login library re-throws anything it
+    // does not recognise as a login error (GoTrueClient.js:2672-2678), its own 5-second lock timeout
+    // included. `setSavingPw(false)` was also AFTER the await, so a throw left this button reading
+    // "Changing…" for ever with no message at all.
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pw1 });
+      if (error) return setPwMsg({ s: 'err', m: error.message });
+      setPw1(''); setPw2('');
+      setPwMsg({ s: 'ok', m: 'Password changed.' });
+    } catch (err: any) {
+      setPwMsg({ s: 'err', m: err?.message ? `Could not change it: ${err.message}` : 'Could not change it. Please try again.' });
+    } finally {
+      setSavingPw(false);
+    }
   }
 
   const Section = ({ id, label, children }: { id: string; label: string; children: React.ReactNode }) => (

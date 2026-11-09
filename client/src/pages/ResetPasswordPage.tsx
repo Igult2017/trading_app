@@ -27,15 +27,31 @@ export default function ResetPasswordPage() {
   const [error, setError]             = useState('');
   const [done, setDone]               = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [dead, setDead]               = useState(false);
   const [, navigate] = useLocation();
 
+  /**
+   * THE FORM APPEARS WHEN THERE IS A SESSION — not when one particular announcement is overheard.
+   * The session is the FACT; `PASSWORD_RECOVERY` is only a one-shot notification about it, and this
+   * page is loaded on demand so it is often not listening yet; worse, the library wipes the token
+   * out of the address once read, so after ANY refresh that notification can never come again.
+   * Asking `getSession()` kills both. The listener stays as a second way in and now accepts the
+   * session from ANY event. Measured, and the full evidence: docs/MAP.md, "password reset".
+   */
   useEffect(() => {
-    if (!supabase) return;
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setSessionReady(true);
-      }
+    if (!supabase) { setDead(true); return; }
+    let live = true;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (live && s) { setSessionReady(true); setDead(false); }
     });
+    supabase.auth.getSession().then(({ data }) => {
+      if (!live) return;
+      if (data.session) setSessionReady(true);
+      // No session once start-up has finished means the link is spent or was never valid. Say so,
+      // instead of leaving "Verifying…" on screen with no way forward.
+      else setDead(true);
+    });
+    return () => { live = false; subscription.unsubscribe(); };
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -58,7 +74,21 @@ export default function ResetPasswordPage() {
       const { error: err } = await supabase.auth.updateUser({ password });
       if (err) { setError(err.message); return; }
       setDone(true);
+      // HIS CHOICE 2026-11-08 (B1): sign out BEFORE the sign-in screen, which used to be shown
+      // while still signed in on the recovery session.
+      try { await supabase.auth.signOut(); } catch { /* the password is already changed */ }
       setTimeout(() => navigate('/auth'), 3000);
+    } catch (err: any) {
+      /**
+       * ⚠ THERE WAS A `finally` HERE AND NO `catch`, so this button could report a failure handed
+       * back to it and none thrown at it — and the login library re-throws anything it does not
+       * recognise as a login error (GoTrueClient.js:2672-2678), its own 5-second lock timeout
+       * included. With no error boundary anywhere in client/src, a throw changed nothing on screen.
+       * NO OUTCOME OF THIS BUTTON MAY LEAVE THE SCREEN AS IT WAS. See docs/MAP.md.
+       */
+      setError(err?.message
+        ? `Could not update the password: ${err.message}`
+        : 'Could not update the password. Please request a new reset link and try again.');
     } finally {
       setBusy(false);
     }
@@ -109,6 +139,12 @@ export default function ResetPasswordPage() {
         {done ? (
           <div style={S.info}>
             Password updated! Redirecting you to sign in…
+          </div>
+        ) : dead && !sessionReady ? (
+          /* A DEAD END IS NAMED, not left as a spinner for ever once the link has been spent. */
+          <div style={S.error}>
+            This reset link is invalid or has already been used. Please{' '}
+            <button className="rp-link" onClick={() => navigate('/auth')}>request a new one</button>.
           </div>
         ) : !sessionReady ? (
           <div style={S.info}>
