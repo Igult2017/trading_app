@@ -5059,6 +5059,40 @@ two entries DO name the same trade the older survives.
 3. **Inventing evidence.** A "zone he sent on 16 Jul" never existed and reached three documents
    before he caught it (A4).
 
+### D42 update — 2026-11-10: TWO OF THE THREE ARE OPEN AGAIN, and his own body-line rule is why
+
+**The suite was red and the code was right.** `test_tradeable.py` asserted that the range gate
+refuses 2026-08-05 14:00 and 17:00. It does not, and it should not.
+
+**What happened.** On 2026-09-21 he gave TWO instructions. The first drew the box: *"until the price
+gets out of the two lines... it is ranging"*. The second moved its edges: *"I told you to use body
+and that is why I said use line charts instead of candles."* The two lines are read off swing
+WICKS, so `vix1_chop._to_body` pulls each in to the BODY of the candle that set it — which makes the
+box SMALLER, and a close that was inside the wick box can be outside the body box.
+
+**Measured on the real bars, not reasoned:**
+
+| | |
+|---|---|
+| the two lines, raw (wick) | 1.14549 - 1.15584 — the box the test was written against |
+| after `_to_body`, as he asked | 1.14658 - 1.15479 |
+| 2026-08-05 14:00 close | **1.15529** — inside the wick box, ABOVE the body box |
+| 2026-08-05 17:00 close | **1.15557** — same |
+
+So under the rule he actually asked for, both have broken out of the box and are tradeable.
+
+**WHY THE TEST WAS CHANGED AND NOT THE RULE.** The body instruction is his, and it measured better:
+`vix1_chop`'s own docstring records the wick lines lifting the win rate 45.8% -> 46.4% (nothing)
+and the body lines lifting it to 50.0%, with what they refuse winning 40.7% and losing money. A test
+that forces his own rule to be undone is worse than no test.
+
+**WHAT IS STILL OPEN.** Two of the three markets he marked untradeable trade again, and **D42 — the
+chop definition — is still unbuilt**. His definition, unchanged: *"it can be trending but prints 1
+red volume candle then prints a bullish candle, meaning it has no specific group of candles in
+succession"*, plus *"a mixture of big bodies, small bodies, long wicks and no wicks"*. The two cases
+are now asserted as TRADING in `test_tradeable.py`, so a later change that closes them cannot pass
+unnoticed.
+
 ### D42 update — 2026-09-16: one of the three closed, by an entry rule rather than a chop rule
 His pullback rule of 16 Sep (*"we take trade from the 3rd candle and above... unless the pullback was
 made of 1-3 candles"*) refuses **2026-08-03 18:00**, one of the three choppy markets this item tracks.

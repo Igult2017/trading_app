@@ -149,13 +149,30 @@ s.check("   2026-08-03 18:00 no longer trades — his 16 Sep pullback rule refus
 # single momentum candle a "void" and refused almost everything), and once a void was properly a
 # BAND of price these traded again.
 #
-# THEY ARE CLOSED NOW, BY HIS RANGE RULE OF THE SAME DAY — *"until the price gets out of the two
-# lines... it is ranging"*. Verified by driving the real `detect_bias` twice: with the gate muted
-# both trade, with it live both are refused and the reason names the box (1.14549-1.15584). Two of
-# the three markets he marked untradeable are therefore shut, and by a rule that is his, not mine.
+# THEY WERE THEN CLOSED BY HIS RANGE RULE — *"until the price gets out of the two lines... it is
+# ranging"* — and the box the gate named at the time was 1.14549-1.15584.
+#
+# ⚠ 2026-11-10 — THEY ARE OPEN AGAIN, AND HIS OWN SECOND INSTRUCTION OF THAT SAME DAY IS WHY.
+# *"I told you to use body and that is why I said use line charts instead of candles."* The two
+# lines are read off swing WICKS, so `vix1_chop._to_body` pulls each one in to the BODY of the
+# candle that set it. Measured, not reasoned:
+#
+#     the two lines, raw (wick)      1.14549 - 1.15584   <- the box this test was written against
+#     after _to_body, as he asked    1.14658 - 1.15479
+#     the closes                     14:00 = 1.15529     17:00 = 1.15557
+#
+# Both closes sit INSIDE the wick box and ABOVE the body box, so under the rule he actually asked
+# for they have broken out and are tradeable. The gate is behaving correctly; this expectation was
+# the stale thing. It is corrected rather than the rule being bent back — the body instruction is
+# his, it measured better (vix1_chop's docstring records 50.0% against 46.4%), and a test that
+# forces his own rule to be undone is worse than no test at all.
+#
+# SO THESE TWO ARE OPEN GAPS AGAIN, the same way 2026-08-03 18:00 once was: still D42, the chop
+# definition, still unbuilt. Asserted as TRADING so a later change that closes them cannot pass
+# unnoticed — this file going red is exactly the job it was given.
 for w in ("2026-08-05 14:00", "2026-08-05 17:00"):
-    s.check(f"   {w} no longer trades — his range rule: price never left the box",
-            fires(w), False)
+    s.check(f"   {w} trades — OPEN GAP (D42): his body-line rule narrowed the box and let it out",
+            fires(w), True)
 
 
 

@@ -60,7 +60,8 @@ export function DdChart({ series, deepestLabel }: { series: number[]; deepestLab
         <NeonLineChart
           data={points}
           fmtY={fmtPct}
-          padLeft={62}
+          padLeft={64}
+          labelFont="var(--dd-mono)"
           ariaLabel={`Drawdown chart. Deepest point ${minVal.toFixed(2)} percent below peak across ${raw.length} trades.`}
         />
       </div>
