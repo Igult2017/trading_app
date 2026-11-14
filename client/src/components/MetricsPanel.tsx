@@ -7,6 +7,7 @@ import { MetricsSkeleton } from '@/components/skeletons/MetricsSkeleton';
 import { useTranslation } from 'react-i18next';
 import { MP_REF, mpLightVars } from '@/components/shared/mpTokens';
 import { EquityCurveChart } from '@/components/shared/EquityCurveChart';
+import { MONO, Chip, Panel, Row, DR, type ChipVariant } from '@/components/shared/mpBits';
 
 /* ─────────────────────────────────────────────────────────────────────
    DESIGN TOKENS
@@ -17,9 +18,6 @@ import { EquityCurveChart } from '@/components/shared/EquityCurveChart';
 ───────────────────────────────────────────────────────────────────── */
 const D = MP_REF;
 
-const MONO: React.CSSProperties = {
-  fontFamily: "'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace",
-};
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
 const pColor = (v: number | null | undefined) =>
@@ -31,50 +29,14 @@ const fmtPct = (v: number) => `${Math.round(v)}%`;
 const wr     = (obj: any): number | null => obj?.winRate ?? null;
 const ct     = (obj: any): number => obj?.count ?? 0;
 
-type ChipVariant = 'green' | 'red' | 'amber' | 'blue' | 'purple' | 'cyan' | 'gray' | 'neutral';
 const pVariant = (v: number | null | undefined): ChipVariant =>
   v == null ? 'neutral' : v >= 65 ? 'green' : v >= 50 ? 'amber' : 'red';
 
 /* ─────────────────────────────────────────────────────────────────────
    ATOM COMPONENTS
 ───────────────────────────────────────────────────────────────────── */
-const chipColors: Record<ChipVariant, { bg: string; color: string; border: string }> = {
-  green:   { bg: D.greenBg,  color: D.green,  border: D.greenBd },
-  red:     { bg: D.redBg,    color: D.red,     border: D.redBd },
-  amber:   { bg: D.amberBg,  color: D.amber,   border: D.amberBd },
-  blue:    { bg: D.blueBg,   color: D.blue,    border: D.blueBd },
-  purple:  { bg: D.purpleBg, color: D.purple,  border: D.purpleBd },
-  cyan:    { bg: D.cyanBg,   color: D.cyan,    border: D.cyanBd },
-  gray:    { bg: D.grayBg,   color: D.gray,    border: D.grayBd },
-  neutral: { bg: D.grayBg,   color: D.sub,     border: D.grayBd },
-};
 
-const Chip = ({ children, variant = 'neutral' as ChipVariant }: { children: React.ReactNode; variant?: ChipVariant }) => {
-  const c = chipColors[variant] || chipColors.neutral;
-  return (
-    <span style={{
-      ...MONO,
-      fontSize: 13.5, fontWeight: 600,
-      padding: '1px 6px', borderRadius: 20,
-      background: c.bg, color: c.color, border: `0.5px solid ${c.border}`,
-      letterSpacing: '0.04em', whiteSpace: 'nowrap' as const, lineHeight: '16px',
-    }}>
-      {children}
-    </span>
-  );
-};
 
-const Panel = ({ title, badge, badgeColor = 'gray' as ChipVariant, children, style = {} as React.CSSProperties }: any) => (
-  <div style={{ background: D.bg3, border: `0.5px solid ${D.bdInner}`, borderRadius: 10, overflow: 'hidden', ...style }}>
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderBottom: `0.5px solid ${D.bdInner}`, background: D.bg4 }}>
-      <span style={{ ...MONO, fontSize: 13.5, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>
-        {title}
-      </span>
-      {badge && <Chip variant={badgeColor as ChipVariant}>{badge}</Chip>}
-    </div>
-    <div style={{ padding: '8px 12px 10px' }}>{children}</div>
-  </div>
-);
 
 const DivLabel = ({ children }: { children: React.ReactNode }) => (
   <div style={{ ...MONO, fontSize: 12.5, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.dim, padding: '7px 0 3px', borderBottom: `0.5px solid ${D.bdDiv}`, marginBottom: 1 }}>
@@ -96,12 +58,6 @@ const SubLabel = ({ children, style = {} as React.CSSProperties }: any) => (
   </div>
 );
 
-const Row = ({ label, children, noBorder = false }: { label: React.ReactNode; children?: React.ReactNode; noBorder?: boolean }) => (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 0', borderBottom: noBorder ? 'none' : `0.5px solid ${D.bdRow}` }}>
-    <span style={{ ...MONO, fontSize: 14.5, color: D.muted, display: 'flex', alignItems: 'center', gap: 6 }}>{label}</span>
-    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>{children}</div>
-  </div>
-);
 
 const Dot = ({ color }: { color: string }) => (
   <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: color }} />
@@ -112,11 +68,6 @@ const Scroll = ({ children }: { children: React.ReactNode }) => (
 );
 
 /* ─── DATA ROW helpers ─────────────────────────────────────────────── */
-const DR = ({ label, value, vc }: { label: string; value: string; vc?: string }) => (
-  <Row label={label}>
-    <span style={{ ...MONO, fontSize: 14.5, fontWeight: 600, color: vc || D.text }}>{value}</span>
-  </Row>
-);
 
 const Bar = ({ label, pct, sub, count }: { label: string; pct: number | null | undefined; sub?: string; count?: number }) => {
   const v = pct != null ? Math.round(pct) : null;

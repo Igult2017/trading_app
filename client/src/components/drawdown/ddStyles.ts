@@ -20,7 +20,7 @@
  * mid-rule, and the build stays green while the page loses its styling at runtime.
  */
 import { DD_TOKENS_DARK, DD_TOKENS_LIGHT } from '@/components/drawdown/ddTokens';
-import { mpLightCss, EQUITY_CHART_TOKENS } from '@/components/shared/mpTokens';
+import { mpLightCss, DD_PAGE_MP_TOKENS } from '@/components/shared/mpTokens';
 
 const DD_CORE = `
 .dp{
@@ -39,17 +39,20 @@ const DD_CORE = `
   /* Keeps numeric columns from going ragged; faces without the feature just ignore it. */
   font-variant-numeric:tabular-nums;
   min-height:100%; -webkit-font-smoothing:antialiased;
-  /* THE PAGE'S SPACING LIVES IN HERE, 2026-11-14. It used to be the journal's padding around the
-     panel (14px top, 6px left), painted #0d1117 against this panel's #0A0D14 - a visible frame
-     along the top and the sidebar edge, which he marked and asked to be removed. Inside the
-     panel it is painted the panel's own colour, so the cards keep their room and there is no frame. */
-  padding:16px 8px 28px;
+  /* NOTHING AT THE SIDES - THE ANALYTICS PAGE'S SPACING, EXACTLY (2026-11-14, second attempt).
+     First it was the journal's 14px/6px around the panel, painted #0d1117. Then I moved it INSIDE
+     the panel as 16px/8px - and he sent it back: "the layer ... is still there and it is even
+     protruding". Measured off his screenshot, the strip beside the sidebar was exactly that 8px,
+     painted #0a0d14 between a #010409 sidebar and #0d1117 cards. Moving a frame does not remove it.
+     On Analytics the chart card's border starts DIRECTLY against the sidebar's edge line, so the
+     sides here are 0; the 12px top is Analytics' own (.mp-page) and he has not objected to it. */
+  padding:12px 0 28px;
 }
 /* THE ANALYTICS CHART'S LIGHT PALETTE. That chart (shared/EquityCurveChart) colours itself from
-   --mp-* variables; Analytics sets them on its own root, and on this page they are set here - ONLY
-   the eleven it draws with, because the full palette carries Analytics' chip colours too, and no yellow
+   --mp-* variables, as does the summary card beside it; Analytics sets them on its own root, and on
+   this page they are set here - ONLY the ones the two draw with (DD_PAGE_MP_TOKENS), because the full palette carries Analytics' chip colours too, and no yellow
    comes onto this page. */
-.journal-light .dp{ ${DD_TOKENS_LIGHT} ${mpLightCss(EQUITY_CHART_TOKENS)} }
+.journal-light .dp{ ${DD_TOKENS_LIGHT} ${mpLightCss(DD_PAGE_MP_TOKENS)} }
 
 .dp *{ box-sizing:border-box; }
 .dp ::selection{ background:var(--t-accent-30); color:var(--accent-soft); }
@@ -77,6 +80,10 @@ const DD_CORE = `
 @media (min-width:1024px){
   .dp .dd-g3{ grid-template-columns:repeat(3,1fr); }
 }
+/* THE CHART AND ITS SUMMARY, 2026-11-14 - Analytics' own row (.mp-eq-grid): 2 to 1, stacking at
+   1024px and below. The gap is this page's 4px, not Analytics' 8, so it matches every other row here. */
+.dp .dd-eq-grid{ display:grid; grid-template-columns:2fr 1fr; gap:4px; }
+@media (max-width:1024px){ .dp .dd-eq-grid{ grid-template-columns:1fr; } }
 
 /* ── SURFACES ───────────────────────────────────────────────────────────────── */
 .dp .dd-card{

@@ -138,16 +138,18 @@ export const MP_REF = Object.fromEntries(
 export const mpLightVars = (): Record<string, string> =>
   Object.fromEntries((Object.keys(MP_LIGHT) as MpToken[]).map(k => [MP_VAR[k], MP_LIGHT[k]]));
 
-/** EVERY palette token the shared Analytics chart (shared/EquityCurveChart) draws with. A page that
- *  borrows that chart sets exactly these for its light theme. Add one here whenever the chart starts
- *  using a new token, or the borrowing page shows it in dark colours on a light background. */
-export const EQUITY_CHART_TOKENS = [
-  'bdInner', 'bdRow', 'bg3', 'bg4', 'cyan', 'cyanBg', 'dim', 'green', 'label', 'red', 'text',
+/** EVERY palette token the DRAWDOWN PAGE draws with through Analytics' shared pieces — the chart
+ *  (shared/EquityCurveChart) and the summary card (shared/mpBits: Panel, Row, DR, a red Chip). That
+ *  page sets exactly these for its light theme. Add one whenever either starts using a new token, or
+ *  it shows in dark colours on a light background. ⚠ NEVER the amber ones: he banned yellow there. */
+export const DD_PAGE_MP_TOKENS = [
+  'bdInner', 'bdRow', 'bg3', 'bg4', 'cyan', 'cyanBg', 'dim', 'green', 'label', 'muted',
+  'red', 'redBg', 'redBd', 'text',
 ] as const satisfies readonly MpToken[];
 
 /** The same values as a CSS declaration block body, for a stylesheet rather than an inline style.
- *  `only` limits it to the tokens a borrowing page actually draws with: the drawdown page takes the
- *  chart's eleven and nothing else, because this palette also carries the AMBER tokens Analytics
+ *  `only` limits it to the tokens a borrowing page actually draws with: the drawdown page takes
+ *  DD_PAGE_MP_TOKENS and nothing else, because this palette also carries the AMBER tokens Analytics
  *  uses for its chips, and he banned yellow from that page outright. */
 export const mpLightCss = (only?: readonly MpToken[]): string =>
   (only ?? (Object.keys(MP_LIGHT) as MpToken[])).map(k => `${MP_VAR[k]}:${MP_LIGHT[k]};`).join('');

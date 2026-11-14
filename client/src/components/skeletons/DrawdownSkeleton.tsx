@@ -64,18 +64,31 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
         </section>
         {/* THE CHART — the Analytics card (`shared/EquityCurveChart`): a strip with the title, the
             DAILY / WEEKLY / MONTHLY toggle and three figures, then the plot. */}
-        <section style={{ border: "0.5px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
-          <div className="dd-between" style={{ padding: "9px 12px", borderBottom: "0.5px solid var(--line)", gap: 8 }}>
-            <TextLine w={90} px={13} />
-            <TextLine w={190} px={13} />
-            <TextLine w={170} px={13} />
-          </div>
-          <div style={{ padding: "10px 14px 8px", height: 194, display: "flex", alignItems: "flex-end", gap: 3 }}>
-            {DEPTHS.map((d, i) => (
-              <Skeleton key={i} className="flex-1 rounded-t-sm" style={{ height: `${d}%`, opacity: 0.09 }} />
-            ))}
-          </div>
-        </section>
+        <div className="dd-eq-grid">
+          <section style={{ border: "0.5px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+            <div className="dd-between" style={{ padding: "9px 12px", borderBottom: "0.5px solid var(--line)", gap: 8 }}>
+              <TextLine w={90} px={13} />
+              <TextLine w={190} px={13} />
+              <TextLine w={170} px={13} />
+            </div>
+            <div style={{ padding: "10px 14px 8px", height: 194, display: "flex", alignItems: "flex-end", gap: 3 }}>
+              {DEPTHS.map((d, i) => (
+                <Skeleton key={i} className="flex-1 rounded-t-sm" style={{ height: `${d}%`, opacity: 0.09 }} />
+              ))}
+            </div>
+          </section>
+          {/* AND THE SUMMARY CARD BESIDE IT — seven label / value rows. */}
+          <section style={{ border: "0.5px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+            <div className="dd-between" style={{ padding: "9px 12px", borderBottom: "0.5px solid var(--line)" }}>
+              <TextLine w={150} px={13} /><TextLine w={44} px={13} />
+            </div>
+            <div style={{ padding: "8px 12px 10px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {[150, 140, 170, 110, 160, 150, 150].map((w, i) => (
+                <div className="dd-between" key={i}><TextLine w={w} px={13} /><TextLine w={56} px={13} /></div>
+              ))}
+            </div>
+          </section>
+        </div>
         {/* BREAKDOWN TABLE */}
         <section className="dd-card dd-stack">
           <div className="dd-between" style={{ flexWrap: "wrap", gap: 12 }}>

@@ -25,7 +25,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 // The REAL function, not a stand-in: the drawdown sheet now calls it for the shared Analytics
 // chart's light palette, and a check that substituted a placeholder would prove nothing about it.
-import { mpLightCss, EQUITY_CHART_TOKENS } from '../shared/mpTokens';
+import { mpLightCss, DD_PAGE_MP_TOKENS } from '../shared/mpTokens';
 
 let failed = 0;
 let count = 0;
@@ -62,7 +62,7 @@ const LIGHT = lit(tokSrc, 'DD_TOKENS_LIGHT').replace('${ALIASES}', ALIASES);
 const core = lit(here('ddStyles.ts'), 'const DD_CORE')
   .replace('${DD_TOKENS_DARK}', DARK)
   .replace('${DD_TOKENS_LIGHT}', LIGHT)
-  .replace('${mpLightCss(EQUITY_CHART_TOKENS)}', mpLightCss(EQUITY_CHART_TOKENS));
+  .replace('${mpLightCss(DD_PAGE_MP_TOKENS)}', mpLightCss(DD_PAGE_MP_TOKENS));
 const monthDays = lit(here('monthDays.tsx'), 'MONTH_DAYS_CSS');
 const sections = lit(here('ddStyles2.ts'), 'const DD_SECTIONS')
   .replace('${MONTH_DAYS_CSS}', monthDays);
@@ -178,8 +178,8 @@ teeth('...and the LABELLED stacked bar is deliberately left alone',
 teeth('the old KPI card styles went with the cards', !/\.dd-kpi/.test(css));
 check('the header uses the Dashboard card row (six across)',
       /\.dd-g6\{ grid-template-columns:repeat\(6,1fr\)/.test(css), true);
-teeth('the frame is gone: the page spacing lives INSIDE the panel',
-      /\.dp\{[^}]*padding:16px 8px 28px;/.test(css));
+teeth('NO STRIP BESIDE THE SIDEBAR - the sides are 0, exactly as Analytics has them',
+      /\.dp\{[^}]*padding:12px 0 28px;/.test(css));
 
 // ── 6c. THE TIMELINE READS W / L / B ─────────────────────────────────────────
 // His instruction, 2026-11-08: "there is no need to write win , loss and breakeven. Just write W L

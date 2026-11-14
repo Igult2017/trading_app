@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MP_REF } from '@/components/shared/mpTokens';
+import { MONO } from '@/components/shared/mpBits';
 
 /**
  * EquityCurveChart — the Analytics page's EQUITY CURVE, shared.
@@ -24,11 +25,8 @@ import { MP_REF } from '@/components/shared/mpTokens';
  * the light values on its own root; the drawdown page sets them in its stylesheet
  * (`.journal-light .dp`), so this file never needs to know which theme it is in.
  */
-// Every token used below must also be listed in EQUITY_CHART_TOKENS (shared/mpTokens.ts).
+// Every token used below must also be listed in DD_PAGE_MP_TOKENS (shared/mpTokens.ts).
 const D = MP_REF;
-const MONO: React.CSSProperties = {
-  fontFamily: "'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace",
-};
 const H = 160;
 const W = 600;
 type View = 'DAILY' | 'WEEKLY' | 'MONTHLY';

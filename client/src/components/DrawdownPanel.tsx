@@ -6,6 +6,7 @@ import { DrawdownSkeleton } from '@/components/skeletons/DrawdownSkeleton';
 import { ddPanelCss } from '@/components/drawdown/ddStyles2';
 import { DdHeader } from '@/components/drawdown/ddHeader';
 import { EquityCurveChart } from '@/components/shared/EquityCurveChart';
+import { DdSummary } from '@/components/drawdown/ddSummary';
 import { DdBreakdown, type DirKey, type GroupKey } from '@/components/drawdown/ddBreakdown';
 import { DdRiskCards } from '@/components/drawdown/ddRiskCards';
 import { DdLossShare } from '@/components/drawdown/ddLossShare';
@@ -163,7 +164,13 @@ export default function DrawdownPanel({
             ANALYTICS chart in drawdown mode — red below the starting balance, teal above it. */}
         <DdHeader ts={d.topStats ?? {}} intel={intel} />
 
-        <EquityCurveChart mode="drawdown" equityCurve={m.equityCurve ?? []} equityGrowth={m.equityGrowth} />
+        {/* AND ITS SUMMARY BESIDE IT - Analytics' "Period Summary" card, with drawdown in it, which he
+            asked for back on 2026-11-14 after I had left it out. */}
+        <div className="dd-eq-grid">
+          <EquityCurveChart mode="drawdown" equityCurve={m.equityCurve ?? []} equityGrowth={m.equityGrowth} />
+          <DdSummary ts={d.topStats ?? {}} intel={intel} monthly={d.monthly ?? []}
+                     equityCurve={m.equityCurve ?? []} startingBalance={m.equityGrowth?.startingBalance} />
+        </div>
 
         <DdBreakdown intel={intel} dir={dir} group={group} onDir={setDir} onGroup={setGroup} />
 
