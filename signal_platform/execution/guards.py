@@ -131,6 +131,25 @@ def check(symbol: str, direction: str, strategy: str,
                     f"{', '.join(sorted(active - {'all'})) or 'none'}; allowed: "
                     f"{', '.join(sorted(wanted))}")
 
+    # 4c. THE DAY'S HARD STOP — his instruction, 2026-11-14: *"not late hours of New York when the
+    #     market goes quiet which is from 7 pm Kenyan time."* Kenya is UTC+3 all year, so that is
+    #     16:00 UTC, fixed. A session NAME could not express it: London's own close moves an hour
+    #     with British summer time, and his cut-off does not move at all.
+    #
+    #     REFUSES ON A BAD VALUE, like every other guard in this file. A cut-off that cannot be
+    #     read is not a licence to trade all night.
+    cutoff = (settings.autotrade_cutoff_utc or "").strip()
+    if cutoff:
+        try:
+            hh, mm = (int(x) for x in cutoff.split(":", 1))
+            limit = hh * 60 + mm
+        except Exception:
+            return f"autotrade_cutoff_utc is not a HH:MM time ({cutoff!r}) — refusing"
+        now = datetime.now(timezone.utc)
+        if now.hour * 60 + now.minute >= limit:
+            return (f"past the day's cut-off — now {now:%H:%M} UTC, trading stops at {cutoff} UTC "
+                    f"(7pm Kenyan time)")
+
     # 5. SIZE. 0.0 means sizing could not be done honestly. Never guess.
     #
     # THERE ARE NOW THREE WAYS TO GET HERE, and the message names all of them because a refusal that

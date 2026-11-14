@@ -141,6 +141,7 @@ TESTS = [
                                      # setup or no setup — the one message no gate can silence
     "test_open_rule.py",            # his 2026-11-09 STOMACH RULE — REPORTED on the DM,
     "test_open_rule_wiring.py",   # WHERE it is wired: who may
+    "test_market_state_gate.py",   # the market state DECIDES; gold out; 7pm EAT stop
     #                           read it, who may opt out, and that it really refuses
                                     # gating nothing until he approves it. Real 15 Jul bars.
 ]

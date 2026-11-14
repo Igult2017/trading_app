@@ -1,4 +1,16 @@
-# Autotrade is OFF — what that means, and how to turn it back on
+# Autotrade — OFF from 2026-10-05, BACK ON from 2026-11-14
+
+> ⚠ **IT IS ON AGAIN.** His instruction, 2026-11-14: *"enable autotrader and let it only
+> take trades that have qualified all the requirements including Market state and stomach
+> rule. Remove Gold from autotrading. Also let autotrader only take trades in the busy and
+> active hours of London and New York Sessions … from 7 pm Kenyan time."*
+>
+> What changed with it: **gold cannot be auto-traded** (`autotrade_symbols` is now a real
+> list instead of empty, and empty meant *every symbol*); **the day stops at 16:00 UTC**,
+> which is 7pm in Kenya all year (`autotrade_cutoff_utc`, guard rule 4c); and the **market
+> state now refuses a signal outright**, so a CHOP or RANGE market produces nothing to
+> trade in the first place. Everything below still describes what the OFF switch does — it
+> is kept because that is how it gets turned off again.
 
 **Disabled 2026-10-05 on his instruction:** *"Disable autotrade and document how you did it. However,
 the setups recording in autotrade section still remains so that we can use it for investigations. Just

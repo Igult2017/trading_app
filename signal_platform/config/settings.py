@@ -179,7 +179,11 @@ class Settings(BaseSettings):
     # `autotrade_min_stop_spread` WAS HERE — the "a sell's stop must be worth 5x the spread" rule.
     # Deleted 2026-09-26 on his instruction; the reasoning, the measurement and what it cost are in
     # `execution/guards.py` where the rule itself used to live.
-    autotrade_symbols:     str   = ""      # CSV allow-list; empty = every symbol the strategy fires
+    # CSV allow-list. ⚠ EMPTY MEANS EVERY SYMBOL, which is how gold was being autotraded without
+    # ever being named. His instruction, 2026-11-14: *"Remove Gold from autotrading."* XAU/USD is
+    # removed by OMISSION, so the list is also the record of what IS allowed. VIX.1 still SIGNALS
+    # gold and still sends the card — only the placing of an order is refused (`guards` rule 4).
+    autotrade_symbols:     str   = "eur/usd,gbp/usd,gbp/jpy"
     autotrade_strategies:  str   = "vix1"  # CSV of strategy ids allowed to place. VIX.1 only for now
     # WHEN MAY IT TRADE — his instruction, 2026-08-31: *"I want you to make it trade during London
     # and New York Sessions only."* CSV of session names; empty means any session.
@@ -192,6 +196,15 @@ class Settings(BaseSettings):
     # This gates ORDERS ONLY. Signals still fire in every session and still reach Telegram —
     # he asked for autotrade to be restricted, not the strategy.
     autotrade_sessions:    str   = "london,new_york"
+    # THE DAY'S HARD STOP, in UTC. His instruction, 2026-11-14: *"not late hours of New York when
+    # the market goes quiet which is from 7 pm Kenyan time."* Kenya is UTC+3 and never moves its
+    # clocks, so 7pm there is 16:00 UTC every day of the year — which is why this is written in
+    # UTC rather than as a session name. Naming a session would drift against him twice a year.
+    #
+    # THE START NEEDS NOTHING NEW. He asked for "from the Tokyo London overlap", and that overlap
+    # begins the moment London opens (Tokyo runs to 09:00 UTC, London opens 07:00-08:00 UTC), so
+    # `autotrade_sessions` above already sets it. Empty = no cut-off.
+    autotrade_cutoff_utc:  str   = "16:00"
     # AUTO-BREAKEVEN — the platform MOVING a stop on a live position, which is a different act from
     # placing a new order and so gets its own switch. Off by default; nothing is amended until this
     # is set. Demo-only is enforced at runtime the same way autotrade's is.

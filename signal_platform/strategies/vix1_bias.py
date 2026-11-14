@@ -512,7 +512,28 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # it was established by running. Same bar-time reasoning as `_bt`.
         _ri = mstate.bos_index if mstate.bos_index is not None else mstate.direction_since
         _rt = (_base[_ri].time if _ri is not None and 0 <= _ri < len(_base) else None)
-        for veto in (trend_reproven(mstate, at_mc, run_time=_rt),
+        # ── IS THIS EVEN A TREND? (2026-11-14) ────────────────────────────────────
+        # HIS INSTRUCTION: *"the market state is CHOP and the signal is still sent to the channel."*
+        # Until now the regime was printed on the card and never consulted - `vix1_state.py` opens by
+        # admitting it: "THE MARKET STATE IS MEASURED, NOT ENFORCED". `Regime.tradeable` existed the
+        # whole time and nothing read it.
+        #
+        # ⚠ A VETO LIVED IN `vix1_regime` AND WAS DELETED ON 2026-09-08, so this is deliberate and
+        # not a drift back. That one worked out its OWN direction and could call a market a trend
+        # while meaning the opposite way (`vix1_trend.py:126`). THIS reads only the refusing half -
+        # "is it a trend at all" - which cannot approve anything and so cannot reintroduce that.
+        # It does bring back refusals in complex pullbacks, which is the known cost.
+        #
+        # MEASURED BEFORE SHIPPING, GBP/USD H1 sampled every 5 bars over 4,000 through the real
+        # `detect_bias`: of 17 signals, 13 were TREND, 2 RANGE and 2 CHOP - so it refuses 23.5% of
+        # what fires today. Fewer trades is the intent; the number is recorded so a later session
+        # can tell a working gate from one that has started eating everything.
+        #
+        # IT IS READ AT THE MOMENTUM CANDLE (`regime`, assigned above), the same causal moment as
+        # every other check on this path - never as of now, which differed on a third of candles.
+        for veto in (None if regime.tradeable else
+                     f"the market state is {regime.kind.upper()} - {regime.why}",
+                     trend_reproven(mstate, at_mc, run_time=_rt),
                      (None if ignore_count else
                       vix1_retracement.entry_timing(at_mc, 1 if bullish else -1, break_time=_bt)),
                      market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK),
