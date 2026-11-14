@@ -11,30 +11,6 @@ import { DD_CORE_CSS } from '@/components/drawdown/ddStyles';
 import { MONTH_DAYS_CSS } from '@/components/drawdown/monthDays';
 
 const DD_SECTIONS = `
-/* ── SECTION HEADERS + STATUS BADGES ───────────────────────────────────────── */
-.dp .dd-sec-head{
-  display:flex; flex-direction:column; gap:4px; justify-content:space-between;
-  border-bottom:1px solid var(--t-line); padding-bottom:14px;
-}
-@media (min-width:1024px){ .dp .dd-sec-head{ flex-direction:row; align-items:center; } }
-.dp .dd-badges{
-  display:flex; flex-wrap:wrap; align-items:center; gap:8px;
-  font-size:12.5px; font-family:var(--dd-mono);
-}
-.dp .dd-badge{
-  padding:6px 12px; border-radius:4px; display:flex; align-items:center; gap:6px;
-  background:var(--t-line); border:1px solid var(--line-strong);
-}
-.dp .dd-badge-emerald{ background:var(--t-emerald-10); border-color:var(--t-emerald-30); }
-.dp .dd-badge-rose{ background:var(--t-rose-10); border-color:var(--t-rose-40); }
-.dp .dd-badge-accent{ background:var(--t-accent-10); border-color:var(--t-accent-20); }
-.dp .dd-dot{ width:8px; height:8px; border-radius:9999px; background:var(--emerald); }
-/* Respects a reduced-motion preference rather than pulsing regardless. */
-@media (prefers-reduced-motion:no-preference){
-  .dp .dd-dot{ animation:ddpulse 2s cubic-bezier(.4,0,.6,1) infinite; }
-}
-@keyframes ddpulse{ 50%{ opacity:.5; } }
-
 /* ── TABS ───────────────────────────────────────────────────────────────────── */
 .dp .dd-tabs{
   display:flex; align-items:center; gap:4px; flex-wrap:wrap;
@@ -53,27 +29,6 @@ const DD_SECTIONS = `
   background:var(--accent-mid); color:#020617; font-weight:700;
 }
 .dp .dd-tab:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
-
-/* ── CHART ──────────────────────────────────────────────────────────────────── */
-.dp .dd-chart{ height:288px; width:100%; padding-top:8px; position:relative; }
-.dp .dd-chart svg{ display:block; }
-.dp .dd-chart svg text{ font-family:var(--dd-mono); }
-.dp .dd-chart-foot{
-  display:flex; justify-content:space-between; align-items:center; gap:4px; flex-wrap:wrap;
-  font-size:12.5px; color:var(--ink-dim); padding-top:8px; border-top:1px solid var(--t-line);
-}
-.dp .dd-tt{
-  position:absolute; pointer-events:none; z-index:20;
-  background:var(--surface-deep); border:1px solid var(--line-strong);
-  padding:12px; border-radius:4px; box-shadow:0 20px 25px -5px rgba(0,0,0,.4);
-  font-size:12.5px; font-family:var(--dd-mono); white-space:nowrap;
-}
-.dp .dd-tt .tt-h{
-  color:var(--ink-soft); font-weight:700; border-bottom:1px solid var(--line);
-  padding-bottom:4px; margin-bottom:6px; display:flex; justify-content:space-between; gap:16px;
-}
-.dp .dd-tt .tt-r{ display:flex; justify-content:space-between; gap:16px; color:var(--ink-dim); }
-.dp .dd-hit{ fill:transparent; cursor:pointer; }
 
 /* ── TABLES ─────────────────────────────────────────────────────────────────── */
 .dp .dd-twrap{ overflow-x:auto; border-radius:4px; border:1px solid var(--t-line); }
@@ -173,10 +128,6 @@ const DD_SECTIONS = `
    trailing hint - it carries the month's dominant cause, and a faded signal is not one. */
 .dp .dd-mchev{ display:inline-block; font-size:12.5px; flex-shrink:0; transition:transform .15s; }
 .dp .dd-mchev.open{ transform:rotate(90deg); }
-.dp .dd-live{
-  font-size:12.5px; font-weight:800; letter-spacing:.1em; border:1px solid var(--t-blue-20);
-  color:var(--blue); border-radius:9999px; padding:0 5px;
-}
 .dp .dd-empty{ font-size:12.5px; color:var(--ink-dim); }
 ${MONTH_DAYS_CSS}
 `;

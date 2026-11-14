@@ -4,8 +4,8 @@ import { authFetch } from '@/lib/queryClient';
 import { useDelayedLoading } from '@/lib/useDelayedLoading';
 import { DrawdownSkeleton } from '@/components/skeletons/DrawdownSkeleton';
 import { ddPanelCss } from '@/components/drawdown/ddStyles2';
-import { DdKpis } from '@/components/drawdown/ddKpis';
-import { DdProfile } from '@/components/drawdown/ddProfile';
+import { DdHeader } from '@/components/drawdown/ddHeader';
+import { EquityCurveChart } from '@/components/shared/EquityCurveChart';
 import { DdBreakdown, type DirKey, type GroupKey } from '@/components/drawdown/ddBreakdown';
 import { DdRiskCards } from '@/components/drawdown/ddRiskCards';
 import { DdLossShare } from '@/components/drawdown/ddLossShare';
@@ -86,6 +86,26 @@ export default function DrawdownPanel({
     },
   });
 
+  // ── THE CHART'S DATA — THE ANALYTICS PAGE'S OWN CALL, SHARED ────────────────────────
+  // His instruction, 2026-11-14: the chart is the Analytics page's EQUITY CURVE, "made for tracking
+  // drawdown". So it reads what that page reads, under the SAME query key, which means React Query
+  // serves it from cache when Analytics (or the journal's prefetch) has already loaded it, and the two
+  // pages can never draw a different line for the same account.
+  const { data: metricsData } = useQuery<any>({
+    queryKey: ['/api/metrics/compute', sessionId],
+    enabled: !!sessionId,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 4000),
+    queryFn: async () => {
+      const r = await authFetch(`/api/metrics/compute?sessionId=${sessionId}`);
+      if (!r.ok) throw new Error(`${r.status}: ${r.statusText}`);
+      return r.json();
+    },
+  });
+  const m = metricsData?.metrics ?? {};
+
   // ── THE DAY-BY-DAY OUTCOMES BEHIND EACH MONTH ───────────────────────────────────
   // The SAME call the calendar makes, on purpose — same URL, same query key — so React Query serves
   // it from cache when the calendar has already been opened, and the two screens can never disagree
@@ -132,9 +152,6 @@ export default function DrawdownPanel({
   const hasData = !!(result && result.topStats && result.intelligence);
   const d: any = hasData ? result : EMPTY_DRAWDOWN;
   const intel = d.intelligence ?? {};
-  const cur = intel.current ?? {};
-  const series: number[] = intel.series ?? [];
-  const tradeCount = (d.streaks?.timeline ?? []).length;
 
   return (
     <div className="dp" style={dpStyle}>
@@ -142,9 +159,11 @@ export default function DrawdownPanel({
       <div className="dd-stack">
 
 
-        <DdKpis ts={d.topStats ?? {}} series={series} />
+        {/* His 2026-11-14 layout: the DASHBOARD's card row with drawdown numbers, then the
+            ANALYTICS chart in drawdown mode — red below the starting balance, teal above it. */}
+        <DdHeader ts={d.topStats ?? {}} intel={intel} />
 
-        <DdProfile intel={intel} topStats={d.topStats ?? {}} tradeCount={tradeCount} />
+        <EquityCurveChart mode="drawdown" equityCurve={m.equityCurve ?? []} equityGrowth={m.equityGrowth} />
 
         <DdBreakdown intel={intel} dir={dir} group={group} onDir={setDir} onGroup={setGroup} />
 

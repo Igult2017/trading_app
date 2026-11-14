@@ -1,3 +1,4 @@
+import React from "react";
 /**
  * WHAT THE DRAWDOWN PAGE LOOKS LIKE WHILE IT IS STILL ARRIVING.
  *
@@ -10,6 +11,10 @@
  * Sections follow `DrawdownPanel.tsx` top to bottom. The monthly ledger is left out, because the page
  * itself only shows it once there are dated months.
  *
+ * ⚠ REDRAWN 2026-11-14 for the Dashboard-card header and the Analytics chart. It had also kept
+ * drawing the title / brand mark / pickers removed on 2026-11-09 — a ghost of a deleted header that
+ * showed for a second on every load, which is exactly the fault this file exists to prevent.
+ *
  * ⚠ REWRITTEN FOR HIS 2026-11-03 LAYOUT. It was built against the old panel's class names
  * (`.shell`, `.kpis`, `.panel`, `.trip`, `.lg-*`), every one of which went with that design. Left
  * alone it would have drawn the previous page for a second and then jumped — the exact fault it was
@@ -18,11 +23,16 @@
 import { ddPanelCss } from "@/components/drawdown/ddStyles2";
 import { Skeleton } from "./DashboardSkeletons";
 import { TextLine } from "./TextLine";
-/** The underwater profile hangs DOWN from the zero line, so its placeholder bars hang down too — a
- *  solid slab where a chart is coming reads as a broken image. */
+/** Placeholder bars where the chart is coming — a solid slab reads as a broken image. */
 const DEPTHS = [7, 15, 25, 20, 34, 49, 42, 27, 17, 32, 54, 71, 86, 76, 59, 44, 30, 37, 22, 12, 17, 10, 5, 2];
 /** The bars the page fills with a tone colour, drawn in its quietest ink instead. */
 const QUIET = { background: "var(--ink-faint)", opacity: 0.35 };
+/** The Dashboard card's own box (`shared/StatCard`), so the placeholder and the card match. */
+const STAT: React.CSSProperties = {
+  background: "var(--jr-panel,#0d1117)", border: "1px solid var(--jr-border,rgba(255,255,255,0.05))",
+  padding: 12, borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center",
+  justifyContent: "center", gap: 4,
+};
 /** A card title plus its one-line caption. */
 function CardHead({ t, sub }: { t: number; sub?: number }) {
   return (
@@ -41,50 +51,30 @@ export function DrawdownSkeleton({ style }: { style?: React.CSSProperties }) {
     <div className="dp" style={style}>
       <style>{ddPanelCss()}</style>
       <div className="dd-stack">
-        {/* HEADER — brand mark, title, and the two selectors. */}
-        <div className="dd-head">
-          <div className="dd-brand">
-            <Skeleton className="rounded-xl" style={{ width: 40, height: 40, opacity: 0.12 }} />
-            <div><TextLine w={210} px={18} /><TextLine w={160} px={12} /></div>
-          </div>
-          <div className="dd-controls">
-            {[190, 140].map((w, i) => (
-              <div className="dd-ctl" key={i} style={{ height: 34 }}><TextLine w={w} px={12} /></div>
-            ))}
-          </div>
-        </div>
-        {/* FOUR KPI CARDS */}
-        <section className="dd-grid dd-g4">
-          {[96, 104, 122, 124].map((k, i) => (
-            <div className="dd-kpi" key={i}>
-              <div className="dd-kpi-head">
-                <TextLine w={k} px={12} />
-                <Skeleton className="rounded-lg" style={{ width: 32, height: 32, opacity: 0.12 }} />
-              </div>
-              <TextLine w={92} px={30} lh={1.1} />
+        {/* THE SIX DRAWDOWN CARDS — the Dashboard's card (`shared/StatCard`): a caption over one
+            figure, nothing else. The 2026-11-09 header (brand mark, title, two pickers) is NOT
+            drawn: it was removed from the page that day and kept appearing here for a second. */}
+        <section className="dd-grid dd-g6">
+          {[78, 96, 96, 72, 124, 104].map((k, i) => (
+            <div key={i} style={STAT}>
+              <TextLine w={k} px={11} />
+              <TextLine w={64} px={20} lh={1.1} />
             </div>
           ))}
         </section>
-        {/* THE CHART CARD */}
-        <section className="dd-card dd-card-xl dd-stack">
-          <div className="dd-sec-head">
-            <div><TextLine w={300} px={24} /><TextLine w={250} px={12} /></div>
-            <div className="dd-badges">
-              {[120, 130, 160, 120, 90].map((w, i) => (
-                <div className="dd-badge" key={i}><TextLine w={w} px={12} /></div>
-              ))}
-            </div>
+        {/* THE CHART — the Analytics card (`shared/EquityCurveChart`): a strip with the title, the
+            DAILY / WEEKLY / MONTHLY toggle and three figures, then the plot. */}
+        <section style={{ border: "0.5px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+          <div className="dd-between" style={{ padding: "9px 12px", borderBottom: "0.5px solid var(--line)", gap: 8 }}>
+            <TextLine w={90} px={13} />
+            <TextLine w={190} px={13} />
+            <TextLine w={170} px={13} />
           </div>
-          <div className="dd-chart">
-            <div style={{ width: "100%", height: "100%", borderTop: "1px solid var(--line)",
-                          display: "flex", alignItems: "flex-start", gap: 3 }}>
-              {DEPTHS.map((d, i) => (
-                <Skeleton key={i} className="flex-1 rounded-b-sm"
-                          style={{ height: `${d}%`, opacity: 0.09 }} />
-              ))}
-            </div>
+          <div style={{ padding: "10px 14px 8px", height: 194, display: "flex", alignItems: "flex-end", gap: 3 }}>
+            {DEPTHS.map((d, i) => (
+              <Skeleton key={i} className="flex-1 rounded-t-sm" style={{ height: `${d}%`, opacity: 0.09 }} />
+            ))}
           </div>
-          <div className="dd-chart-foot"><TextLine w={250} px={12} /><TextLine w={180} px={12} /></div>
         </section>
         {/* BREAKDOWN TABLE */}
         <section className="dd-card dd-stack">

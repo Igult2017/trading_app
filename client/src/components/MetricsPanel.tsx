@@ -6,6 +6,7 @@ import { useDelayedLoading } from '@/lib/useDelayedLoading';
 import { MetricsSkeleton } from '@/components/skeletons/MetricsSkeleton';
 import { useTranslation } from 'react-i18next';
 import { MP_REF, mpLightVars } from '@/components/shared/mpTokens';
+import { EquityCurveChart } from '@/components/shared/EquityCurveChart';
 
 /* ─────────────────────────────────────────────────────────────────────
    DESIGN TOKENS
@@ -173,128 +174,6 @@ const ScoreRow = ({ label, impact }: { label: string; impact: any[] }) => {
   );
 };
 
-/* ─────────────────────────────────────────────────────────────────────
-   EQUITY CHART  (wiring unchanged, tokens updated)
-───────────────────────────────────────────────────────────────────── */
-const EquityChart = ({ equityCurve, equityGrowth }: { equityCurve: any[]; equityGrowth?: any }) => {
-  const [view, setView] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>('WEEKLY');
-  const H = 160; const W = 600;
-
-  const groupedPoints = (() => {
-    if (!equityCurve || equityCurve.length === 0) return [];
-    if (view === 'DAILY') return equityCurve.map((e: any) => {
-      const d = e.date ? new Date(e.date) : null;
-      const label = (d && !isNaN(d.getTime()))
-        ? d.toLocaleString('default', { month: 'short', day: 'numeric' })
-        : `#${e.tradeNumber}`;
-      return { ...e, _label: label };
-    });
-    const buckets = new Map<string, any>();
-    for (const e of equityCurve) {
-      const d = e.date ? new Date(e.date) : null;
-      let key: string; let label: string;
-      if (!d || isNaN(d.getTime())) { key = `t${e.tradeNumber}`; label = `#${e.tradeNumber}`; }
-      else if (view === 'WEEKLY') {
-        const jan1 = new Date(d.getFullYear(), 0, 1);
-        const week = Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
-        key = `${d.getFullYear()}-W${week}`; label = `W${week}`;
-      } else {
-        key = `${d.getFullYear()}-${d.getMonth()}`;
-        label = d.toLocaleString('default', { month: 'short' });
-      }
-      buckets.set(key, { ...e, _label: label });
-    }
-    return Array.from(buckets.values());
-  })();
-
-  const buildPts = (): [number, number][] => {
-    if (groupedPoints.length === 0) return [[0, H / 2], [W, H / 2]];
-    const vals = groupedPoints.map((e: any) => e.cumulativePL);
-    const minV = Math.min(...vals); const maxV = Math.max(...vals); const range = maxV - minV || 1;
-    return groupedPoints.map((e: any, i: number) => {
-      const x = groupedPoints.length > 1 ? (i / (groupedPoints.length - 1)) * W : W / 2;
-      const y = H - ((e.cumulativePL - minV) / range) * H * 0.85 - H * 0.075;
-      return [x, Math.max(0, Math.min(H, y))];
-    });
-  };
-  const pts  = buildPts();
-  const path = pts.reduce((a: string, [x, y]: [number, number], i: number) => {
-    if (i === 0) return `M${x},${y}`;
-    const [px, py] = pts[i - 1]; const cx = px + (x - px) / 2;
-    return `${a} C${cx},${py} ${cx},${y} ${x},${y}`;
-  }, '');
-  const fill = `${path} L${pts[pts.length - 1][0]},${H} L0,${H} Z`;
-  const last = pts[pts.length - 1];
-  const labs = (() => {
-    if (groupedPoints.length === 0) return ['--'];
-    const step = Math.max(1, Math.floor(groupedPoints.length / 5));
-    return groupedPoints
-      .filter((_: any, i: number) => i % step === 0 || i === groupedPoints.length - 1)
-      .map((e: any) => e._label ?? `#${e.tradeNumber}`);
-  })();
-  const yLabels = (() => {
-    if (groupedPoints.length === 0) return ['--', '--', '--', '--'];
-    const vals = groupedPoints.map((e: any) => e.cumulativePL);
-    const maxV = Math.max(...vals); const minV = Math.min(...vals); const range = maxV - minV || 1;
-    return [maxV, maxV - range * 0.33, maxV - range * 0.66, minV].map(v =>
-      v >= 1000 || v <= -1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`
-    );
-  })();
-  const balance  = equityGrowth?.currentBalance ?? 0;
-  const startBal = equityGrowth?.startingBalance ?? 0;
-  const retPct   = equityGrowth?.totalReturnPct  ?? 0;
-  const totalPL2 = equityGrowth?.totalPL ?? 0;
-  const isPos2   = totalPL2 >= 0;
-  const fmtBal   = (v: number) => v ? `$${v.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '--';
-
-  return (
-    <div style={{ background: D.bg3, border: `0.5px solid ${D.bdInner}`, borderRadius: 10, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '9px 12px', borderBottom: `0.5px solid ${D.bdInner}`, background: D.bg4 }}>
-        <span style={{ ...MONO, fontSize: 13.5, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>Equity Curve</span>
-        <div style={{ display: 'flex', gap: 2 }}>
-          {(['DAILY', 'WEEKLY', 'MONTHLY'] as const).map(v => (
-            <button key={v} onClick={() => setView(v)} style={{ ...MONO, fontSize: 12.5, letterSpacing: '0.1em', textTransform: 'uppercase' as const, padding: '2px 8px', border: `0.5px solid ${view === v ? D.cyan : D.bdInner}`, background: view === v ? `${D.cyan}18` : 'transparent', color: view === v ? D.cyan : D.label, cursor: 'pointer', outline: 'none', borderRadius: 4 }}>
-              {v}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 16 }}>
-          {([['Balance', fmtBal(balance), isPos2 ? D.green : D.red], ['Return', retPct ? `${retPct >= 0 ? '+' : ''}${retPct.toFixed(2)}%` : '--', isPos2 ? D.green : D.red], ['Start', fmtBal(startBal), D.text]] as [string, string, string][]).map(([l, v, c], i) => (
-            <div key={i} style={{ textAlign: 'right' as const }}>
-              <div style={{ ...MONO, fontSize: 12, color: D.dim, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 1 }}>{l}</div>
-              <span style={{ ...MONO, fontSize: 13.5, fontWeight: 600, color: c }}>{v}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div style={{ padding: '10px 14px 8px' }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingRight: 6, paddingBottom: 18 }}>
-            {yLabels.map((l, i) => <span key={i} style={{ ...MONO, fontSize: 12, color: D.dim }}>{l}</span>)}
-          </div>
-          <div style={{ flex: 1 }}>
-            <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="mp-eq-grad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={D.cyan} stopOpacity="0.16" />
-                  <stop offset="100%" stopColor={D.cyan} stopOpacity="0.01" />
-                </linearGradient>
-              </defs>
-              {[0, 0.33, 0.66, 1].map((p, i) => <line key={i} x1="0" y1={p * H} x2={W} y2={p * H} stroke={D.bdRow} strokeWidth="0.5" />)}
-              <path d={fill} fill="url(#mp-eq-grad)" />
-              <path d={path} fill="none" stroke={D.cyan} strokeWidth="1.5" />
-              <circle cx={last[0]} cy={last[1]} r="4" fill={D.bg3} stroke={D.cyan} strokeWidth="1.5" />
-              <circle cx={last[0]} cy={last[1]} r="1.5" fill={D.cyan} />
-            </svg>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-              {labs.map((l: string, i: number) => <span key={i} style={{ ...MONO, fontSize: 12, color: D.dim }}>{l}</span>)}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 /* ═════════════════════════════════════════════════════════════════════
    MAIN EXPORT
@@ -1120,7 +999,7 @@ export default function MetricsPanel({ sessionId, darkMode = true }: { sessionId
         {/* ─── EQUITY CURVE ─── */}
         <SectionDivider label="Equity Curve · Period Summary" />
         <div className="mp-eq-grid">
-          <EquityChart equityCurve={equityCurve} equityGrowth={equityGrowth} />
+          <EquityCurveChart equityCurve={equityCurve} equityGrowth={equityGrowth} />
           <Panel title="Period Summary" badge="Performance" badgeColor="cyan">
             <DR label="Total P/L"     value={fmtPL(totalPL)}             vc={isPos ? D.green : D.red} />
             <DR label="Win Rate"      value={fmtPct(winRate)}             vc={winRate >= 50 ? D.green : D.red} />

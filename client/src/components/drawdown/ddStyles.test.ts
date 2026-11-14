@@ -23,6 +23,9 @@
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
+// The REAL function, not a stand-in: the drawdown sheet now calls it for the shared Analytics
+// chart's light palette, and a check that substituted a placeholder would prove nothing about it.
+import { mpLightCss, EQUITY_CHART_TOKENS } from '../shared/mpTokens';
 
 let failed = 0;
 let count = 0;
@@ -58,7 +61,8 @@ const DARK = lit(tokSrc, 'DD_TOKENS_DARK').replace('${ALIASES}', ALIASES);
 const LIGHT = lit(tokSrc, 'DD_TOKENS_LIGHT').replace('${ALIASES}', ALIASES);
 const core = lit(here('ddStyles.ts'), 'const DD_CORE')
   .replace('${DD_TOKENS_DARK}', DARK)
-  .replace('${DD_TOKENS_LIGHT}', LIGHT);
+  .replace('${DD_TOKENS_LIGHT}', LIGHT)
+  .replace('${mpLightCss(EQUITY_CHART_TOKENS)}', mpLightCss(EQUITY_CHART_TOKENS));
 const monthDays = lit(here('monthDays.tsx'), 'MONTH_DAYS_CSS');
 const sections = lit(here('ddStyles2.ts'), 'const DD_SECTIONS')
   .replace('${MONTH_DAYS_CSS}', monthDays);
@@ -169,8 +173,13 @@ check('the progress bar is the audit page size, 3px with a 1px corner',
       /\.dd-track\{[^}]*height:3px; border-radius:1px/.test(css), true);
 teeth('...and the LABELLED stacked bar is deliberately left alone',
       /\.dd-bigbar\{[\s\S]{0,120}height:20px/.test(css));
-check('the big KPI figure he ticked came down to 22px',
-      /\.dd-kpi-num\{[\s\S]{0,400}font-size:22px;/.test(css), true);
+// THE OLD FOUR KPI CARDS ARE GONE (2026-11-14) and the six that replaced them are the DASHBOARD'S
+// own card, so the 22px figure this used to pin now lives in shared/StatCard, not in this sheet.
+teeth('the old KPI card styles went with the cards', !/\.dd-kpi/.test(css));
+check('the header uses the Dashboard card row (six across)',
+      /\.dd-g6\{ grid-template-columns:repeat\(6,1fr\)/.test(css), true);
+teeth('the frame is gone: the page spacing lives INSIDE the panel',
+      /\.dp\{[^}]*padding:16px 8px 28px;/.test(css));
 
 // ── 6c. THE TIMELINE READS W / L / B ─────────────────────────────────────────
 // His instruction, 2026-11-08: "there is no need to write win , loss and breakeven. Just write W L

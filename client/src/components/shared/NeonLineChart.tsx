@@ -3,17 +3,18 @@ import React from 'react';
 /**
  * NeonLineChart — the glowing violet line chart.
  *
- * ⚠ IT LIVED INSIDE `pages/Journal.tsx` UNTIL 2026-11-10 and was moved here, not copied, when he
- * asked for the drawdown page's chart to look the same: *"Image three is the type of graph i want
- * you to use in drawdown page to replace the under the water graph."* Two copies of a chart is how
- * one gets a fix and the other keeps the bug.
+ * THE JOURNAL'S EQUITY CURVE, and its only user. It lived inside `pages/Journal.tsx` until
+ * 2026-11-10, when it moved here so the drawdown page could share it; on 2026-11-14 he moved the
+ * drawdown page to the ANALYTICS chart instead (`shared/EquityCurveChart.tsx`), so the options that
+ * existed only for that second user — a percentage axis, a wider gutter, another font, an accessible
+ * label — were removed rather than left as settings nothing sets.
  *
  * ⚠ THE AXIS LABELS ARE HTML, NOT SVG TEXT, AND THAT IS THE WHOLE POINT OF THIS LAYOUT.
  * He sent a screenshot with the numbers circled: *"The numbers look zoomed and chaotically
  * placed."* He was right, and there were three separate faults behind it:
  *
  *   1. STRETCHED GLYPHS. The drawing is a fixed 600x240 box squashed to fit its container with
- *      `preserveAspectRatio="none"`. On the drawdown panel that container is about 1180x288, so
+ *      `preserveAspectRatio="none"`. On a wide panel that container is about 1180x288, so
  *      everything was stretched ~1.97x across and only ~1.20x down — text included, which is why
  *      the digits looked fat and zoomed. Shapes SHOULD stretch; letters must never. So the shapes
  *      stay in the SVG and every label moved out into ordinary HTML, which cannot be distorted.
@@ -25,7 +26,7 @@ import React from 'react';
  *      so half of it hung outside. The labels now live in their own gutter and strip, and the
  *      first and last are anchored inwards instead of centred.
  */
-export function catmullRomPath(pts: { x: number; y: number }[]) {
+function catmullRomPath(pts: { x: number; y: number }[]) {
   if (pts.length < 2) return '';
   let d = `M ${pts[0].x} ${pts[0].y}`;
   for (let i = 0; i < pts.length - 1; i++) {
@@ -47,22 +48,12 @@ const LABEL: React.CSSProperties = {
   color: 'var(--jr-cap,#A8AEB8)', whiteSpace: 'nowrap', pointerEvents: 'none',
 };
 
-export const NeonLineChart = ({
-  data,
-  fmtY = fmtMoney,
-  padLeft = 44,
-  labelFont = 'Montserrat,sans-serif',
-  ariaLabel,
-}: {
-  data: { label: string; pnl: number }[];
-  fmtY?: (v: number) => string;
-  /** Room for the numbers down the left, in REAL pixels. A percentage like "-12.34%" needs more
-   *  than a bare number, and a label wider than its gutter is CLIPPED — the minus sign goes first,
-   *  which turns a loss into what reads as a gain. */
-  padLeft?: number;
-  labelFont?: string;
-  ariaLabel?: string;
-}) => {
+/** Room for the numbers down the left, in REAL pixels. A label wider than its gutter is CLIPPED —
+ *  the minus sign goes first, which turns a loss into what reads as a gain. */
+const PAD_L = 44;
+const LABEL_FONT = 'Montserrat,sans-serif';
+
+export const NeonLineChart = ({ data }: { data: { label: string; pnl: number }[] }) => {
   const PAD_B = 22;                       // the strip along the bottom that holds the trade numbers
   const W = 600, H = 240;                 // the drawing's own units; it stretches to fill the plot
   const vals = data.map((d) => d.pnl);
@@ -78,24 +69,24 @@ export const NeonLineChart = ({
     : [0, Math.floor(data.length * .2), Math.floor(data.length * .4), Math.floor(data.length * .6), Math.floor(data.length * .8), data.length - 1];
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', fontFamily: labelFont }}
-         role="img" aria-label={ariaLabel}>
+    <div style={{ position: 'relative', width: '100%', height: '100%', fontFamily: LABEL_FONT }}
+         role="img" aria-label="Equity curve">
 
       {/* The numbers down the left, in their own gutter so they can never sit on the drawing.
           The top and bottom ones are anchored INWARDS: centring them would push half of each
           outside the box, which is how the lowest number ended up printed over "Start". */}
       {TICKS.map((t, i) => (
-        <span key={i} style={{ ...LABEL, left: 0, width: padLeft - 8, textAlign: 'right',
+        <span key={i} style={{ ...LABEL, left: 0, width: PAD_L - 8, textAlign: 'right',
                                top: `calc((100% - ${PAD_B}px) * ${(1 - t).toFixed(4)})`,
                                transform: i === 0 ? 'none'
                                  : i === TICKS.length - 1 ? 'translateY(-100%)'
                                  : 'translateY(-50%)' }}>
-          {fmtY(minV + t * range)}
+          {fmtMoney(minV + t * range)}
         </span>
       ))}
 
       {/* the drawing itself — shapes only, and these are MEANT to stretch */}
-      <div style={{ position: 'absolute', left: padLeft, right: 0, top: 0, bottom: PAD_B }}>
+      <div style={{ position: 'absolute', left: PAD_L, right: 0, top: 0, bottom: PAD_B }}>
         <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" preserveAspectRatio="none"
              style={{ display: 'block' }} aria-hidden="true" focusable="false">
           <defs>
@@ -129,7 +120,7 @@ export const NeonLineChart = ({
       </div>
 
       {/* the trade numbers along the bottom; the two on the ends turn inwards so they stay on the page */}
-      <div style={{ position: 'absolute', left: padLeft, right: 0, bottom: 0, height: PAD_B }}>
+      <div style={{ position: 'absolute', left: PAD_L, right: 0, bottom: 0, height: PAD_B }}>
         {labelIdxs.map((i) => {
           const pct = data.length === 1 ? 0 : (i / (data.length - 1)) * 100;
           const first = i === 0, lastOne = i === data.length - 1;

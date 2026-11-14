@@ -20,6 +20,7 @@
  * mid-rule, and the build stays green while the page loses its styling at runtime.
  */
 import { DD_TOKENS_DARK, DD_TOKENS_LIGHT } from '@/components/drawdown/ddTokens';
+import { mpLightCss, EQUITY_CHART_TOKENS } from '@/components/shared/mpTokens';
 
 const DD_CORE = `
 .dp{
@@ -38,9 +39,17 @@ const DD_CORE = `
   /* Keeps numeric columns from going ragged; faces without the feature just ignore it. */
   font-variant-numeric:tabular-nums;
   min-height:100%; -webkit-font-smoothing:antialiased;
-  padding-bottom:28px;
+  /* THE PAGE'S SPACING LIVES IN HERE, 2026-11-14. It used to be the journal's padding around the
+     panel (14px top, 6px left), painted #0d1117 against this panel's #0A0D14 - a visible frame
+     along the top and the sidebar edge, which he marked and asked to be removed. Inside the
+     panel it is painted the panel's own colour, so the cards keep their room and there is no frame. */
+  padding:16px 8px 28px;
 }
-.journal-light .dp{ ${DD_TOKENS_LIGHT} }
+/* THE ANALYTICS CHART'S LIGHT PALETTE. That chart (shared/EquityCurveChart) colours itself from
+   --mp-* variables; Analytics sets them on its own root, and on this page they are set here - ONLY
+   the eleven it draws with, because the full palette carries Analytics' chip colours too, and no yellow
+   comes onto this page. */
+.journal-light .dp{ ${DD_TOKENS_LIGHT} ${mpLightCss(EQUITY_CHART_TOKENS)} }
 
 .dp *{ box-sizing:border-box; }
 .dp ::selection{ background:var(--t-accent-30); color:var(--accent-soft); }
@@ -52,17 +61,21 @@ const DD_CORE = `
    would have answered half the ask. The audit page he pointed at uses 3. */
 .dp .dd-stack > * + *{ margin-top:4px; }
 .dp .dd-grid{ display:grid; gap:4px; }
-.dp .dd-g4,.dp .dd-g5,.dp .dd-g3,.dp .dd-g2{ grid-template-columns:repeat(1,1fr); }
+.dp .dd-g3,.dp .dd-g2{ grid-template-columns:repeat(1,1fr); }
+/* THE DASHBOARD'S ROW for the six headline cards, 2026-11-14: two on a phone, three below 900px,
+   six above - the same steps Journal.tsx gives the Dashboard's own cards. */
+.dp .dd-g6{ grid-template-columns:repeat(2,1fr); }
 @media (min-width:640px){
-  .dp .dd-g4,.dp .dd-g5{ grid-template-columns:repeat(2,1fr); }
+  .dp .dd-g6{ grid-template-columns:repeat(3,1fr); }
 }
 @media (min-width:768px){
   .dp .dd-g2{ grid-template-columns:repeat(2,1fr); }
 }
+@media (min-width:900px){
+  .dp .dd-g6{ grid-template-columns:repeat(6,1fr); }
+}
 @media (min-width:1024px){
-  .dp .dd-g4{ grid-template-columns:repeat(4,1fr); }
   .dp .dd-g3{ grid-template-columns:repeat(3,1fr); }
-  .dp .dd-g5{ grid-template-columns:repeat(5,1fr); }
 }
 
 /* ── SURFACES ───────────────────────────────────────────────────────────────── */
@@ -70,8 +83,6 @@ const DD_CORE = `
   background:var(--t-card); border:1px solid var(--t-line); border-radius:4px;
   padding:20px;
 }
-.dp .dd-card-xl{ box-shadow:0 20px 25px -5px rgba(0,0,0,0.30); position:relative; }
-.journal-light .dp .dd-card-xl{ box-shadow:0 4px 12px -4px rgba(15,23,42,0.10); }
 .dp .dd-inner{
   background:var(--t-inner); border:1px solid var(--t-line);
   padding:12px; border-radius:3px;
@@ -96,27 +107,6 @@ const DD_CORE = `
 .dp .dd-muted{ font-size:12.5px; color:var(--ink-dim); margin:0; }
 .dp .dd-mono{ font-family:var(--dd-mono); } .dp .dd-serif{ font-family:var(--dd-serif); font-weight:var(--dd-serif-w); }
 
-/* ── HEADER (the mock-up's nav, re-cast as an ordinary panel header) ────────── */
-.dp .dd-head{
-  display:flex; flex-direction:column; gap:12px; justify-content:space-between;
-  padding-bottom:14px; border-bottom:1px solid var(--t-line);
-}
-@media (min-width:768px){ .dp .dd-head{ flex-direction:row; align-items:center; } }
-.dp .dd-brand{ display:flex; align-items:center; gap:12px; }
-.dp .dd-controls{ display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
-.dp .dd-ctl{
-  display:flex; align-items:center; gap:8px;
-  background:var(--surface); border:1px solid var(--line); border-radius:4px;
-  padding:4px 10px; font-size:12.5px; color:var(--ink-soft);
-}
-.dp .dd-ctl select{
-  background:transparent; color:var(--ink-soft); font-weight:500;
-  border:none; outline:none; cursor:pointer; padding:5px 4px;
-  font-family:var(--dd-sans); font-size:12.5px; max-width:min(60vw,22rem);
-}
-.dp .dd-ctl select option{ background:var(--surface); color:var(--ink); }
-.dp .dd-ctl select:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
-
 /* ── PILLS (ddMonthly's LIVE marker — the banner that also used these is gone) ─ */
 .dp .dd-pill{
   font-size:12.5px; font-family:var(--dd-mono); font-weight:700;
@@ -124,37 +114,13 @@ const DD_CORE = `
 }
 .dp .dd-pill-emerald{ background:var(--t-emerald-20); color:var(--emerald); border:1px solid var(--t-emerald-30); }
 
-/* ── KPI CARDS ──────────────────────────────────────────────────────────────── */
-.dp .dd-kpi{
-  background:var(--t-card); border:1px solid var(--t-line); border-radius:4px;
-  padding:16px; transition:background .3s,border-color .3s; position:relative; overflow:hidden;
-}
-.dp .dd-kpi:hover{ background:var(--t-card-hi); border-color:var(--line-strong); }
-.dp .dd-kpi-head{
-  display:flex; align-items:center; justify-content:space-between;
-  color:var(--ink-dim); margin-bottom:8px; gap:8px;
-}
-.dp .dd-kpi-label{ font-size:12.5px; font-weight:500; text-transform:uppercase; letter-spacing:.05em; }
-.dp .dd-kpi-val{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
-.dp .dd-kpi-num{
-  /* 30->22px AND weight 400->600, 2026-11-08: he ticked -0.46%. 400 is the hairline cut that
-     vanishes in this face; his own fix was always the weight axis, never a smaller size alone. */
-  font-size:22px; font-weight:var(--dd-serif-w); font-family:var(--dd-serif);
-  color:var(--ink-strong); letter-spacing:-0.01em;
-}
-.dp .dd-kpi-chip{ font-size:12.5px; font-family:var(--dd-mono); padding:2px 6px; border-radius:4px; }
-.dp .chip-rose{ color:var(--rose); background:var(--t-rose-10); }
-.dp .chip-accent{ color:var(--accent); background:var(--t-accent-10); }
-.dp .chip-emerald{ color:var(--emerald); background:var(--t-emerald-10); }
-.dp .chip-slate{ color:var(--ink-dim); background:var(--t-line); }
-
 /* ── COLOUR + WEIGHT UTILITIES (his class names, mapped onto the tokens) ────── */
 .dp .c-strong{ color:var(--ink-strong); } .dp .c-ink{ color:var(--ink); }
 .dp .c-soft{ color:var(--ink-soft); } .dp .c-dim{ color:var(--ink-dim); }
 .dp .c-faint{ color:var(--ink-faint); } .dp .c-accent{ color:var(--accent); }
 .dp .c-accent-soft{ color:var(--accent-soft); } .dp .c-emerald{ color:var(--emerald); }
-.dp .c-rose{ color:var(--rose); } .dp .c-rose-mid{ color:var(--rose-mid); } .dp .c-blue{ color:var(--blue); }
-.dp .fw-bold{ font-weight:700; } .dp .fw-semi{ font-weight:600; } .dp .fw-med{ font-weight:500; }
+.dp .c-rose{ color:var(--rose); } .dp .c-rose-mid{ color:var(--rose-mid); }
+.dp .fw-bold{ font-weight:700; } .dp .fw-semi{ font-weight:600; }
 /* ⚠ THE WHOLE SCALE IS THE AUDIT PAGE'S, 2026-11-09. It runs 12.5 for almost everything (77 uses),
    then 13, 14, 17 and 22 - and nothing below 12.5. This page used to go down to 10px, so the three
    small steps all collapse onto 12.5. That RAISES the smallest text, which is a bonus rather than a

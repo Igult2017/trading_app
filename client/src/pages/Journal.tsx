@@ -31,6 +31,7 @@ import AssetPage from '@/pages/AssetPage';
 import Leaderboard from '@/components/Leaderboard';
 import { useJournalSettings, THEMES, FONTS } from '@/hooks/useJournalSettings';
 import { NeonLineChart } from '@/components/shared/NeonLineChart';
+import { StatCard } from '@/components/shared/StatCard';
 
 const SI = {
   Dashboard: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12 8.5 8.5" strokeWidth="2"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><path d="M6.5 17.5a7 7 0 0 1 0-11" strokeWidth="1.4" opacity="0.4"/><path d="M17.5 17.5a7 7 0 0 0 0-11" strokeWidth="1.4" opacity="0.4"/><line x1="12" y1="3" x2="12" y2="4.5" strokeWidth="1.4"/><line x1="3" y1="12" x2="4.5" y2="12" strokeWidth="1.4"/><line x1="21" y1="12" x2="19.5" y2="12" strokeWidth="1.4"/><line x1="6.2" y1="6.2" x2="7.2" y2="7.2" strokeWidth="1.4"/><line x1="17.8" y1="6.2" x2="16.8" y2="7.2" strokeWidth="1.4"/></svg>,
@@ -227,13 +228,6 @@ const KPI_ICONS = {
   AvgTrade: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
 };
 
-const StatCard = ({ stat }: { stat: { id: string; label: string; value: string; Icon: () => JSX.Element; color: string; bg: string } }) => (
-  <div style={{ background: 'var(--jr-panel,#0d1117)', border: '1px solid var(--jr-border,rgba(255,255,255,0.05))', padding: 12, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }} data-testid={`stat-${stat.id}`}>
-    <p className="jr-cap" style={{ margin: 0, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{stat.label}</p>
-    {/* Playfair, and BIGGER because of it — see the .jr-fig rule for why the two go together. */}
-    <p className="jr-fig" style={{ fontSize: 20, fontWeight: 700, color: stat.color, margin: 0 }}>{stat.value}</p>
-  </div>
-);
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1388,7 +1382,7 @@ export default function Journal() {
         ['--jr-ink' as any]: T.dark ? '#ECEEF2' : T.text, ['--jr-divider' as any]: T.dark ? 'rgba(255,255,255,0.04)' : T.border, ['--jr-accent' as any]: T.accent }}>
         <Sidebar activeNav={activeNav} setActiveNav={setActiveNav} open={isMobile ? mobileOpen : sidebarOpen} isMobile={isMobile} onClose={()=>setMobileOpen(false)} darkMode={T.dark} sidebarBg={T.sidebarBg} accentColor={T.accent} />
 
-        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? (activeNav === 'sync' ? '0 0 32px' : '10px 10px 32px') : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '14px 0 0' : activeNav === 'metrics' ? '0' : activeNav === 'drawdown' ? '14px 0 0 6px' : activeNav === 'tfmetrics' ? '14px 0 0 6px' : activeNav === 'sync' ? '0' : activeNav === 'accounts' ? '14px 0 0 6px' : activeNav === 'addaccount' ? '14px 0 0 6px' : activeNav === 'vault' ? '14px 0 0 6px' : activeNav === 'strategy' ? '14px 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : activeNav === 'fsdai' ? '14px 0 0' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? (T.dark ? '#0d0f0e' : T.bg) : activeNav === 'metrics' ? (T.dark ? '#0d1117' : T.bg) : activeNav === 'drawdown' ? (T.dark ? '#0d1117' : T.bg) : T.bg }}>
+        <main style={{ flex:1, overflowY:'auto', padding: isMobile ? (activeNav === 'sync' ? '0 0 32px' : '10px 10px 32px') : activeNav === 'dashboard' ? '14px 16px 32px' : activeNav === 'journal' ? '14px 0 0' : activeNav === 'metrics' ? '0' : activeNav === 'drawdown' ? '0' : activeNav === 'tfmetrics' ? '14px 0 0 6px' : activeNav === 'sync' ? '0' : activeNav === 'accounts' ? '14px 0 0 6px' : activeNav === 'addaccount' ? '14px 0 0 6px' : activeNav === 'vault' ? '14px 0 0 6px' : activeNav === 'strategy' ? '14px 0 0 6px' : activeNav === 'leaderboard' ? '0 0 0 6px' : activeNav === 'fsdai' ? '14px 0 0' : '14px 8px 32px', minWidth:0, background: activeNav === 'journal' ? (T.dark ? '#0d0f0e' : T.bg) : activeNav === 'metrics' ? (T.dark ? '#0d1117' : T.bg) : activeNav === 'drawdown' ? (T.dark ? '#0d1117' : T.bg) : T.bg }}>
 
           {activeNav === 'metrics' ? (
             <MetricsPanel sessionId={activeSessionId ?? undefined} darkMode={T.dark} />
@@ -1416,10 +1410,10 @@ export default function Journal() {
           ) : activeNav === 'tfmetrics' ? (
             <TFMetricsPanel sessionId={activeSessionId ?? undefined} />
           ) : activeNav === 'drawdown' ? (
-            /* `sessions` + the setter feed the account selector his 2026-11-03 design added at the
-               top of the panel. It calls setActiveSessionId directly rather than
-               handleSelectSession, because that helper also jumps to the dashboard — which would
-               throw you off the drawdown page the moment you switched account. */
+            /* The account comes from the journal (`activeSessionId`); the panel's own account and
+               period pickers were removed on his 2026-11-09 instruction. Its <main> has NO padding
+               (2026-11-14): the 14px/6px used to show as a frame of #0d1117 around a panel painted
+               #0A0D14, so the spacing now lives inside the panel, in its own colour. */
             <DrawdownPanel sessionId={activeSessionId ?? undefined}
                            dispFont={F.stack} bodyFont={F.bodyStack ?? F.stack} />
           ) : activeNav === 'fsdai' ? (
