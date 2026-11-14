@@ -326,10 +326,15 @@ is being changed — `monitor.trade_watcher` imports neither `vix1_bias` nor `vi
 **The fix when someone gets to it:** assert against a tolerance rather than the exact timeout, e.g.
 `quiet >= 0.045`. Not done here because it is outside the change that found it.
 
-### B2 — The 1-minute entry is mid-rebuild
-**Carried.** Do not design it and do not patch the old one — his rules are pending. The audit is in
-the VIX.1 docs, including: the stop-level search blocks every entry for ~8 minutes after a momentum
-candle, and the fall-back path is unreachable.
+### B2 — ~~The 1-minute entry is mid-rebuild~~ DONE 20 Aug — this entry was stale until 14 Nov
+**The rebuild SHIPPED the same day it was opened** — commit `9fd34632`, *"rebuild the 1M entry —
+the cross, one candle, one tick beyond the reach"*, built to his rules: *"Everything has been settled
+in 1HR, in 1 min we are only looking for entries."* Both audit defects went with the old code: the
+stop no longer hunts 1M swing points (`vix1_roi` is deleted), so the ~8-minute block after every
+momentum candle and the unreachable fall-back no longer exist. Refined since: 21 Aug spread as a
+trading input; 21 Aug forming candle from held minutes; 02 Sep level from where price is NOW; 19 Sep
+no order on a setup whose stop was already traded through; 08 Nov wider stops from his own trades.
+**Found stale on 14 Nov** when he asked whether the new entry was built and this list said "pending".
 
 ---
 
