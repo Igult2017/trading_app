@@ -1422,6 +1422,38 @@ real fill, and it has never run. **Nothing here says the strategy is worth armin
 
 ## C. The web app
 
+### C18 — 2 CRITICAL library weaknesses kept on purpose: the Telegram library (found 15 Nov) — HIS DECISION: DOCUMENT, DO NOT FIX
+**What:** `npm audit` flags `request` (can be tricked into fetching addresses it should not — SSRF)
+and `form-data` (weak random boundary). Both reach the app ONLY through `node-telegram-bot-api` 0.66,
+which `server/services/telegramNotification.ts` uses for the channel's news and trading-session
+alerts and the subscriber commands /start /stop /resume /status (lines 144-233).
+**His words, 2026-11-15:** *"Just document it."* He chose this over A (upgrade to the 2.x rewrite,
+weeks old) and B (replace the library with direct calls to Telegram, 6 functions, ~100 lines;
+recommended). Do not re-propose it as new; it is a decision.
+**Why the risk is low today (verified 15 Nov):** the bot only ever calls `api.telegram.org`, never an
+address a user supplies, and the boundary weakness needs an attacker who can read the server's random
+numbers.
+**If it is ever done:** B is recommended. Test on a separate bot + private chat first; the token goes in
+a protected server setting, never in chat. Full write-up: `docs/security/2026-11-15-settings-privacy.md`.
+
+### C19 — No Content-Security-Policy on the live site, and a comment that says otherwise (found 15 Nov)
+**What:** the ZAP passive scan (MEDIUM, 11 pages, plus one directive with no fallback on `/assets`)
+found no Content-Security-Policy header, which tells the browser which outside sources may run code
+on the page. `server/lib/appSetup.ts:49` switches Helmet's policy OFF with the comment *"CSP managed
+separately"*. Nothing else sets one, so that comment is not true.
+**Why not fixed:** a wrong policy blocks the app's own scripts, fonts, sign-in (Supabase) or price
+feeds on the live site. It needs an inventory of every outside source first.
+**Next step:** inventory the origins, ship `Content-Security-Policy-Report-Only`, watch for a week,
+then enforce. Correct the appSetup comment in the same change.
+
+### C20 — 8 moderate library weaknesses with no same-major fix (found 15 Nov)
+**What:** after the 15 Nov fixes (`npm audit --omit=dev` went from 4 critical / 12 high / 13 moderate
+to 2 critical (C18) / 0 high / 8 moderate), 8 moderates remain, all transitive with no fix inside
+their current major version. None is on a request path changed that day.
+**Next step:** recheck at the next dependency pass (`npm audit --omit=dev`).
+⚠ **Trap:** `npm audit fix --omit=dev` deletes the LOCAL dev tools (vite, esbuild, tsx) while leaving
+the lockfile intact. Run `npm install` straight after it.
+
 ### C8 - ~~Log-in and log-out were slow~~ FIXED 15 Sep
 **His question:** *"Why is the logout and log in too slow. Can you audit them please and plan a fix if we
 have anything to fix."*
