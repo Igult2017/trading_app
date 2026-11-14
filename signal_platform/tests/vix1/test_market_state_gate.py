@@ -24,6 +24,7 @@ from one that has started eating everything.
 """
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 from _harness import Suite, load  # noqa: F401
 
@@ -34,6 +35,10 @@ from config.settings import settings                   # noqa: E402
 s = Suite("VIX.1 MARKET-STATE GATE + AUTOTRADE SCOPE")
 
 bars = load("EURUSD_H1_live_sep04.csv", "H1")
+
+# ⚠ ABSOLUTE, NOT RELATIVE. `run_all.py` launches each test with cwd=tests/vix1, so a bare
+# "strategies/…" path passes standalone and dies in the suite — which is exactly what it did.
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def fires(i, state=None):
@@ -72,7 +77,7 @@ s.teeth("the verdict reads ONLY the kind, never a direction",
 # ── 2. THE REASON REACHES THE LOG AND THE SCREEN ──────────────────────────────────────────────
 print()
 print("2. the refusal names the state, so it is readable on the Autotrade screen:")
-src = open("strategies/vix1_bias.py", encoding="utf-8").read()
+src = (ROOT / "strategies/vix1_bias.py").read_text(encoding="utf-8")
 s.teeth("the gate sits in the SHARED veto list, not a private return",
         "regime.tradeable" in src
         and src.index("regime.tradeable") < src.index("trend_reproven(mstate, at_mc"))
@@ -126,7 +131,7 @@ s.teeth("exactly at 16:00 UTC is already too late — the cut-off is the stop, n
 # `momentum_run` — so this checks the CHAIN exists rather than re-testing the rule itself.
 print()
 print("5. the stomach rule still decides, and the entry still asks through it:")
-mom = open("strategies/vix1_momentum.py", encoding="utf-8").read()
+mom = (ROOT / "strategies/vix1_momentum.py").read_text(encoding="utf-8")
 s.teeth("qualifies_for_trade asks the stomach rule",
         "vix1_open_rule.verdict(" in mom)
 s.teeth("...and the entry (momentum_run) asks qualifies_for_trade",
