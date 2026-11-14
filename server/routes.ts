@@ -318,6 +318,19 @@ const ON_PUBLIC_BOARD = `up.leaderboard_opt_in = true
           AND (up.leaderboard_hidden IS NULL OR up.leaderboard_hidden = false)`;
 
 /**
+ * THE NAME A PUBLIC LEADERBOARD SHOWS — never any part of an email address (2026-11-15).
+ *
+ * Both boards used to fall back to the email's local part ("antiperhenryotieno") when a trader had
+ * no name on file. A trader switching the leaderboard on is told their NAME is shown, not their
+ * address, so the fallback is now a short id. One copy here: each board had its own.
+ */
+function publicName(userId: string, fullName: string | null): string {
+  if (fullName && fullName.trim()) return fullName.trim();
+  const suffix = (userId || '').replace(/-/g, '').slice(-4).toUpperCase();
+  return suffix ? `Trader #${suffix}` : 'Trader';
+}
+
+/**
  * PUT THE NAME THEY SIGNED UP WITH ONTO EVERY LEADERBOARD ROW THAT IS MISSING ONE.
  *
  * His instruction, 2026-09-04: *"autosync users must also be desplayed in the leaderboard but with
@@ -325,7 +338,7 @@ const ON_PUBLIC_BOARD = `up.leaderboard_opt_in = true
  * `user_metadata.full_name` (AuthContext.tsx:157) and copied into `user_profiles` by
  * `ensureUserProfile` — but only on an authenticated request. A trader whose trades reached the
  * journal through the broker sync may not have made one, so the row comes back nameless and
- * `displayFor` falls through to the email local-part or "Trader #A1B2".
+ * `publicName` falls through to "Trader #A1B2" (never the email, since 2026-11-15).
  *
  * ONE COPY, CALLED BY BOTH BOARDS. This lived inline in /api/leaderboard only, which is why the
  * By Session tab — the one the page was actually calling — never resolved a name at all.
@@ -355,7 +368,7 @@ async function fillInSignupNames(rows: any[]): Promise<void> {
       new Promise<void>(resolve => setTimeout(resolve, 4000)),
     ]);
     const { rows: refreshed } = await pool.query(
-      `SELECT id, email, full_name FROM user_profiles WHERE id = ANY($1::varchar[])`,
+      `SELECT id, full_name FROM user_profiles WHERE id = ANY($1::varchar[])`,
       [missing],
     );
     const lookup = new Map(refreshed.map((p: any) => [p.id, p]));
@@ -363,7 +376,6 @@ async function fillInSignupNames(rows: any[]): Promise<void> {
       const p: any = lookup.get(r.user_id);
       if (!p) continue;
       if (!r.full_name || !String(r.full_name).trim()) r.full_name = p.full_name;
-      if (!r.email) r.email = p.email;
     }
   } catch (err: any) {
     console.warn('[leaderboard] could not resolve signup names:', err?.message ?? err);
@@ -757,7 +769,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         SELECT
           r.user_id,
           MAX(up.full_name)                                                               AS full_name,
-          MAX(up.email)                                                                   AS email,
           MAX(up.country)                                                                 AS country,
           COUNT(*)                                                                        AS total_trades,
           COUNT(*) FILTER (WHERE LOWER(COALESCE(r.outcome,'')) IN ('win','w','profit')
@@ -831,21 +842,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Display the trader's real name as managed in the Admin Panel
-      // (user_profiles.full_name). Fall back to the email local-part if
-      // no full name is set, and finally to a short trader id.
-      function displayFor(userId: string, fullName: string | null, email: string | null): string {
-        if (fullName && fullName.trim()) {
-          return fullName.trim();
-        }
-        if (email) {
-          const [local] = email.split('@');
-          return local || email;
-        }
-        const suffix = (userId || '').replace(/-/g, '').slice(-4).toUpperCase();
-        return suffix ? `Trader #${suffix}` : 'Trader';
-      }
-
       function avatarFor(name: string): string {
         const parts = name.trim().split(/\s+/).filter(Boolean);
         if (parts.length >= 2) {
@@ -864,7 +860,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const rawPnl   = parseFloat(r.total_pnl) || 0;
         const pf       = parseFloat(r.profit_factor) || 0;   // 999 = ∞ sentinel
         const growth   = sparklines[r.user_id] || [0];
-        const name     = displayFor(r.user_id, r.full_name, r.email);
+        const name     = publicName(r.user_id, r.full_name);
 
         return {
           rank:         index + 1,
@@ -913,7 +909,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ts.session_name,
           COALESCE(je.user_id, ts.user_id)                                                   AS user_id,
           MAX(up.full_name)                                                                  AS full_name,
-          MAX(up.email)                                                                      AS email,
           MAX(up.country)                                                                    AS country,
           COUNT(*)                                                                           AS total_trades,
           COUNT(*) FILTER (WHERE LOWER(COALESCE(je.outcome,'')) IN ('win','w','profit')
@@ -975,12 +970,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      function displayFor(userId: string, fullName: string | null, email: string | null): string {
-        if (fullName && fullName.trim()) return fullName.trim();
-        if (email) { const [local] = email.split('@'); return local || email; }
-        const suffix = (userId || '').replace(/-/g, '').slice(-4).toUpperCase();
-        return suffix ? `Trader #${suffix}` : 'Trader';
-      }
       function avatarFor(name: string): string {
         const parts = name.trim().split(/\s+/).filter(Boolean);
         if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -996,7 +985,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const winRate  = decisive > 0 ? Math.round((wins / decisive) * 1000) / 10 : 0;
         const rawPnl   = parseFloat(r.total_pnl) || 0;
         const pf       = parseFloat(r.profit_factor) || 0;   // 999 = ∞ sentinel
-        const name     = displayFor(r.user_id, r.full_name, r.email);
+        const name     = publicName(r.user_id, r.full_name);
         return {
           rank:         index + 1,
           sessionId:    r.session_id,

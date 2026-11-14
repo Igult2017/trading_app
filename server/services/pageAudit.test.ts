@@ -92,6 +92,14 @@ for (const [label, src] of [['the main board', mainBoard], ['the per-session boa
                             ['the public session-name filter', names]] as const) {
   check(`${label} applies the rule`, /AND \$\{ON_PUBLIC_BOARD\}/.test(src), true);
 }
+// 2026-11-15: a public board shows a NAME or "Trader #A1B2" — never any part of an email address.
+const nameAt = routes.indexOf('function publicName(');
+// routes.ts has Windows line endings — find the closing brace either way.
+const nameEnd = routes.slice(nameAt).search(/\r?\n\}\r?\n/);
+const nameFn = nameEnd > 0 ? routes.slice(nameAt, nameAt + nameEnd) : '';
+check('the public name never uses an email', nameAt > 0 && !/email/i.test(nameFn), true);
+check('  teeth: neither public board even reads the email column',
+      /up\.email/.test(mainBoard) || /up\.email/.test(bySession), false);
 // The trader's privacy route must never write the admin's column.
 // Exactly the route: from its line to the next route's comment, so nothing of a neighbour leaks in.
 const privAt = routes.indexOf('app.patch("/api/me/privacy"');
