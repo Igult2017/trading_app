@@ -18,6 +18,7 @@
  */
 import { Skeleton } from "./DashboardSkeletons";
 import { TextLine } from "./TextLine";
+import { AUDIT_HEAD_CSS } from "@/components/audit/auditHeadCss";
 
 const BG2 = "var(--sa-bg2, #0d1117)";
 const BG3 = "var(--sa-bg3, #0d1117)";
@@ -25,10 +26,13 @@ const LINE = "var(--sa-line, rgba(255,255,255,0.04))";
 const LINE2 = "var(--sa-line2, rgba(255,255,255,0.08))";
 const ROW = "grid grid-cols-1 gap-[3px] mb-[3px]";
 
-/** Sized to each tab's label: Strategy, Evidence, Diagnostics, Action, AI Analysis, AI Strategy. */
-const TAB_WIDTHS = [82, 82, 112, 62, 106, 110];
-/** [caption, sub-line] widths: Win Rate, Edge Factor, Risk Entropy, AI Confidence. */
-const KPIS = [[80, 128], [112, 76], [122, 104], [132, 84]];
+/** Each tab label's REAL width in Playfair (measured 2026-11-15): Strategy, Evidence, Diagnostics,
+ *  Action, AI Analysis, AI Strategy. They were guesses up to 16px too long, which made the loading
+ *  copy ~110px wider than the header it stands in for. */
+const TAB_WIDTHS = [76, 75, 102, 57, 89, 96];
+/** [caption, sub-line] widths: Win Rate, Edge Factor, Risk Entropy, AI Confidence. Each column's
+ *  widest bar = that figure's real column (120, 102, 106, 115px). */
+const KPIS = [[80, 120], [102, 76], [106, 100], [115, 84]];
 
 /** An outlined badge (Badge): 3px 8px inside a 1px border. */
 const Badge = ({ w }: { w: number }) => (
@@ -63,25 +67,28 @@ function Rows({ n }: { n: number }) {
 
 function Header({ darkMode }: { darkMode: boolean }) {
   return (
-    <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${LINE}` }}>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
-        <div style={{ paddingLeft: 10, display: "flex", flexDirection: "column", gap: 14 }}>
+    // THE REAL HEADER'S OWN LAYOUT (audit/auditHeadCss, 2026-11-15): one row with the sidebar open or
+    // not, so the loading copy does not jump when the page arrives.
+    <div className="sa-head" style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${LINE}` }}>
+      <style>{AUDIT_HEAD_CSS}</style>
+      <div className="sa-head-row">
+        <div className="sa-head-left">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <TextLine w="min(440px, 64vw)" />
             <Skeleton className="rounded-full" style={{ width: 4, height: 4 }} />
             <TextLine w={30} />
           </div>
-          <div style={{ display: "inline-flex", flexWrap: "wrap", alignSelf: "flex-start", padding: 4, borderRadius: 4, border: `1px solid ${LINE}`, background: darkMode ? "rgba(0,0,0,0.5)" : "#FFFFFF" }}>
+          <div className="sa-tabs" style={{ border: `1px solid ${LINE}`, background: darkMode ? "rgba(0,0,0,0.5)" : "#FFFFFF" }}>
             {TAB_WIDTHS.map((w, i) => (
-              <div key={i} style={{ padding: "8px 16px", borderRadius: 3, background: i === 0 ? (darkMode ? "rgba(255,255,255,0.08)" : "#E2E8F0") : "transparent" }}>
+              <div key={i} className="sa-tab" style={{ borderRadius: 3, background: i === 0 ? (darkMode ? "rgba(255,255,255,0.08)" : "#E2E8F0") : "transparent" }}>
                 <TextLine w={w} />
               </div>
             ))}
           </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 28 }}>
+        <div className="sa-kpis">
           {KPIS.map(([caption, sub], i) => (
-            <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div key={i} className="sa-kpi">
               <TextLine w={caption} /><TextLine w={52} px={15} /><TextLine w={sub} />
             </div>
           ))}

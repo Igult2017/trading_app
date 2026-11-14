@@ -5,7 +5,9 @@ import { Loader2, RefreshCw, WifiOff, Cpu, Layout, Network, Zap, Activity, Shiel
 import { useDelayedLoading } from "@/lib/useDelayedLoading";
 import { PanelSkeleton } from "@/components/skeletons/DashboardSkeletons";
 import { AuditSkeleton } from "@/components/skeletons/AuditSkeleton";
+import { AuditHeader } from "@/components/audit/AuditHeader";
 import { useTranslation } from "react-i18next";
+import { T, PLAYFAIR, FONT, MONO, lbl, num, Badge, L, V, Sub } from "@/components/audit/saTheme";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -95,108 +97,10 @@ async function fetchAudit(sessionId?: string, userId?: string): Promise<AuditDat
 
 interface Props { sessionId?: string; userId?: string }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Design tokens
-// ─────────────────────────────────────────────────────────────────────────────
+/** Percentage points with their OWN sign: "+12.0pp", "-50.0pp", "0.0pp". It used to hard-code
+ *  the plus, which printed "+-50.0pp" for any win rate under 50% (his screenshot, 2026-11-15). */
+const signedPp = (v: number) => `${v > 0 ? '+' : ''}${(Math.abs(v) < 0.05 ? 0 : v).toFixed(1)}pp`;
 
-const T = {
-  bg:    'var(--sa-bg,    #080a0e)',
-  bg2:   'var(--sa-bg2,   #0d1117)',
-  bg3:   'var(--sa-bg3,   #0d1117)',
-  bg4:   'var(--sa-bg4,   #11161e)',
-  line:  'var(--sa-line,  rgba(255,255,255,0.04))',
-  line2: 'var(--sa-line2, rgba(255,255,255,0.08))',
-  // TEXT — fixed 2026-08-08, user: "fix the blurred display of text in white font in audit page".
-  //
-  // It was PURE #ffffff on a #0d1117 card. That measures 18.92:1, so it never failed a contrast
-  // check — but pure white on a near-black ground blooms: the eye sees a halo around each stroke
-  // and the word reads as soft or smeared. It is worst on OLED and high-contrast displays, and it
-  // is why almost no dark UI uses #fff for body text. Dropping to an off-white removes the glow and
-  // still measures 16.29:1. #ECEEF2 is the same white the copier UI and the metrics panel use, so
-  // the three dark surfaces now agree.
-  // THE METRICS TWO-STEP SCALE, adopted 2026-09-05 on his "borrow the approach used in the metrics
-  // page". That panel runs exactly two text colours and no more:
-  //
-  //   #ECEEF2  16.29:1  everything you actually READ — values, row labels, prose
-  //   #A8AEB8   8.77:1  the small uppercase captions, which sit BEHIND the content
-  //
-  // The change here is small because `text` was already #ECEEF2: `muted` moves UP to join it
-  // (metrics sets its own `muted` to the bright value deliberately — it is content, not chrome),
-  // and `dim` moves UP from 6.48:1 to the metrics caption grey. Three tiers become two.
-  text:  'var(--sa-text,  #ECEEF2)',   // 16.29:1, no halation
-  muted: 'var(--sa-mut,   #ECEEF2)',   // was #94a3b8 (7.38:1) — content, so it joins `text`
-  // dim was #475569 — 2.5:1 on the card, far below the 4.5 minimum, and it is used as a TEXT colour
-  // in 47 places. That one was a genuine defect, not a perception effect. Now the caption step.
-  dim:   'var(--sa-dim,   #A8AEB8)',   //  8.77:1, the metrics caption grey
-  green:  "#10b981",
-  green2: "#059669",
-  red:    "#f43f5e",
-  red2:   "#e11d48",
-  amber:  "#f59e0b",
-  blue:   'var(--sa-blue, #6366f1)',
-  blue2:  "#4f46e5",
-};
-
-// THE PAGE OWNS ITS TYPOGRAPHY — and until 2026-09-05 it did not. `.audit-root` was missing from
-// Journal's exemption list (Journal.tsx), so its global `font-family: <journal font> !important`
-// rule overrode every choice below and the whole page rendered in Playfair Display. His words:
-// "its font types are horrible". Adding `.audit-root` to that list is what makes these real.
-//
-// HIS SPLIT, 2026-09-05: "you can use playfair for headers and montserat and inter for non header
-// text." PLAYFAIR IS FOR HEADERS ONLY — it is a high-contrast display serif whose thin strokes
-// disappear at the 9-11px uppercase labels this page is full of. That is cause #1 in
-// docs/READABILITY.md and the exact mistake made on the drawdown panel a day earlier. Anything
-// small and read stays Montserrat or Inter.
-// PLAYFAIR IS THE PAGE'S TEXT FACE — his call, 2026-09-05: "even in the audit page i loved
-// playfair but use a variant that is visible".
-//
-// "A VARIANT THAT IS VISIBLE" IS THE WEIGHT AXIS. Playfair Display is a high-contrast display
-// serif: its thin strokes are what disappear at small sizes, and the fix is not a different family
-// but a heavier cut of the same one. The bundled face is VARIABLE, so 500-700 costs no extra
-// download and thickens exactly those hairlines. Nothing on this page is set lighter than 500 any
-// more, and the sizes went up with it — weight alone does not rescue 9px text.
-const PLAYFAIR = "'Playfair Display Variable', 'Playfair Display', Georgia, serif";
-const FONT  = PLAYFAIR;   // every piece of text on the page
-// FIGURES IN BOLD TIMES NEW ROMAN (2026-09-14) — they were DM Mono; his words: "replace DM mono with
-// bold times new roman". The same text serif the admin panel reads in (AdminPanel.tsx ADMIN_BODY_TEXT).
-const MONO  = "'Times New Roman', Georgia, 'Liberation Serif', serif";   // every figure — reinforced below
-// TWO HELPERS, AND THE NAMES NOW TELL THE TRUTH.
-//
-// There used to be `mono` and `num`, both DM Mono, and `mono` was spread onto FIFTY elements — of
-// which only about nine were figures. The rest were words: "BASE RATE", "Avg Length", "Worst DD",
-// "ADVERSE FILL RATIO", "Last 50", the verdict sentences. That is the second font he could see in
-// the text (2026-09-05: "there is another font being used there in text i need you to use playfair
-// there"). A helper called `mono` that is mostly setting prose is the same trap docs/READABILITY.md
-// records about a constant named `sans` that held a serif — so it is renamed, not just repointed.
-// NO COLOUR IN EITHER HELPER. 39 of the 42 call sites set their own, and putting one here silently
-// overrode the three that spread the helper AFTER their colour — two of them buttons that are meant
-// to be bright. tsc caught it; it would have been invisible otherwise.
-const lbl = { fontFamily: FONT, fontWeight: 600 as const };   // words: labels, captions
-const num = { fontFamily: MONO, fontWeight: 700 as const };   // figures only — bold, his instruction
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Primitive helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-function Badge({ children, color = T.muted, border = T.line2 }: { children: React.ReactNode; color?: string; border?: string }) {
-  return (
-    <span style={{ ...lbl, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase", padding: "3px 8px", border: `1px solid ${border}`, color, display: "inline-block" }}>
-      {children}
-    </span>
-  );
-}
-
-function L({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <span style={{ fontFamily: FONT, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.dim, fontWeight: 500, ...style }}>{children}</span>;
-}
-
-function V({ children, color = T.text, style = {} }: { children: React.ReactNode; color?: string; style?: React.CSSProperties }) {
-  return <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color, ...style }}>{children}</span>;
-}
-
-function Sub({ children, color = T.dim, style = {} }: { children: React.ReactNode; color?: string; style?: React.CSSProperties }) {
-  return <span style={{ fontFamily: FONT, fontSize: 12.5, color, fontWeight: 500, ...style }}>{children}</span>;
-}
 
 /**
  * THE CARD HEADING — and the one place on this page a display serif genuinely belongs.
@@ -1573,7 +1477,7 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
   ];
 
   const kpis = [
-    { label: "Win Rate", value: `${(d.auditSummary?.winRate ?? 0).toFixed(1)}%`, sub: `+${((d.auditSummary?.winRate ?? 50) - 50).toFixed(1)}pp vs breakeven`, color: T.green },
+    { label: "Win Rate", value: `${(d.auditSummary?.winRate ?? 0).toFixed(1)}%`, sub: `${signedPp((d.auditSummary?.winRate ?? 50) - 50)} vs breakeven`, color: T.green },
     { label: "Edge Factor", value: (d.edgeVerdict?.profitFactor ?? 0) >= 999 ? "∞" : (d.edgeVerdict?.profitFactor ?? 0).toFixed(2), sub: "Profit factor", color: T.blue },
     { label: "Risk Entropy", value: `${(d.automationRisk?.score ?? 0).toFixed(2)}%`, sub: `Auto risk: ${(d.automationRisk?.score ?? 0).toFixed(0)}/100`, color: ((d.automationRisk?.score ?? 0) < 30 ? T.green : (d.automationRisk?.score ?? 0) < 60 ? T.amber : T.red) },
     { label: "AI Confidence", value: `${Math.round(d.auditSummary?.aiConfidence ?? 0)}/100`, sub: `AI WR: ${(d.auditSummary?.winRate ?? 0).toFixed(1)}%`, color: (d.auditSummary?.aiConfidence ?? 0) >= 70 ? T.green : (d.auditSummary?.aiConfidence ?? 0) >= 40 ? T.amber : T.red },
@@ -1637,56 +1541,9 @@ export default function StrategyAudit({ sessionId, userId, darkMode = true }: Pr
       } as React.CSSProperties : {}) }}>
         <div style={{ width: "100%", margin: "0 auto" }}>
 
-          {/* HEADER — drawdown-style */}
-          <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${T.line}`, display: "flex", flexDirection: "column", gap: 18 }}>
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
-              {/* THE TWO HEADINGS ARE NOW ONE LINE, in the small slot the eyebrow used to occupy —
-                  his instruction: write it as "Your strategy breakdown: How sharp is your edge?"
-                  at the same small size. The 26px h1 is gone from here and the TAB BAR has moved
-                  up into the space it left. Kept at 11px rather than the old 9px: that is the
-                  floor in docs/READABILITY.md, and he asked for the visibility fix in the same
-                  breath. Montserrat, not Playfair — a display serif at this size is the very
-                  thing that made the page unreadable. */}
-              <div style={{ paddingLeft: 10, display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <p style={{ fontFamily: FONT, fontSize: 12.5, letterSpacing: ".12em", textTransform: "uppercase", color: T.dim, fontWeight: 600, margin: 0 }}>
-                    Your strategy breakdown: <span style={{ color: T.text }}>How sharp is your edge?</span>
-                  </p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <div style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, animation: "pulse 2s infinite" }} />
-                    <span style={{ fontFamily: FONT, fontSize: 12.5, fontWeight: 700, letterSpacing: ".12em", color: T.green, opacity: 0.7 }}>LIVE</span>
-                  </div>
-                </div>
-
-                {/* Tab bar — moved here from below the header row (2026-09-05). */}
-                <div style={{ display: "inline-flex", flexWrap: "wrap", background: darkMode ? "rgba(0,0,0,0.5)" : "#FFFFFF", padding: 4, borderRadius: 4, border: `1px solid ${T.line}`, alignSelf: "flex-start" }}>
-                  {TABS.map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActive(tab.id)}
-                      style={{
-                        fontFamily: FONT, fontSize: 12.5, fontWeight: 600, letterSpacing: ".12em", textTransform: "uppercase",
-                        padding: "8px 16px", cursor: "pointer", border: "none", borderRadius: 3,
-                        background: active === tab.id ? (darkMode ? "rgba(255,255,255,0.08)" : "#E2E8F0") : "transparent",
-                        color: active === tab.id ? T.text : T.dim, transition: "all .15s",
-                      }}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 28 }}>
-                {kpis.map((kpi, i) => (
-                  <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <L>{kpi.label}</L>
-                    <V color={kpi.color} style={{ fontSize: 15 }}>{kpi.value}</V>
-                    <Sub>{kpi.sub}</Sub>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          {/* HEADER — its own file since 2026-11-15 (audit/AuditHeader): one row whether the
+              sidebar is open or not. */}
+          <AuditHeader tabs={TABS} active={active} onTab={setActive} kpis={kpis} darkMode={darkMode} />
 
           {/* Page content */}
           <div>
