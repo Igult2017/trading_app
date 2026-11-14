@@ -21,52 +21,8 @@
  * needs the `@/` alias, which only Vite resolves, so an importing test could not be run from the
  * command line at all.
  */
-import { readFileSync } from 'fs';
-import { join } from 'path';
-// The REAL function, not a stand-in: the drawdown sheet now calls it for the shared Analytics
-// chart's light palette, and a check that substituted a placeholder would prove nothing about it.
-import { mpLightCss, DD_PAGE_MP_TOKENS } from '../shared/mpTokens';
-
-let failed = 0;
-let count = 0;
-
-function check(name: string, got: unknown, want: unknown) {
-  count++;
-  const ok = JSON.stringify(got) === JSON.stringify(want);
-  console.log(`   ${ok ? 'PASS' : 'FAIL'}  ${name}: got ${JSON.stringify(got)}` +
-              (ok ? '' : `, want ${JSON.stringify(want)}`));
-  if (!ok) failed++;
-}
-
-function teeth(name: string, brokeItAndFailed: boolean) {
-  count++;
-  console.log(`   ${brokeItAndFailed ? 'PASS' : 'FAIL'}  TEETH — ${name}`);
-  if (!brokeItAndFailed) failed++;
-}
-
-const here = (f: string) => readFileSync(join(import.meta.dirname, f), 'utf8');
-
-/** Pull a named template literal out of a source file — the same way the bundler would read it. */
-function lit(src: string, name: string): string {
-  const i = src.indexOf(name);
-  if (i < 0) throw new Error(`not found: ${name}`);
-  const s = src.indexOf('`', i);
-  const e = src.indexOf('`', s + 1);
-  return src.slice(s + 1, e);
-}
-
-const tokSrc = here('ddTokens.ts');
-const ALIASES = lit(tokSrc, 'const ALIASES');
-const DARK = lit(tokSrc, 'DD_TOKENS_DARK').replace('${ALIASES}', ALIASES);
-const LIGHT = lit(tokSrc, 'DD_TOKENS_LIGHT').replace('${ALIASES}', ALIASES);
-const core = lit(here('ddStyles.ts'), 'const DD_CORE')
-  .replace('${DD_TOKENS_DARK}', DARK)
-  .replace('${DD_TOKENS_LIGHT}', LIGHT)
-  .replace('${mpLightCss(DD_PAGE_MP_TOKENS)}', mpLightCss(DD_PAGE_MP_TOKENS));
-const monthDays = lit(here('monthDays.tsx'), 'MONTH_DAYS_CSS');
-const sections = lit(here('ddStyles2.ts'), 'const DD_SECTIONS')
-  .replace('${MONTH_DAYS_CSS}', monthDays);
-const css = core + sections;
+// The counters and the assembled stylesheet live in ddStyles.testkit.ts (moved 2026-11-15).
+import { check, teeth, here, css, DARK, LIGHT, finish } from './ddStyles.testkit';
 
 console.log('\nDRAWDOWN STYLES — the stylesheet is whole, scoped, and themed both ways');
 
@@ -105,8 +61,17 @@ const dark = defined(DARK), light = defined(LIGHT);
 // so it has nothing to do with either theme — and the check caught it on the first run, which is the
 // behaviour this list exists to allow for rather than to silence.
 const SELF_SET = new Set(['--dd-serif', '--dd-serif-w', '--dd-mono', '--dd-sans', '--disp', '--mono']);
-const missingDark = [...used].filter((t) => !dark.has(t) && !SELF_SET.has(t));
-const missingLight = [...used].filter((t) => !light.has(t) && !SELF_SET.has(t));
+// THE JOURNAL'S OWN NAMES (2026-11-15). The loss-contribution rows copy the Dashboard's bar, so they
+// read the colours the Dashboard reads. Those are set by the JOURNAL WRAPPER this panel sits inside,
+// for both themes and following his accent picker — so they are allowed only after that is checked
+// in Journal.tsx itself, not on trust.
+const JOURNAL_SET = ['--jr-ink', '--jr-divider', '--jr-accent'];
+const journalSrc = here('../../pages/Journal.tsx');
+teeth('the journal wrapper really sets the Dashboard colours the loss rows borrow, for both themes',
+      JOURNAL_SET.every((n) => new RegExp(`\\['${n}' as any\\]: *(T\\.dark \\?|T\\.accent)`).test(journalSrc)));
+const ALLOWED = new Set([...SELF_SET, ...JOURNAL_SET]);
+const missingDark = [...used].filter((t) => !dark.has(t) && !ALLOWED.has(t));
+const missingLight = [...used].filter((t) => !light.has(t) && !ALLOWED.has(t));
 check('every token used has a dark value', missingDark, []);
 check('every token used has a light value', missingLight, []);
 check('the two theme blocks define the same names',
@@ -171,8 +136,10 @@ teeth('the icon boxes went with the icons',
       !/dd-kpi-ico|dd-ico-badge|dd-brand-logo|dd-banner-icon/.test(css));
 check('the progress bar is the audit page size, 3px with a 1px corner',
       /\.dd-track\{[^}]*height:3px; border-radius:1px/.test(css), true);
-teeth('...and the LABELLED stacked bar is deliberately left alone',
-      /\.dd-bigbar\{[\s\S]{0,120}height:20px/.test(css));
+// 2026-11-15: the 20px stacked loss bar is GONE - one Dashboard-style 2px bar per row instead.
+teeth('the loss rows use the Dashboard bar: 2px, 4px corner', /\.dd-lstrack\{[^}]*height:2px;[^}]*border-radius:4px/.test(css));
+teeth('...and the stacked bar, its scale and its colours are gone', !/dd-bigbar|dd-scale|--bar-\d|--bar-ink/.test(css));
+teeth('the chart + summary take THIS page font, not the Analytics mono', /--mp-font:var\(--dd-mono\)/.test(css));
 // THE OLD FOUR KPI CARDS ARE GONE (2026-11-14) and the six that replaced them are the DASHBOARD'S
 // own card, so the 22px figure this used to pin now lives in shared/StatCard, not in this sheet.
 teeth('the old KPI card styles went with the cards', !/\.dd-kpi/.test(css));
@@ -200,5 +167,4 @@ check('the chip is a fixed square so one letter cannot collapse it',
 // .journal-root. Rename the scope and the journal clobbers every face in the panel.
 check('the panel is still scoped .dp', css.includes('.dp{'), true);
 
-console.log(`\n${failed === 0 ? 'ALL PASS' : `${failed} FAILED`} — ${count} checks\n`);
-process.exit(failed === 0 ? 0 : 1);
+finish();

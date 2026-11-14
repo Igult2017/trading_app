@@ -1,6 +1,6 @@
 import React from 'react';
 import { MP_REF } from '@/components/shared/mpTokens';
-import { Panel, DR } from '@/components/shared/mpBits';
+import { Panel, DR, MP_HEAD_H } from '@/components/shared/mpBits';
 
 /**
  * ddSummary — the Analytics page's "Period Summary" card, with drawdown in it.
@@ -23,9 +23,12 @@ import { Panel, DR } from '@/components/shared/mpBits';
  */
 const D = MP_REF;
 
+// ROUND FIRST (2026-11-15). A day that lost a few cents printed "-0.00%" in red on his page: toFixed
+// keeps the minus sign of a value that rounds to zero. What prints as zero is zero, sign and colour.
+const r2 = (v: number) => Math.round(v * 100) / 100 || 0; // `|| 0` turns -0 into 0
 const pct = (v: number | null | undefined) =>
-  v == null || !isFinite(v) ? '—' : v === 0 ? '0.00%' : `${v.toFixed(2)}%`;
-const tone = (v: number | null | undefined) => (v != null && v < 0 ? D.red : D.text);
+  v == null || !isFinite(v) ? '—' : `${r2(v).toFixed(2)}%`;
+const tone = (v: number | null | undefined) => (v != null && isFinite(v) && r2(v) < 0 ? D.red : D.text);
 
 /** Each calendar day's P/L as a % of the balance that day began with, in trade order. */
 export function dailyDrawdowns(curve: any[], startBal: number): number[] {
@@ -54,8 +57,9 @@ export function DdSummary({ ts, intel, monthly, equityCurve, startingBalance }: 
   const avgMonthly = mdd.length ? mdd.reduce((a, b) => a + b, 0) / mdd.length : null;
   const worstIdx = mdd.length ? mdd.indexOf(Math.min(...mdd)) : -1;
   const worst = worstIdx >= 0 ? mdd[worstIdx] : null;
-  const worstName = worstIdx >= 0
-    ? `${String(months[worstIdx]?.month ?? '').slice(0, 3)} ${months[worstIdx]?.year ?? ''}`.trim()
+  // A month is only named when it actually fell — "0.00% · Sep 2026" named a month with no drawdown.
+  const worstName = worstIdx >= 0 && r2(mdd[worstIdx]) < 0
+    ?`${String(months[worstIdx]?.month ?? '').slice(0, 3)} ${months[worstIdx]?.year ?? ''}`.trim()
     : '';
 
   const days = dailyDrawdowns(equityCurve, Number(startingBalance) || 0);
@@ -63,11 +67,11 @@ export function DdSummary({ ts, intel, monthly, equityCurve, startingBalance }: 
   const maxDaily = days.length ? Math.min(0, ...days) : null;
   const avgDaily = days.length ? (losing.length ? losing.reduce((a, b) => a + b, 0) / losing.length : 0) : null;
 
-  const current = cur.inDrawdown ? Number(cur.ddPct) || 0 : 0;
+  const current = cur.inDrawdown ? r2(Number(cur.ddPct) || 0) : 0;
 
   return (
     <div style={{ height: '100%' }} title="A day is the calendar date a trade is recorded on; a daily drawdown is that day's P/L over the balance it started with. Average daily counts losing days only.">
-      <Panel title="Drawdown Summary" badge="Risk" badgeColor="red" style={{ height: '100%' }}>
+      <Panel title="Drawdown Summary" badge="Risk" badgeColor="red" style={{ height: '100%' }} headHeight={MP_HEAD_H}>
         <DR label="Highest Drawdown"     value={pct(ts?.maxDrawdown)} vc={tone(ts?.maxDrawdown)} />
         <DR label="Current Drawdown"     value={pct(current)} vc={current < 0 ? D.red : D.green} />
         <DR label="Avg Monthly Drawdown" value={pct(avgMonthly)} vc={tone(avgMonthly)} />

@@ -51,27 +51,26 @@ const DD_SECTIONS = `
 }
 
 /* ── BARS ───────────────────────────────────────────────────────────────────── */
-/* THE AUDIT PAGE'S BAR SIZE (2026-11-09): 3px, 1px corner, not an 8px pill. .dd-bigbar is the
-   exception. NO BACKTICKS in here - this file is one template literal and one would end it. */
+/* THE AUDIT PAGE'S BAR SIZE (2026-11-09): 3px, 1px corner, not an 8px pill. The loss-contribution
+   rows below are the exception. NO BACKTICKS in here - this file is one template literal and one
+   would end it. */
 .dp .dd-track{ background:var(--t-line); height:3px; border-radius:1px; overflow:hidden; }
 .dp .dd-track-w{ width:128px; min-width:72px; }
 .dp .dd-track > i{ display:block; height:100%; border-radius:1px; background:var(--rose-mid); }
-/* ⚠ STAYS 20px: a LABELLED STACKED bar, not a progress bar - the percentages print INSIDE it. */
-.dp .dd-bigbar{
-  width:100%; background:var(--surface-deep); height:20px; border-radius:3px;
-  overflow:hidden; border:1px solid var(--line); display:flex;
-}
-/* ⚠ --bar-ink, NOT a fixed near-black: dark text on the lightest fill was 4.29:1 in light mode,
-   under the floor, so it flips to white there. */
-.dp .dd-bigbar > i{
-  height:100%;
-  display:flex; align-items:center; justify-content:flex-end; padding:0 8px;
-  font-size:12.5px; font-family:var(--dd-mono); font-weight:700; color:var(--bar-ink);
-}
-.dp .dd-scale{
-  display:flex; justify-content:space-between; font-size:12.5px;
-  color:var(--ink-faint); font-family:var(--dd-mono); padding-top:8px;
-}
+/* LOSS CONTRIBUTION, ONE THIN BAR PER ROW (2026-11-15) - the Dashboard's PAIR VOLUME / FREQUENCY
+   row copied: name, a 2px divider-coloured track with a 4px corner and an accent fill, the figure.
+   The 20px stacked bar, its legend dots and its 0-100% scale were deleted with it. */
+/* Wraps on a narrow screen: the "-1.49% . 1 loss" note drops under its bar instead of pushing the
+   page sideways. The two halves (instrument, session) get a real gap - they used to run together. */
+.dp .dd-lsrow{ display:flex; flex-wrap:wrap; align-items:center; column-gap:10px; row-gap:2px; margin-bottom:10px; }
+.dp .dd-lsgrid{ column-gap:32px; row-gap:24px; }
+.dp .dd-lsrow:last-child{ margin-bottom:0; }
+.dp .dd-lsname{ font-size:13.5px; font-weight:600; color:var(--jr-ink,#ECEEF2); width:72px; flex-shrink:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dp .dd-lstrack{ flex:1; min-width:40px; height:2px; background:var(--jr-divider,#161b22); border-radius:4px; overflow:hidden; }
+.dp .dd-lstrack > i{ display:block; height:100%; border-radius:4px; background:var(--jr-accent,#38bdf8); }
+.dp .dd-lspct{ font-size:13.5px; font-weight:600; color:var(--jr-ink,#ECEEF2); width:40px; text-align:right; flex-shrink:0; }
+.dp .dd-lsnote{ font-size:12.5px; color:var(--rose); white-space:nowrap; flex-shrink:0; }
 .dp .dd-bucket{ background:var(--t-inner); border:1px solid var(--t-line); padding:12px; border-radius:4px; }
 .dp .dd-bucket + .dd-bucket{ margin-top:12px; }
 .dp .dd-bucket-track{

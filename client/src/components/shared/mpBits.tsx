@@ -21,9 +21,17 @@ import { MP_REF } from '@/components/shared/mpTokens';
  */
 const D = MP_REF;
 
+/** ⚠ `--mp-font` FIRST (2026-11-15). Analytics never sets it, so it keeps JetBrains Mono. The drawdown
+ *  page sets it to its own face (`--dd-mono`), because he called the mono "that funny font type" there
+ *  and asked for the page's own font across the chart and the summary. */
 export const MONO: React.CSSProperties = {
-  fontFamily: "'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace",
+  fontFamily: "var(--mp-font, 'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Mono', 'Courier New', monospace)",
 };
+
+/** One header height for a card strip, so two cards standing side by side end their header on the
+ *  SAME line (his 2026-11-15 ask, drawn as a white line across both). A MINIMUM, not a fixed height:
+ *  a strip that has to wrap on a phone still can — the two cards stack there anyway. */
+export const MP_HEAD_H = 44;
 
 export type ChipVariant = 'green' | 'red' | 'amber' | 'blue' | 'purple' | 'cyan' | 'gray' | 'neutral';
 
@@ -53,9 +61,9 @@ export const Chip = ({ children, variant = 'neutral' as ChipVariant }: { childre
   );
 };
 
-export const Panel = ({ title, badge, badgeColor = 'gray' as ChipVariant, children, style = {} as React.CSSProperties }: any) => (
+export const Panel = ({ title, badge, badgeColor = 'gray' as ChipVariant, children, style = {} as React.CSSProperties, headHeight }: any) => (
   <div style={{ background: D.bg3, border: `0.5px solid ${D.bdInner}`, borderRadius: 10, overflow: 'hidden', ...style }}>
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderBottom: `0.5px solid ${D.bdInner}`, background: D.bg4 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderBottom: `0.5px solid ${D.bdInner}`, background: D.bg4, ...(headHeight ? { minHeight: headHeight, boxSizing: 'border-box' as const } : {}) }}>
       <span style={{ ...MONO, fontSize: 13.5, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>
         {title}
       </span>

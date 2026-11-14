@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { MP_REF } from '@/components/shared/mpTokens';
-import { MONO } from '@/components/shared/mpBits';
+import { LineChart } from 'lucide-react';
+import { MONO, MP_HEAD_H } from '@/components/shared/mpBits';
+import { group, type View } from '@/components/shared/equityBuckets';
 
 /**
  * EquityCurveChart — the Analytics page's EQUITY CURVE, shared.
@@ -29,40 +31,15 @@ import { MONO } from '@/components/shared/mpBits';
 const D = MP_REF;
 const H = 160;
 const W = 600;
-type View = 'DAILY' | 'WEEKLY' | 'MONTHLY';
-
-function group(equityCurve: any[], view: View): any[] {
-  if (!equityCurve || equityCurve.length === 0) return [];
-  if (view === 'DAILY') return equityCurve.map((e: any) => {
-    const d = e.date ? new Date(e.date) : null;
-    const label = (d && !isNaN(d.getTime()))
-      ? d.toLocaleString('default', { month: 'short', day: 'numeric' })
-      : `#${e.tradeNumber}`;
-    return { ...e, _label: label };
-  });
-  const buckets = new Map<string, any>();
-  for (const e of equityCurve) {
-    const d = e.date ? new Date(e.date) : null;
-    let key: string; let label: string;
-    if (!d || isNaN(d.getTime())) { key = `t${e.tradeNumber}`; label = `#${e.tradeNumber}`; }
-    else if (view === 'WEEKLY') {
-      const jan1 = new Date(d.getFullYear(), 0, 1);
-      const week = Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
-      key = `${d.getFullYear()}-W${week}`; label = `W${week}`;
-    } else {
-      key = `${d.getFullYear()}-${d.getMonth()}`;
-      label = d.toLocaleString('default', { month: 'short' });
-    }
-    buckets.set(key, { ...e, _label: label });
-  }
-  return Array.from(buckets.values());
-}
-
 export function EquityCurveChart({ equityCurve, equityGrowth, mode = 'pnl' }: {
   equityCurve: any[]; equityGrowth?: any; mode?: 'pnl' | 'drawdown';
 }) {
   const [view, setView] = useState<View>('WEEKLY');
   const pts0 = group(equityCurve, view);
+  // NO TRADES, NO LINE (2026-11-15). It used to draw a flat line across the middle with its shading,
+  // its end dot and "--" labels, which reads as an account that exists and is going nowhere. He asked
+  // for it gone on both pages; the drawing area says why it is empty instead.
+  const empty = pts0.length === 0;
 
   const startBal = equityGrowth?.startingBalance ?? 0;
   // In drawdown mode the line is % from the start. With no starting balance there is nothing to
@@ -77,8 +54,8 @@ export function EquityCurveChart({ equityCurve, equityGrowth, mode = 'pnl' }: {
   const range = maxV - minV || 1;
   const yOf = (v: number) => Math.max(0, Math.min(H, H - ((v - minV) / range) * H * 0.85 - H * 0.075));
 
-  const pts: [number, number][] = pts0.length === 0
-    ? [[0, H / 2], [W, H / 2]]
+  const pts: [number, number][] = empty
+    ? [[0, H], [W, H]] // never drawn — the empty card renders its message instead
     : pts0.map((e: any, i: number) => [pts0.length > 1 ? (i / (pts0.length - 1)) * W : W / 2, yOf(valOf(e))]);
   const path = pts.reduce((a: string, [x, y]: [number, number], i: number) => {
     if (i === 0) return `M${x},${y}`;
@@ -91,7 +68,7 @@ export function EquityCurveChart({ equityCurve, equityGrowth, mode = 'pnl' }: {
   // shaded area IS the drawdown (below) or the profit (above).
   const fill = `${path} L${last[0]},${mode === 'drawdown' ? y0 : H} L0,${mode === 'drawdown' ? y0 : H} Z`;
 
-  const labs = pts0.length === 0 ? ['--'] : (() => {
+  const labs = empty ? [] : (() => {
     const step = Math.max(1, Math.floor(pts0.length / 5));
     return pts0.filter((_: any, i: number) => i % step === 0 || i === pts0.length - 1)
       .map((e: any) => e._label ?? `#${e.tradeNumber}`);
@@ -99,7 +76,7 @@ export function EquityCurveChart({ equityCurve, equityGrowth, mode = 'pnl' }: {
   const fmtY = (v: number) => (asPct
     ? `${v > 0 ? '+' : ''}${v.toFixed(Math.abs(range) < 3 ? 2 : 1)}%`
     : v >= 1000 || v <= -1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`);
-  const yLabels = pts0.length === 0 ? ['--', '--', '--', '--']
+  const yLabels = empty ? []
     : [maxV, maxV - range * 0.33, maxV - range * 0.66, minV].map(fmtY);
 
   const balance = equityGrowth?.currentBalance ?? 0;
@@ -113,7 +90,9 @@ export function EquityCurveChart({ equityCurve, equityGrowth, mode = 'pnl' }: {
 
   return (
     <div style={{ background: D.bg3, border: `0.5px solid ${D.bdInner}`, borderRadius: 10, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '9px 12px', borderBottom: `0.5px solid ${D.bdInner}`, background: D.bg4 }}>
+      {/* In drawdown mode the strip is at least the summary card's header height (MP_HEAD_H), so the two
+          cards side by side end their header on one line — his 2026-11-15 white line. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, padding: '9px 12px', borderBottom: `0.5px solid ${D.bdInner}`, background: D.bg4, ...(mode === 'drawdown' ? { minHeight: MP_HEAD_H, boxSizing: 'border-box' as const } : {}) }}>
         <span style={{ ...MONO, fontSize: 13.5, fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: D.label }}>
           {mode === 'drawdown' ? 'Drawdown' : 'Equity Curve'}
         </span>
@@ -125,15 +104,22 @@ export function EquityCurveChart({ equityCurve, equityGrowth, mode = 'pnl' }: {
             </button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 16 }}>
+        {/* Balance / Return / Start: Analytics only. He circled it off the drawdown chart on 2026-11-15. */}
+        {mode !== 'drawdown' && <div style={{ display: 'flex', gap: 16 }}>
           {([['Balance', fmtBal(balance), isPos ? D.green : D.red], ['Return', retPct ? `${retPct >= 0 ? '+' : ''}${retPct.toFixed(2)}%` : '--', isPos ? D.green : D.red], ['Start', fmtBal(startBal), D.text]] as [string, string, string][]).map(([l, v, c], i) => (
             <div key={i} style={{ textAlign: 'right' as const }}>
               <div style={{ ...MONO, fontSize: 12, color: D.dim, letterSpacing: '0.1em', textTransform: 'uppercase' as const, marginBottom: 1 }}>{l}</div>
               <span style={{ ...MONO, fontSize: 13.5, fontWeight: 600, color: c }}>{v}</span>
             </div>
           ))}
-        </div>
+        </div>}
       </div>
+      {empty ? (
+        <div role="status" style={{ height: H + 40, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '0 16px', textAlign: 'center' as const }}>
+          <LineChart aria-hidden size={22} style={{ color: D.dim }} />
+          <span style={{ ...MONO, fontSize: 13.5, color: D.label }}>No closed trades yet. The curve starts with your first one.</span>
+        </div>
+      ) : (
       <div style={{ padding: '10px 14px 8px' }}>
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingRight: 6, paddingBottom: 18 }}>
@@ -183,6 +169,7 @@ export function EquityCurveChart({ equityCurve, equityGrowth, mode = 'pnl' }: {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

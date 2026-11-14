@@ -33,6 +33,10 @@ const DD_CORE = `
   --dd-serif:"Playfair Display Variable","Playfair Display",Georgia,serif;
   --dd-serif-w:600;
   --dd-mono:"Times New Roman",Georgia,"Liberation Serif",serif;
+  /* THE CHART AND THE SUMMARY CARD ARE ANALYTICS' PIECES, which write in JetBrains Mono - "that funny
+     font type", 2026-11-15. They read --mp-font first (shared/mpBits MONO), so here they take this
+     page's own figure face. Analytics never sets it and keeps its mono. */
+  --mp-font:var(--dd-mono);
   --dd-sans:var(--disp,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif);
   background:var(--bg); color:var(--ink);
   font-family:var(--dd-sans); line-height:1.5;
