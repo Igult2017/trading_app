@@ -300,6 +300,8 @@ export const userProfiles = pgTable("user_profiles", {
   avatarUrl: text("avatar_url"),
   deleteAfter: timestamp("delete_after"),
   leaderboardHidden: boolean("leaderboard_hidden").default(false),
+  /** The trader's OWN "show me on the leaderboard" switch; off until they turn it on (2026-11-15). */
+  leaderboardOptIn: boolean("leaderboard_opt_in").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

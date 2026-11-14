@@ -46,7 +46,11 @@ function teeth(name: string, brokeItAndFailed: boolean) {
 
 const read = (...p: string[]) => readFileSync(join(process.cwd(), ...p), 'utf8');
 const P = ['client', 'src', 'features', 'trade-sync'];
-const hook    = read(...P, 'hooks', 'useProviderStudio.ts');
+const studioHook = read(...P, 'hooks', 'useProviderStudio.ts');
+// Listing moved to useAccountListing on 2026-11-15 (shared with the Settings page). The checks
+// below read BOTH files as one, and a separate check proves the studio really CALLS it.
+const listingHook = read(...P, 'hooks', 'useAccountListing.ts');
+const hook    = studioHook + '\n' + listingHook;
 const accts   = read(...P, 'sections', 'provider', 'ListedAccounts.tsx');
 const support = read(...P, 'sections', 'provider', 'SupportBox.tsx');
 const page    = read(...P, 'sections', 'ProviderStudioPage.tsx');
@@ -167,6 +171,8 @@ check('...unlisting is the same call, so one field decides visibility',
 // ⚠ EDITING A DESCRIPTION MUST NOT UNLIST THE ACCOUNT. `register-as-provider` reads
 // `b.isPublic === true`, so a save that omits the field would quietly publish-off an account he
 // only meant to rename. The save sends the CURRENT state back.
+check('the studio CALLS the shared listing hook (the call, not the definition)',
+      /= useAccountListing\(setToast, invalidate\)/.test(studioHook), true);
 check('saving a profile preserves whether it is listed',
       /saveAccountProfile[\s\S]{0,600}?isPublic: acct\.listed/.test(hook), true);
 

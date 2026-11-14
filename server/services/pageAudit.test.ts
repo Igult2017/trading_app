@@ -77,8 +77,35 @@ check('...and can never take the response down', /catch \(err: any\)/.test(helpe
 // "Hide me" must mean hidden on the board the page opens on.
 const mainBoard = routes.slice(routes.indexOf('app.get("/api/leaderboard"'),
                                routes.indexOf('app.get("/api/leaderboard/by-session"'));
-check('the main board honours leaderboard_hidden',
-      /leaderboard_hidden IS NULL OR up\.leaderboard_hidden = false/.test(mainBoard), true);
+// 2026-11-15: ONE rule (`ON_PUBLIC_BOARD`) - switched on by the trader AND not removed by an admin.
+const ruleAt = routes.indexOf('const ON_PUBLIC_BOARD = `');
+const rule = routes.slice(ruleAt, routes.indexOf('`;', ruleAt));
+check('the public-board rule requires the trader to have switched it on',
+      /up\.leaderboard_opt_in = true/.test(rule), true);
+check('...and still honours an admin removal',
+      /leaderboard_hidden IS NULL OR up\.leaderboard_hidden = false/.test(rule), true);
+const bySession = routes.slice(routes.indexOf('app.get("/api/leaderboard/by-session"'),
+                               routes.indexOf('app.get("/api/admin/leaderboard/entries"'));
+const names = routes.slice(routes.indexOf('app.get("/api/leaderboard/session-names"'),
+                           routes.indexOf('app.get("/api/leaderboard/session-names"') + 1200);
+for (const [label, src] of [['the main board', mainBoard], ['the per-session board', bySession],
+                            ['the public session-name filter', names]] as const) {
+  check(`${label} applies the rule`, /AND \$\{ON_PUBLIC_BOARD\}/.test(src), true);
+}
+// The trader's privacy route must never write the admin's column.
+// Exactly the route: from its line to the next route's comment, so nothing of a neighbour leaks in.
+const privAt = routes.indexOf('app.patch("/api/me/privacy"');
+const privacy = routes.slice(privAt, routes.indexOf('// --- Leaderboard (public', privAt));
+check('the privacy route refuses anything but a real true/false',
+      /typeof leaderboardOptIn !== 'boolean'/.test(privacy), true);
+check('the privacy route writes ONLY the caller\'s own row (the signed-in id, never one from the request)',
+      /WHERE id = \$2`,\s*\n?\s*\[leaderboardOptIn, auth\.id\]/.test(privacy) && !/req\.(params|query)/.test(privacy), true);
+const avatarDel = routes.slice(routes.indexOf('app.delete("/api/me/avatar"'),
+                               routes.indexOf('app.delete("/api/me/avatar"') + 600);
+check('photo removal is signed-in only and own row only',
+      /requireAuth\(req, res\)/.test(avatarDel) && /WHERE id = \$1`, \[auth\.id\]/.test(avatarDel), true);
+check('  teeth: the privacy route cannot touch the admin removal',
+      /leaderboard_hidden/.test(privacy.replace(/\/\/.*$/gm, '')), false);
 // TEETH — the ADMIN board must NOT filter on it, or a hidden trader can never be un-hidden.
 // It does SELECT the column (`bool_or(up.leaderboard_hidden) AS hidden`) so the admin UI can show
 // the toggle — that is correct and must survive. The distinction is SELECT versus WHERE.

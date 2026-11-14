@@ -719,12 +719,17 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
   };
 
   const renderLeaderboard = () => {
-    const active = lbEntries.filter(e => !e.hidden);
+    // THREE GROUPS SINCE 2026-11-15. The public board lists a trader only if THEY switched it on
+    // (Settings > Privacy & sharing) and an admin has not removed them (server: ON_PUBLIC_BOARD). Two
+    // groups would have shown every trader who never switched it on as "active" while the public
+    // board left them out.
+    const active = lbEntries.filter(e => !e.hidden && e.optedIn);
+    const notOn  = lbEntries.filter(e => !e.hidden && !e.optedIn);
     const hidden = lbEntries.filter(e => e.hidden);
-    const row = (e: any, rank: number, isHidden: boolean) => (
+    const row = (e: any, rank: number | null, isHidden: boolean) => (
       <tr key={e.userId} style={{ borderBottom: `1px solid ${C.border}` }}>
         <td style={{ padding: '8px 10px', color: C.muted, fontSize: '13px', width: 36, textAlign: 'center' }}>
-          {isHidden ? '—' : rank}
+          {rank == null ? '—' : rank}
         </td>
         <td style={{ padding: '8px 10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -773,10 +778,10 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
           <>
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: '14px', fontWeight: 500, color: C.muted, marginBottom: 8 }}>
-                Active on Leaderboard ({active.length})
+                On the Leaderboard ({active.length})
               </div>
               {active.length === 0
-                ? <div style={{ color: C.muted, fontSize: '13px', padding: '12px 0' }}>No active entries.</div>
+                ? <div style={{ color: C.muted, fontSize: '13px', padding: '12px 0' }}>Nobody has switched it on yet.</div>
                 : (
                   <table style={{ width: '100%', borderCollapse: 'collapse', background: C.bg }}>
                     {thead}
@@ -784,14 +789,25 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
                   </table>
                 )}
             </div>
+            {notOn.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: '14px', fontWeight: 500, color: C.muted, marginBottom: 8 }}>
+                  Not switched on by the trader ({notOn.length}) — not shown publicly
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', background: C.bg, opacity: 0.8 }}>
+                  {thead}
+                  <tbody>{notOn.map(e => row(e, null, false))}</tbody>
+                </table>
+              </div>
+            )}
             {hidden.length > 0 && (
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 500, color: C.muted, marginBottom: 8 }}>
-                  Hidden from Leaderboard ({hidden.length})
+                  Removed by admin ({hidden.length})
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', background: C.bg, opacity: 0.65 }}>
                   {thead}
-                  <tbody>{hidden.map((e, i) => row(e, i + 1, true))}</tbody>
+                  <tbody>{hidden.map(e => row(e, null, true))}</tbody>
                 </table>
               </div>
             )}

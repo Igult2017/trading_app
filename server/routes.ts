@@ -306,6 +306,18 @@ async function backfillProfilesFromSupabase(userIds: string[]) {
 }
 
 /**
+ * WHO MAY APPEAR ON A PUBLIC LEADERBOARD - ONE RULE, USED BY EVERY PUBLIC QUERY (2026-11-15).
+ *
+ * Switched on by the trader (Settings > Privacy & sharing) AND not removed by an admin. His ruling:
+ * nobody is listed until they turn it on. Two columns on purpose - the admin's removal must survive
+ * the trader flipping their own switch. Applied to /api/leaderboard, /by-session and
+ * /session-names (which used to list a hidden trader's session names). NOT to the admin list, which
+ * must show everyone or nobody could be restored. Expects user_profiles joined as `up`.
+ */
+const ON_PUBLIC_BOARD = `up.leaderboard_opt_in = true
+          AND (up.leaderboard_hidden IS NULL OR up.leaderboard_hidden = false)`;
+
+/**
  * PUT THE NAME THEY SIGNED UP WITH ONTO EVERY LEADERBOARD ROW THAT IS MISSING ONE.
  *
  * His instruction, 2026-09-04: *"autosync users must also be desplayed in the leaderboard but with
@@ -543,6 +555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { rows: profileRows } = await pool.query(
         `SELECT id, email, role, full_name, country, plan, status, avatar_url, created_at,
+                leaderboard_opt_in, leaderboard_hidden,
                 subscription_status, subscription_ends_at, journal_access_ends_at, journal_access_granted_by
          FROM user_profiles WHERE id = $1 LIMIT 1`,
         [auth.id],
@@ -618,6 +631,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status:      profile?.status ?? 'Active',
         country:     profile?.country ?? '',
         avatarUrl:   profile?.avatar_url ?? null,
+        leaderboardOptIn: profile?.leaderboard_opt_in === true,
+        // Shown on the Settings page so a trader an admin removed is told why the switch does nothing.
+        leaderboardRemovedByAdmin: profile?.leaderboard_hidden === true,
         loginStreak: streak,
         longestStreak,
         activeDays,
@@ -656,8 +672,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!avatarUrl || typeof avatarUrl !== 'string') {
         return res.status(400).json({ error: 'Invalid avatar data' });
       }
-      if (!avatarUrl.startsWith('data:image/')) {
-        return res.status(400).json({ error: 'Must be an image data URL' });
+      // RASTER TYPES ONLY (2026-11-15). Any data:image/ was accepted, SVG included; the framing editor
+      // only ever produces these, and an SVG is a document, not a photo.
+      if (!/^data:image\/(png|jpeg|webp);base64,/.test(avatarUrl)) {
+        return res.status(400).json({ error: 'Use a PNG, JPEG or WebP picture.' });
       }
       if (avatarUrl.length > 300000) {
         return res.status(400).json({ error: 'Image too large. Please use a smaller image.' });
@@ -670,6 +688,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       console.error('[Me/Avatar] Error:', err?.message);
       res.status(500).json({ error: 'Failed to save avatar' });
+    }
+  });
+
+  // --- Remove profile photo (Settings > Profile, 2026-11-15) — own row only ---
+  app.delete("/api/me/avatar", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    try {
+      await pool.query(`UPDATE user_profiles SET avatar_url = NULL WHERE id = $1`, [auth.id]);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('[Me/Avatar DELETE] Error:', err?.message);
+      res.status(500).json({ error: 'Failed to remove photo' });
+    }
+  });
+
+  // --- Privacy switches (Settings > Privacy & sharing, 2026-11-15) — own row only ---
+  // Only the trader's OWN switch. The admin's removal (leaderboard_hidden) is not writable here, so a
+  // removed trader cannot restore themselves. Anything but a real true/false is refused: "yes", 1 and
+  // null must not be read as a choice someone did not make.
+  app.patch("/api/me/privacy", async (req, res) => {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+    const { leaderboardOptIn } = (req.body ?? {}) as { leaderboardOptIn?: unknown };
+    if (typeof leaderboardOptIn !== 'boolean') {
+      return res.status(400).json({ error: 'leaderboardOptIn must be true or false' });
+    }
+    try {
+      await pool.query(`UPDATE user_profiles SET leaderboard_opt_in = $1 WHERE id = $2`,
+                       [leaderboardOptIn, auth.id]);
+      res.json({ leaderboardOptIn });
+    } catch (err: any) {
+      console.error('[Me/Privacy PATCH]', err?.message);
+      res.status(500).json({ error: 'Failed to save' });
     }
   });
 
@@ -737,7 +789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           --
           -- NOT added to /api/admin/leaderboard/entries below, which has the same shape on purpose:
           -- the admin view must still list a hidden trader, or there is no way to un-hide them.
-          AND (up.leaderboard_hidden IS NULL OR up.leaderboard_hidden = false)
+          AND ${ON_PUBLIC_BOARD}
         GROUP BY r.user_id
         HAVING COUNT(*) >= 1
         ORDER BY SUM(COALESCE(r.profit_loss, 0)) DESC
@@ -887,7 +939,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         JOIN journal_entries je ON je.session_id = ts.id
         LEFT JOIN user_profiles up ON up.id = COALESCE(je.user_id, ts.user_id)
         WHERE je.profit_loss IS NOT NULL
-          AND (up.leaderboard_hidden IS NULL OR up.leaderboard_hidden = false)
+          AND ${ON_PUBLIC_BOARD}
           ${dateFilter}
           ${nameFilter}
         GROUP BY ts.id, ts.session_name, COALESCE(je.user_id, ts.user_id)
@@ -993,6 +1045,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           MAX(up.email)                                                                       AS email,
           MAX(up.country)                                                                     AS country,
           COALESCE(bool_or(up.leaderboard_hidden), false)                                     AS hidden,
+          COALESCE(bool_or(up.leaderboard_opt_in), false)                                     AS opted_in,
           COUNT(DISTINCT r.session_id)                                                        AS session_count,
           COUNT(*)                                                                            AS total_trades,
           COUNT(*) FILTER (WHERE LOWER(COALESCE(r.outcome,'')) IN ('win','w','profit')
@@ -1016,6 +1069,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return {
           userId: r.user_id, name, email: r.email || '', country: r.country || '',
           hidden: r.hidden === true || r.hidden === 't',
+          optedIn: r.opted_in === true || r.opted_in === 't',
           sessions: parseInt(r.session_count) || 0, trades,
           winRate: decisive > 0 ? Math.round((wins / decisive) * 1000) / 10 : 0,
           pnl: parseFloat(r.total_pnl) || 0,
@@ -1295,7 +1349,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         SELECT ts.session_name, COUNT(DISTINCT ts.id) AS cnt
         FROM trading_sessions ts
         JOIN journal_entries je ON je.session_id = ts.id
+        -- The filter dropdown is public too: it used to list the session names of hidden traders.
+        LEFT JOIN user_profiles up ON up.id = COALESCE(je.user_id, ts.user_id)
         WHERE je.profit_loss IS NOT NULL
+          AND ${ON_PUBLIC_BOARD}
         GROUP BY ts.session_name
         ORDER BY COUNT(DISTINCT ts.id) DESC, ts.session_name ASC
         LIMIT 100

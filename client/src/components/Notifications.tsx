@@ -44,8 +44,9 @@ import type { Notification } from '@shared/schema';
 // `--jr-ink-dim` is the journal's real second ink tier (Journal.tsx: #a6b3d1 on dark, var(--jr-muted)
 // on light), so these now change with the theme instead of only claiming to.
 //
-// ⚠ IT IS USED THE SAME WAY IN SIX OTHER FILES (JournalForm, JournalHeader, TradeVault, Journal,
-// profileSettingsCss, streakCss). Those are NOT touched here — he asked for the notification box.
+// ⚠ IT IS USED THE SAME WAY IN OTHER FILES (JournalForm, JournalHeader, TradeVault, Journal,
+// streakCss; profileSettingsCss was the sixth until the Settings page replaced it on 2026-11-15).
+// Those are NOT touched here — he asked for the notification box.
 const PANEL_CSS = `
   .np-root, .np-root * { box-sizing: border-box; margin: 0; padding: 0; }
   .np-root {

@@ -29,6 +29,7 @@ import TradeSyncPage from '@/pages/TradeSyncPage';
 import AccountsPage from '@/pages/AccountsPage';
 import AssetPage from '@/pages/AssetPage';
 import Leaderboard from '@/components/Leaderboard';
+import SettingsPage from '@/components/settings/SettingsPage';
 import { useJournalSettings, THEMES, FONTS } from '@/hooks/useJournalSettings';
 import { NeonLineChart } from '@/components/shared/NeonLineChart';
 import { StatCard } from '@/components/shared/StatCard';
@@ -88,6 +89,8 @@ const NAV_SECTIONS: NavGroup[] = [
     { id: 'sync',        label: 'FX Copier',         icon: SI.Sync },
     { id: 'assets',      label: 'Assets',          icon: SI.Assets },
     { id: 'leaderboard', label: 'Leaderboard',     icon: SI.Leaderboard },
+    // Settings became a page of the journal on 2026-11-15 (his choice A) — see SettingsPage.
+    { id: 'settings',    label: 'Settings',        icon: SI.Settings },
   ]},
 ];
 
@@ -103,7 +106,7 @@ const NAV_LABELS: Record<string, string> = Object.fromEntries(
   NAV_SECTIONS.flatMap(g => g.items.map(i => [i.id, i.label])),
 );
 // Panels reachable without their own sidebar entry, so they have no label to borrow.
-const EXTRA_TITLES: Record<string, string> = { tfmetrics: 'TF Metrics', settings: 'Settings' };
+const EXTRA_TITLES: Record<string, string> = { tfmetrics: 'TF Metrics' };
 
 export function tabTitle(navId: string): string {
   const label = NAV_LABELS[navId] ?? EXTRA_TITLES[navId];
@@ -1426,6 +1429,8 @@ export default function Journal() {
             <AccountsPage openModal={true} darkMode={T.dark} onViewSession={handleSelectSession} />
           ) : activeNav === 'assets' ? (
             <AssetPage darkMode={T.dark} />
+          ) : activeNav === 'settings' ? (
+            <SettingsPage />
           ) : activeNav === 'leaderboard' ? (
             <div style={{ padding: isMobile ? '10px' : '14px 16px' }}>
               <Leaderboard />

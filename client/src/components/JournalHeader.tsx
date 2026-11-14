@@ -1,18 +1,18 @@
 import { useState, useRef, useEffect, RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Menu, Globe, Maximize2, Minimize2, SunMedium, UserCircle2 } from 'lucide-react';
 import { useAuth } from "@/context/AuthContext";
 import { useLogout } from "@/hooks/useLogout";
-import { authFetch } from "@/lib/queryClient";
 import { Notifications } from "@/components/Notifications";
 import { useLang } from "@/context/LanguageContext";
 import { useTranslation } from "react-i18next";
 import { ALL_LANGUAGES } from "@/i18n/languages";
 import type { LangCode } from "@/i18n/languages";
 import Wordmark from '@/components/Wordmark';
-import ProfileSettings from '@/components/profile/ProfileSettings';
 import StreakDetail from '@/components/profile/StreakDetail';
+import { useMyProfile } from '@/components/profile/useMyProfile';
+import { useAvatarEditor } from '@/components/profile/AvatarEditor';
 // The theme pill and its list. It was pasted inline TWICE in this file — desktop and mobile —
 // with every style repeated, which is exactly how two copies of one control drift apart.
 import ThemePicker from '@/components/ThemePicker';
@@ -208,20 +208,19 @@ const PcLogoutIcon = () => (
   </svg>
 );
 
-function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, plan, email, loginStreak, longestStreak, activeDays, onLogout, onUploadAvatar, uploading }: {
+function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, plan, loginStreak, longestStreak, activeDays, onLogout, onUploadAvatar, onOpenSettings }: {
   dm: boolean;
   dropdownRef: RefObject<HTMLDivElement>;
   displayName: string;
   avatarLetter: string;
   avatarUrl: string | null;
   plan: string;
-  email: string | null;
   loginStreak: number;
   longestStreak: number;
   activeDays: string[];
   onLogout: () => void;
   onUploadAvatar: () => void;
-  uploading: boolean;
+  onOpenSettings: () => void;
 }) {
   useEffect(() => {
     const id = 'pc-profile-card-css';
@@ -235,10 +234,10 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
   const streakDays = Math.max(0, loginStreak | 0);
   const streakLabel = streakDays === 1 ? '1 day' : `${streakDays} days`;
 
-  // Two views in the SAME popover — never a navigation. Opening settings used to leave the journal
-  // entirely; see ProfileSettings for why that was wrong.
-  const [view, setView] = useState<'profile' | 'settings' | 'streak'>('profile');
-  const [name, setName] = useState(displayName);
+  // The streak detail is a second view in the same popover. Settings is NOT any more: since
+  // 2026-11-15 it is the journal's Settings page (?tab=settings) - still inside the login, which is
+  // the rule that put it in here in the first place (see components/settings/SettingsPage).
+  const [view, setView] = useState<'profile' | 'streak'>('profile');
 
   return createPortal(
     <div
@@ -249,14 +248,6 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
         {view === 'streak' ? (
           <StreakDetail streak={streakDays} longest={longestStreak} activeDays={activeDays}
                         onBack={() => setView('profile')} />
-        ) : view === 'settings' ? (
-          <ProfileSettings
-            email={email}
-            plan={plan}
-            displayName={name}
-            onBack={() => setView('profile')}
-            onNameSaved={setName}
-          />
         ) : (
         <>
         <div className="pc-top">
@@ -267,28 +258,25 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
             style={{ cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
           >
             {avatarUrl
-              ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }} />
+              ? <img src={avatarUrl} alt="Your profile photo" style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#ffffff', borderRadius: '50%', display: 'block' }} />
               : avatarLetter
             }
             {/* The second ring around the avatar is gone — two borders on one 44px circle is the
                 kind of detail that reads as clutter rather than craft. */}
             <div style={{
               position: 'absolute', inset: 0, borderRadius: '50%',
-              background: uploading ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0)',
+              background: 'rgba(0,0,0,0)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'background 0.2s',
             }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0.42)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = uploading ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(0,0,0,0)'; }}
             >
-              {uploading
-                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'mfj-spin 0.8s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.85 }}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              }
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.85 }}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             </div>
           </div>
           <div className="pc-meta">
-            <div className="pc-name">{name}</div>
+            <div className="pc-name">{displayName}</div>
             {/* The plan as a quiet second line, where Clerk puts the handle — not a bordered chip
                 with a pulsing dot competing with the name above it. */}
             <div className="pc-plan">{plan || 'Free'}</div>
@@ -311,7 +299,7 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
         </button>
 
         <div className="pc-menu">
-          <button className="pc-item" type="button" onClick={() => setView('settings')}>
+          <button className="pc-item" type="button" onClick={onOpenSettings}>
             <span className="pc-ico"><PcSettingsIcon /></span>
             account settings
           </button>
@@ -335,35 +323,9 @@ function ProfileDropdown({ dropdownRef, displayName, avatarLetter, avatarUrl, pl
   );
 }
 
-function resizeImageToDataUrl(file: File, maxSize = 220): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        let w = img.width, h = img.height;
-        if (w > maxSize || h > maxSize) {
-          if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
-          else { w = Math.round(w * maxSize / h); h = maxSize; }
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.88));
-      };
-      img.onerror = reject;
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkMode, themeId = 'navy', onPickTheme }: JournalHeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [avatarUploading, setAvatarUploading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
@@ -386,45 +348,15 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
   const profileRef = useRef<HTMLDivElement>(null);
   const mobileProfileRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const dm = darkMode;
 
   const { user } = useAuth();
   const logout = useLogout();
-  const [profile, setProfile] = useState<{ fullName: string; email: string | null; plan: string; loginStreak: number; longestStreak: number; activeDays: string[]; avatarUrl: string | null } | null>(null);
+  // ONE profile for the whole app (useMyProfile) - the Settings page saves, this header updates.
+  const { profile } = useMyProfile();
+  const avatarEditor = useAvatarEditor();
+  const [, navigate] = useLocation();
 
-  useEffect(() => {
-    if (!user) { setProfile(null); return; }
-    let cancelled = false;
-    authFetch('/api/me/profile')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (!cancelled && d) setProfile({ fullName: d.fullName || '', email: d.email ?? null, plan: d.plan || 'Free', loginStreak: d.loginStreak || 0, longestStreak: d.longestStreak || 0, activeDays: Array.isArray(d.activeDays) ? d.activeDays : [], avatarUrl: d.avatarUrl || null }); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [user?.id]);
-
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = '';
-    setAvatarUploading(true);
-    try {
-      const dataUrl = await resizeImageToDataUrl(file);
-      const res = await authFetch('/api/me/avatar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ avatarUrl: dataUrl }),
-      });
-      if (res.ok) {
-        setProfile(prev => prev ? { ...prev, avatarUrl: dataUrl } : prev);
-      }
-    } catch (_) {}
-    setAvatarUploading(false);
-  }
-
-  function triggerAvatarUpload() {
-    fileInputRef.current?.click();
-  }
 
   const displayName = (profile?.fullName && profile.fullName.trim())
     || user?.user_metadata?.full_name
@@ -624,7 +556,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
             <div ref={profileRef} style={{ position: 'relative' }}>
               <button className="avatar-btn" title="Profile" onClick={() => setProfileOpen(o => !o)} style={{ padding: 0, overflow: 'hidden' }}>
                 {avatarUrl
-                  ? <img src={avatarUrl} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+                  ? <img src={avatarUrl} alt="Your profile photo" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'contain', background: '#ffffff', display: 'block' }} />
                   : <UserCircle2 size={18} color="#60a5fa" />
                 }
               </button>
@@ -636,13 +568,12 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
                   avatarLetter={avatarLetter}
                   avatarUrl={avatarUrl}
                   plan={plan}
-                  email={profile?.email ?? user?.email ?? null}
                   loginStreak={loginStreak}
                   longestStreak={profile?.longestStreak ?? 0}
                   activeDays={profile?.activeDays ?? []}
                   onLogout={handleLogout}
-                  onUploadAvatar={triggerAvatarUpload}
-                  uploading={avatarUploading}
+                  onUploadAvatar={() => { setProfileOpen(false); avatarEditor.pick(); }}
+                  onOpenSettings={() => { setProfileOpen(false); navigate('/journal?tab=settings'); }}
                 />
               )}
             </div>
@@ -678,7 +609,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
             <div ref={mobileProfileRef} style={{ position: 'relative' }}>
               <button className="avatar-btn" title="Profile" onClick={() => setProfileOpen(o => !o)} style={{ padding: 0, overflow: 'hidden' }}>
                 {avatarUrl
-                  ? <img src={avatarUrl} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+                  ? <img src={avatarUrl} alt="Your profile photo" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'contain', background: '#ffffff', display: 'block' }} />
                   : <UserCircle2 size={18} color="#60a5fa" />
                 }
               </button>
@@ -701,13 +632,7 @@ export default function JournalHeader({ onToggleSidebar, darkMode, onToggleDarkM
         </div>
       )}
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileChange}
-        style={{ display: 'none' }}
-      />
+      {avatarEditor.element}
     </div>
   );
 }

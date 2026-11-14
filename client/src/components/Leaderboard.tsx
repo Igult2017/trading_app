@@ -5,6 +5,8 @@ import { fetchJson } from '@/lib/queryClient';
 import { useAuth } from '@/context/AuthContext';
 import { countryToIso } from '@/lib/countryToIso';
 import { formatProfitFactor } from '@/lib/tradeStats';
+import { Link } from 'wouter';
+import { Button } from '@/components/ui/button';
 
 interface Trader {
   rank: number;
@@ -327,10 +329,14 @@ export default function Leaderboard() {
           <Users size={40} strokeWidth={1.2} />
           <p style={{ fontSize: 16.5, fontWeight: 700, color: 'var(--jr-muted)', margin: 0 }}>No traders ranked yet</p>
           <p style={{ fontSize: 14.5, color: 'var(--jr-muted)', margin: 0, textAlign: 'center', maxWidth: 300 }}>
-            {viewMode === 'session'
-              ? 'No session data found. Trades must be linked to a session to appear here.'
-              : 'Start logging trades in your journal to appear on the leaderboard.'}
+            {/* OPT-IN SINCE 2026-11-15 (his ruling): logging trades is no longer enough on its own —
+                nobody is listed until they switch it on. The old line said logging was enough. */}
+            Traders appear here once they switch it on in Settings, under Privacy &amp; sharing.
+            {viewMode === 'session' ? ' Their trades must also be linked to a session.' : ''}
           </p>
+          <Button asChild variant="outline" className="mt-2 bg-transparent">
+            <Link href="/journal?tab=settings">Go to Settings</Link>
+          </Button>
         </div>
       )}
 

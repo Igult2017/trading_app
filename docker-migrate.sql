@@ -438,6 +438,11 @@ INSERT INTO copy_engine_heartbeat (id) VALUES (1) ON CONFLICT DO NOTHING;
 -- leaderboard_hidden: lets admins hide a trader from the public leaderboard.
 -- Added here so the leaderboard routes no longer need a per-request ALTER guard.
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_hidden BOOLEAN DEFAULT false;
+-- leaderboard_opt_in: the TRADER'S OWN switch (Settings > Privacy & sharing), 2026-11-15.
+-- His ruling: nobody is on the public board until they switch it on, so it defaults to false and
+-- existing rows are NOT back-filled. Kept apart from leaderboard_hidden (the admin's) so a trader
+-- an admin removed cannot put themselves back by flipping their own switch.
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_opt_in BOOLEAN DEFAULT false;
 
 -- ── trading_signals — pending-entry lifecycle ────────────────────────────────
 -- triggered_at: when the ENTRY actually filled (stop-entry strategies fire an ORDER,

@@ -43,7 +43,9 @@ function teeth(name: string, held: boolean) {
 const here = (f: string) => readFileSync(join(import.meta.dirname, f), 'utf8');
 const page = here('ResetPasswordPage.tsx');
 const client = here('../lib/supabase.ts');
-const profile = here('../components/profile/ProfileSettings.tsx');
+// The in-app box moved from the profile menu (profile/ProfileSettings) to the Settings page on
+// 2026-11-15; its password code moved with it, unchanged apart from its variable names.
+const profile = here('../components/settings/AccountSections.tsx');
 
 console.log('\nPASSWORD RESET — the link arrives, the form appears, and nothing fails silently');
 
@@ -109,13 +111,13 @@ teeth('it signs out BEFORE sending you to the sign-in screen',
 
 // ── 4. THE SAME HOLE IN THE IN-APP BOX ───────────────────────────────────────
 console.log('\n4. the in-app change-password box has the same guard:');
-const savePw = profile.slice(profile.indexOf('async function savePw'),
-                             profile.indexOf('const Section ='));
+const savePw = profile.slice(profile.indexOf('async function save(e'),
+                             profile.indexOf('return (', profile.indexOf('async function save(e')));
 teeth('savePw has a catch', /\}\s*catch\s*\(/.test(savePw));
 teeth('…and the spinner is cleared in a finally, so it cannot stick on "Changing…"',
-      /finally\s*\{\s*\n?\s*setSavingPw\(false\);/.test(savePw));
+      /finally\s*\{\s*\n?\s*setSaving\(false\);/.test(savePw));
 check('it still reports a handed-back failure too',
-      /if \(error\) return setPwMsg\(\{ s: 'err', m: readableAuthError\(error\.message/.test(savePw), true);
+      /if \(error\) return setMsg\(\{ s: 'err', m: readableAuthError\(error\.message/.test(savePw), true);
 
 console.log(`\n${failed === 0 ? 'ALL PASS' : `${failed} FAILED`} — ${count} checks\n`);
 process.exit(failed === 0 ? 0 : 1);
