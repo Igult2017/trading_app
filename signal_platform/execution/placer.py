@@ -8,6 +8,10 @@ charges no spread. Neither is true, and until an order is actually resting at a 
 way to find out by how much.
 
 Everything is refused by default: `guards.check` runs first and its verdict is final.
+
+LENGTH: this file may run to 500 lines (his ruling, 16 Nov 2026: *"You can make it 500 if necessary"*),
+not the usual 200. What is here is one function, `place_for_signal`, and the reasons behind each step;
+splitting it would change the order path for no gain. `docs/OPEN.md` D73.
 """
 import logging
 from datetime import datetime, timedelta, timezone

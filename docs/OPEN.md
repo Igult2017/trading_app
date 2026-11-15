@@ -1777,7 +1777,14 @@ sabotage-verified.
 
 ## D. cTrader & copy trading
 
-### D73 — `execution/placer.py` is 273 lines, over the 200 limit. Found 15 Nov 2026 — OPEN
+### D73 — `execution/placer.py` is 272 lines, over the 200 limit. Found 15 Nov 2026 — ✅ CLOSED 16 Nov 2026 (his ruling)
+
+- **His ruling:** *"You can make it 500 if necessary."* So this file's limit is 500 lines, and at 272
+  it is within it. It is NOT split: cutting `place_for_signal` in two would change the order path for
+  no gain. If it ever passes 500, split it then, with a plan.
+
+*The finding as first recorded:*
+
 
 - **What it means:** the file was 393 lines. On 15 Nov its order records, fill report and two DM texts
   moved out (`execution/intents.py`, `execution/placer_messages.py`). What is left is almost all ONE
