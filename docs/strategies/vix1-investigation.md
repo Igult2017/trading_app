@@ -2142,13 +2142,17 @@ At quiet >= 18 h (216): failed 35.6 / 31.9 / **19.0** / 15.4 / 14.3%. The same s
 - But it is 17 cases in 2 years across 3 pairs (about 3 a year per pair) at 12 h, 8 at 18 h and 2 at
   today's 24 h. The margin at 17 cases is about +/-18 points. Promising, not proven.
 
-## Liquidity voids with news (15 Nov 2026) — INTERIM
+## Liquidity voids with news (15 Nov 2026) — FINAL
 
 - The full report is in `docs/strategies/vix1-void-news-report.md`.
 - **The test:** a void counts only if it comes out of a quiet market (no momentum candle in the 24 h
-  before it), optionally only if it comes with news. Tested on the real VIX.1, with the ForexFactory
-  calendar copied from Hugging Face. Its clock was repaired (summer +1 h from 2023, blank times filled),
-  and the repaired times agree with the recorded ones 100%.
-- **Final so far:** neither quiet nor news separates the voids that fill. All kinds fill about 4 in 5
-  (81% overall, 84% after a quiet market, 78% with news). Only 8% of voids come out of a quiet market.
-- **Still running:** the money result of the ~283 trades that differ.
+  before it), optionally only if it also comes with news. Tested on the real VIX.1, 2020-2025, with the
+  ForexFactory calendar repaired (summer +1 h from 2023, blank times filled; 944/944 agree).
+- **Fill behaviour:** neither quiet nor news changes it. All kinds of void fill about 4 in 5 (81%).
+- **Money:** quiet market only = **+27R** vs today (GBP/USD -5, EUR/USD +12, GBP/JPY +20, the last
+  with no spread). Adding news = +25R. Luck alone typically moves the total about +/-14R, and 2% of
+  random redraws came out at zero or below.
+- **Recommendation:** adopt the quiet-market condition, not the news one. His decision, under a
+  separate plan.
+- **How it works:** today's rule treats many ordinary moves as voids. That both blocks trades and
+  silences the range check (`vix1_chop.py:129-132`).
