@@ -330,7 +330,10 @@ in real time with no "major swing" filter. The table in the doc is stale: it was
 *before* real-time turns shipped.
 **Where:** see [strategies/vix1.md](./strategies/vix1.md).
 
-### B1b — `test_position_book.py` has one FLAKY check that fails at random
+### B1b — ~~`test_position_book.py` has one FLAKY check that fails at random~~ FIXED (tolerance in place; found marked open 15 Nov 2026)
+
+**Confirmed fixed 15 Nov 2026:** the check already compares against a tolerance, `quiet >= 0.045`
+(`tests/vix1/test_position_book.py:186`). This entry had simply never been closed.
 **Found 2026-09-13** while verifying the pullback fix, and recorded so the next person does not lose
 an hour blaming their own change for it, as I nearly did.
 
@@ -1774,6 +1777,17 @@ sabotage-verified.
 
 ## D. cTrader & copy trading
 
+### D71 — Autotrade's daily cap of 6 counts WITHDRAWN orders too. Found 15 Nov 2026 — HIS DECISION PENDING
+
+- **What it means:** guard rule 6 counts every order PLACED in the last 24 hours
+  (`signal_platform/execution/guards.py:165-169`), including ones withdrawn because their setup died
+  before filling. Those risked nothing.
+- **The effect:** a morning of withdrawn orders can use up the day's 6 and refuse a real trade in the
+  afternoon.
+- **His 15 Sep fix applied the same idea to rule 7** (one live order per pair and side): count only
+  orders the broker still has open or that filled into an open trade. Rule 6 was not changed.
+- **Asked 15 Nov:** should the 6 count only orders that became trades or are still resting?
+
 ### D70 — Copy trades on crosses (EUR/GBP, AUD/CAD…) and indices are NOT copied: their risk cannot be priced yet. Found 2026-11-15
 
 - **What it means:** since 15 Nov every copied trade must carry a stop that holds the loss to the
@@ -2584,7 +2598,12 @@ leg, the live path should be fixed at source rather than papered over.
 **How to close it:** open and close one small position, read the row the live feed writes *before* the
 next sweep, and compare its commission against the two deals' own. One trade settles it.
 
-### D59 — AUTOTRADE IS SWITCHED OFF (2026-10-05, his instruction). It places nothing; it still RECORDS every setup
+### D59 — ~~AUTOTRADE IS SWITCHED OFF (2026-10-05)~~ BACK ON SINCE 2026-11-14 (his instruction)
+
+**CORRECTED 15 Nov 2026 (autotrade audit):** `AUTOTRADE_ENABLED=true` in production (checked 15 Nov).
+Demo-only, 1% risk, EUR/USD + GBP/USD + GBP/JPY, London + New York, day stops 16:00 UTC — see
+`docs/autotrade-disabled.md`, which is current. The text below describes the OFF period, kept because
+it is how autotrade is switched off again.
 
 **Read `docs/autotrade-disabled.md` before concluding anything about autotrade.** This entry exists so
 the next session does not read "no orders placed" as a defect and go looking for a broken pipeline.

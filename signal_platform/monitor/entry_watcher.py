@@ -39,7 +39,12 @@ log = logging.getLogger(__name__)
 
 _POLL_S = 0.25            # how often the tick stream is examined; costs no broker requests
 _IDLE_S = 60.0            # how often to look again when the market is shut
-_STALE_AFTER_S = 90.0     # no tick on ANY pair this long, on an open market
+# No tick on ANY pair this long, on an open market. 300s, not 90 (changed 15 Nov 2026): across 786
+# days of the broker's own minutes no minute had zero ticks, but a 90s pause on a healthy feed
+# happens — at 90s this sent "the live price stream went quiet" and then "flowing again" on a feed
+# that was fine. The connection-silence test above it (75s, heartbeats count) is unchanged and is the
+# real test for a dead feed. Same number the FIX module uses as its "really broken" line.
+from data.fix_quotes import _MAX_AGE_S as _STALE_AFTER_S
 # ⚠ THIS THRESHOLD IS KEPT, AND IT IS MEASURED. Over 786 days of the broker's own saved minutes
 # there was not ONE stretch of even two consecutive tickless minutes on any pair, so 90 seconds of
 # silence across every pair at once has never happened from a quiet market. Unlike the ladder's old

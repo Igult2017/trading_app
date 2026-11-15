@@ -138,6 +138,9 @@ TESTS = [
     # ADDED 2026-11-15. His order: "if we miss the news we risk trading news candles". A failed news
     # feed used to read as "no news" and trade; now it refuses new entries.
     "test_news_unknown_refuses.py",
+    # ADDED 2026-11-15. His report: the platform kept saying FIX had gone off during trades. A pair
+    # quiet 90s is normal; only a dead connection or 300s of silence is reported now.
+    "test_feed_alarms.py",
     # ADDED 2026-10-04. His ask: *"i need notification for 1st and second candles if they are momentum
     # candles and then signal starts at 3rd candle going forward"* — and only for a candle that fails
     # NOTHING but the count. The entry gained an `ignore_count` switch to answer that question, so the

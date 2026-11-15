@@ -34,7 +34,7 @@ from monitor import position_book
 from notifications import safe_notify as notify
 # THE LIMITS LIVE WITH THE FEED, NOT HERE. Two copies of the same number is how the
 # watcher and the quote reader came to disagree about what a dead feed is.
-from data.fix_quotes import _SESSION_SILENT_S, _SYMBOL_SUSPECT_S
+from data.fix_quotes import _SESSION_SILENT_S, _SYMBOL_SUSPECT_S, _MAX_AGE_S
 
 log = logging.getLogger(__name__)
 
@@ -76,6 +76,7 @@ class TradeWatcher:
         self._stream = None
         self._running = False
         self._degraded = False                 # True while falling back to the Open API quote
+        self._quiet_fallback = False           # a short pause on one pair: polled price, nothing said
         # Set by `_on_tick` the instant a price lands; the loop waits on it instead of a timer.
         self._tick = asyncio.Event()
 
@@ -211,7 +212,20 @@ class TradeWatcher:
             mine_silent = age is None or age > _SYMBOL_SUSPECT_S
             dead_symbol = mine_silent and others > 0
             q = self._stream.quote(p.symbol)
+            # TWO LINES, NOT ONE (15 Nov 2026). At 90s a pair silent while others tick is switched to
+            # the polled price QUIETLY — that protects the stop at no cost. He is only TOLD when it
+            # stays silent past `_MAX_AGE_S` (300s): across 786 days of the broker's own minutes no
+            # minute had zero ticks, while a 90s pause on a healthy pair happens ~0.5 times a weekday.
+            # Telling him at 90s was the leftover false alarm while two trades were open.
+            long_dead = mine_silent and others > 0 and (age is None or age > _MAX_AGE_S)
+            if q is not None and dead_symbol and not dead_session and not long_dead:
+                if not self._quiet_fallback:
+                    self._quiet_fallback = True
+                    log.info(f"[watcher] {p.symbol} quiet for {age or 0:.0f}s while others tick — "
+                             f"using the polled price for now (not reported: a pause this short is normal)")
+                return await _prices_now(p.symbol, p.bullish)
             if q is not None and not dead_session and not dead_symbol:
+                self._quiet_fallback = False
                 if self._degraded:
                     self._degraded = False
                     log.info("[watcher] the price feed is answering again")

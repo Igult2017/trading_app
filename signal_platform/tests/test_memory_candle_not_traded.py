@@ -88,8 +88,18 @@ with _Yard(None):           # not a momentum candle at all
 # ── 2. ⚠ NOTHING ELSE CHANGED — the half that matters most ─────────────────────────────────────
 print("\n2. the signal, the DM and every other caller keep the memory:")
 mom = (ROOT / "strategies/vix1_momentum.py").read_text(encoding="utf-8")
-check("qualifies_for_trade still accepts a memory candle (unchanged)",
-      "return size_yardstick(h1, i, bullish, symbol) is not None" in mom, True)
+# ASKED OF THE FUNCTION, NOT ITS TEXT (fixed 15 Nov 2026). This matched the source line
+# "return size_yardstick(...) is not None", which stopped existing on 10 Nov when the stomach rule was
+# added to qualifies_for_trade — the behaviour stayed right and the check went red, unnoticed because
+# no runner ran this file. Now: a candle the memory admitted (yardstick = an EARLIER index) qualifies.
+_real_verdict = vm.vix1_open_rule.verdict
+vm.vix1_open_rule.verdict = lambda h1, i, bullish: (True, "")
+with _Yard(40):
+    check("qualifies_for_trade still accepts a memory candle (unchanged)",
+          vm.qualifies_for_trade(BARS, 59, True, "GBP/USD"), True)
+    check("...and so does the DM announcement path",
+          vm.qualifies_for_trade(BARS, 59, True, "GBP/USD", ignore_open_rule=True), True)
+vm.vix1_open_rule.verdict = _real_verdict
 teeth("...so it does NOT consult the new flag",
       "traded_on_memory" not in mom.split("def qualifies_for_trade")[1].split("def ")[0])
 check("the 0.2 margin is untouched", vm._SIZE_MARGIN, 0.2)
