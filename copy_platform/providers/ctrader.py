@@ -29,6 +29,7 @@ from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT, RECONNECT_DELAY, \
 
 import auth_loss
 import symbol_details
+import ctrader_send   # every send handles a missing reply (OPEN.md D67)
 from lot_calc import lots_from_volume
 
 log = logging.getLogger("provider.ctrader")
@@ -231,7 +232,7 @@ class CTraderProvider:
             try:
                 req = ProtoOAReconcileReq()
                 req.ctidTraderAccountId = int(self.creds["ctraderId"])
-                self.client.send(req)
+                ctrader_send.send(self.client, req)
             except Exception as e:
                 log.warning(f"[{self.master_id}] reconcile request failed: {e}")
         self._loop.call_later(RECONCILE_INTERVAL, self._request_reconcile)
@@ -247,7 +248,7 @@ class CTraderProvider:
         req = ProtoOAApplicationAuthReq()
         req.clientId     = cid
         req.clientSecret = csec
-        client.send(req)
+        ctrader_send.send(client, req)
 
     def _on_disconnected(self, client, reason):
         log.warning(f"[{self.master_id}] disconnected: {reason}. Reconnecting in {RECONNECT_DELAY}s")
@@ -301,14 +302,14 @@ class CTraderProvider:
             req = ProtoOAAccountAuthReq()
             req.ctidTraderAccountId = int(self.creds["ctraderId"])
             req.accessToken         = self.creds["accessToken"]
-            client.send(req)
+            ctrader_send.send(client, req)
 
         elif ptype == ProtoOAAccountAuthRes().payloadType:
             self._authed = True
             log.info(f"[{self.master_id}] authenticated — loading symbols")
             req = ProtoOASymbolsListReq()
             req.ctidTraderAccountId = int(self.creds["ctraderId"])
-            client.send(req)
+            ctrader_send.send(client, req)
 
         elif ptype == ProtoOASymbolsListRes().payloadType:
             res = Protobuf.extract(message)
@@ -319,7 +320,7 @@ class CTraderProvider:
             log.info(f"[{self.master_id}] {len(self._symbols)} symbols — requesting open positions")
             req = ProtoOAReconcileReq()
             req.ctidTraderAccountId = int(self.creds["ctraderId"])
-            client.send(req)
+            ctrader_send.send(client, req)
             if not self._reconcile_scheduled:   # one chain for the provider's lifetime
                 self._reconcile_scheduled = True
                 self._loop.call_later(RECONCILE_INTERVAL, self._request_reconcile)
@@ -632,7 +633,7 @@ class CTraderProvider:
             return
         self._spec_requested.add(symbol_id)
         try:
-            self.client.send(symbol_details.build_request(int(self.creds["ctraderId"]), symbol_id))
+            ctrader_send.send(self.client, symbol_details.build_request(int(self.creds["ctraderId"]), symbol_id))
         except Exception as exc:
             self._spec_requested.discard(symbol_id)
             log.warning(f"[{self.master_id}] could not request contract spec for {symbol_id}: {exc}")

@@ -128,7 +128,10 @@ class VoidState:
 # ⚠ NEWS UNKNOWN IS TREATED AS NEWS. With no calendar, a calendar marked not-ok, or a candle older
 # than the calendar reaches (ForexFactory's feed is this-week-only), (b) falls back to the old line
 # alone — the stricter side. Missing news can only make VIX.1 MORE careful, never less.
-_RECENT_N = 5          # "at that time" = the last 5 momentum candles (5 was my choice — flagged to him)
+# "at that time" = the last 5 momentum candles. TESTED 15 Nov 2026 at his request (real strategy,
+# 2020-2025, three pairs, vs the old line): 3 = +12R, 5 = +18R, 8 = +12R, 10 = +12R. 5 is best, and
+# the least likely to be luck (4% of random redraws at or below zero, vs 11-13% for the others).
+_RECENT_N = 5
 _RECENT_BACK = 400     # how far back to look for them (bars)
 _RECENT_X = 2.0        # his "twice"
 _MOM_CACHE: dict = {}  # (symbol, time, open, close, has-long-history) -> is it a momentum candle

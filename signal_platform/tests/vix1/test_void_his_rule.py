@@ -84,18 +84,21 @@ S.check("calendar that starts AFTER the candle (the Monday case): counts as a vo
         big(NOV10_16, cal(start=dt.datetime(2026, 11, 12, tzinfo=U))), True)
 
 # ── 4. the news feed itself: unknown is NOT "no news" ────────────────────────────────────────────
+# His ruling: block only when high-impact news is expected and close enough to affect us. So the
+# calendar's AGE does not matter (the schedule is published days ahead) — only whether it COVERS now.
 now = dt.datetime(2026, 11, 15, 12, tzinfo=U)
-future = [NewsEvent("CPI", "USD", NewsImpact.HIGH, now + timedelta(days=1))]
-past = [NewsEvent("CPI", "USD", NewsImpact.HIGH, now - timedelta(days=1))]
-news_fetcher._last_good_at = None
-S.check("no calendar ever received -> news unknown", news_fetcher._known(future, now)[0], False)
-news_fetcher._last_good_at = now - timedelta(hours=1)
-S.check("calendar 1 h old with releases ahead -> known", news_fetcher._known(future, now)[0], True)
-S.check("empty calendar -> unknown", news_fetcher._known([], now)[0], False)
-S.check("calendar that ends before now -> unknown", news_fetcher._known(past, now)[0], False)
-news_fetcher._last_good_at = now - timedelta(hours=7)
-S.check("calendar 7 h old -> unknown (limit 6 h)", news_fetcher._known(future, now)[0], False)
-news_fetcher._last_good_at = None
+before = NewsEvent("PPI", "USD", NewsImpact.HIGH, now - timedelta(days=2))
+after = NewsEvent("CPI", "USD", NewsImpact.HIGH, now + timedelta(days=1))
+S.check("calendar covering now (releases before AND after) -> known", news_fetcher._known([before, after], now)[0], True)
+S.check("empty calendar -> unknown (blind: no new trades)", news_fetcher._known([], now)[0], False)
+S.check("calendar that ends before now -> unknown", news_fetcher._known([before], now)[0], False)
+S.check("calendar that starts after now -> unknown", news_fetcher._known([after], now)[0], False)
+
+# The history read (last 96 h from the shared table) is merged in without duplicating a release.
+dup = NewsEvent("CPI", "USD", NewsImpact.HIGH, after.scheduled_at)
+old = NewsEvent("NFP", "USD", NewsImpact.HIGH, now - timedelta(days=3))
+merged = news_fetcher._merge_history([before, after], [dup, old])
+S.check("history adds the release the calendar lacked, and not the one it already had", len(merged), 3)
 
 # ── 5. B35: the GBP/JPY void is measured in GBP/JPY pips ─────────────────────────────────────────
 j1 = load("GBPJPY_H1_7y.csv", "H1")

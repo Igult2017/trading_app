@@ -220,3 +220,22 @@ followed on 1-minute prices.
     before now.
 - **Tests:** `tests/vix1/test_void_his_rule.py` and `test_news_unknown_refuses.py`. The whole VIX.1
   suite passes.
+
+## How many momentum candles is "at that time"? (tested 15 Nov 2026, at his request)
+
+**The question:** "the last 5" was my choice, not tested. So the built code was run four times,
+changing only that count. Each run used the full repaired news calendar and was compared with the old
+"> 5× normal" rule. Every trade that differs was followed on 1-minute prices.
+
+| last N momentum candles | vs old rule | GBP/USD | EUR/USD | GBP/JPY | chance it is luck* |
+|---|---|---|---|---|---|
+| 3 | +12R | −5R | +2R | +15R | 13% |
+| **5** | **+18R** | −5R | +4R | +19R | **4%** |
+| 8 | +12R | −4R | +2R | +14R | 12% |
+| 10 | +12R | −4R | +2R | +14R | 11% |
+
+\*How often the total came out at zero or worse when the same trades were redrawn at random 10,000 times.
+
+**Result:**
+- **5 is the best count, and the least likely to be luck. It stays.**
+- Every count beats the old rule, so the rule works whichever count is used; 5 just works best.

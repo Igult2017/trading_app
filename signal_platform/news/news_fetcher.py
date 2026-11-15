@@ -118,11 +118,51 @@ def _fetch_direct_sync() -> list[NewsEvent]:
 
 
 def _fetch_sync() -> list[NewsEvent]:
-    """App API first, direct scrape if that fails."""
+    """App API first, direct scrape if that fails — plus the recent high-impact HISTORY."""
     result = _fetch_from_app_sync()
-    if result is not None:
-        return result
-    return _fetch_direct_sync()
+    if result is None:
+        result = _fetch_direct_sync()
+    return _merge_history(result, _fetch_history_sync()) if result else result
+
+
+# THE PAST FOUR DAYS OF HIGH-IMPACT NEWS, straight from the shared `economic_events` table.
+#
+# WHY: VIX.1's void rule asks "was there news in this candle?" for candles up to 48 trading hours
+# back — on a Monday that is last Thursday/Friday. The app's calendar endpoint serves only 2 days back
+# (`calendarDb.ts` dbWindow), so Friday's releases were missing and those candles fell to "news
+# unknown". The table keeps high-impact rows for 96 h (`calendarDb.ts` purge), written by MyFXBook
+# (the main source) and by the ForexFactory backup alike. If this read fails, nothing breaks: the
+# candles it would have covered count as "news unknown", the stricter side.
+_HISTORY_HOURS = 96
+
+
+def _fetch_history_sync() -> list[NewsEvent]:
+    try:
+        from sqlalchemy import text
+        from storage.db import engine
+        since = datetime.now(timezone.utc) - timedelta(hours=_HISTORY_HOURS)
+        with engine.connect() as conn:
+            rows = conn.execute(text(
+                "SELECT title, currency, event_time FROM economic_events "
+                "WHERE impact_level = 'High' AND event_time >= :since"), {"since": since}).fetchall()
+        out = []
+        for title, currency, when in rows:
+            if when is None:
+                continue
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=timezone.utc)
+            out.append(NewsEvent(title=title or "", currency=currency or "", impact=NewsImpact.HIGH,
+                                 scheduled_at=when.astimezone(timezone.utc)))
+        return out
+    except Exception as exc:
+        log.warning("[news_fetcher] news history read failed (%s) — older candles count as news unknown", exc)
+        return []
+
+
+def _merge_history(events: list[NewsEvent], history: list[NewsEvent]) -> list[NewsEvent]:
+    """The app's calendar plus any history row it does not already hold (same currency, title, time)."""
+    seen = {(e.currency, e.title, e.scheduled_at) for e in events}
+    return events + [h for h in history if (h.currency, h.title, h.scheduled_at) not in seen]
 
 
 async def fetch(now: datetime | None = None) -> NewsContext:
@@ -131,7 +171,7 @@ async def fetch(now: datetime | None = None) -> NewsContext:
     Cache TTL = 15 min (matches the app's own calendar refresh interval).
     On failure: returns last cached result (never halts the platform).
     """
-    global _cache_events, _cache_expires, _last_good_at
+    global _cache_events, _cache_expires
     now = now or datetime.now(timezone.utc)
 
     if now < _cache_expires:
@@ -151,10 +191,9 @@ async def fetch(now: datetime | None = None) -> NewsContext:
             _cache_expires = now + timedelta(minutes=_CACHE_TTL_MINUTES)
             # AN EMPTY ANSWER NEVER REPLACES A GOOD CALENDAR. It used to: one failed scrape emptied the
             # cache, and an empty calendar reads as "no news" — trades through CPI. Keep the last good
-            # one; its age is what decides whether the news is still known (`_known`).
+            # one; whether it still covers now is what decides if the news is known (`_known`).
             if events:
                 _cache_events = events
-                _last_good_at = now
         except asyncio.TimeoutError:
             log.warning("[news_fetcher] fetch timed out (10s) — keeping the last good calendar")
         except Exception as exc:
@@ -163,23 +202,24 @@ async def fetch(now: datetime | None = None) -> NewsContext:
     return _build_context(_cache_events, now)
 
 
-# WHEN IS THE NEWS "KNOWN"? His order, 2026-11-15: *"make sure everything is informed by that news
-# api because if we miss the news we risk trading news candles which can be disastrous for
-# propfirms."* The calendar is published days ahead, so a copy a few hours old is still right; a
-# MISSING one, or one that ends before now, is not. Past this age VIX.1 stops taking new entries.
-_KNOWN_FOR = timedelta(hours=6)
-_last_good_at: datetime | None = None
-
-
+# WHEN IS THE NEWS "KNOWN"? Two rulings of his, 2026-11-15:
+#   *"if we miss the news we risk trading news candles which can be disastrous for propfirms."*
+#   *"news blocking ... should only happen if we are expecting high impact news and it within the
+#    time when it can affect us."*
+# So the CALENDAR'S AGE DOES NOT MATTER — the schedule is published days ahead, and an older copy
+# still says exactly when CPI is. (A 6-hour age limit was tried first and refused trades with a
+# perfectly good schedule in hand; removed the same day.) What matters is whether the calendar
+# COVERS NOW: it holds releases both before and after this moment. Then the normal news window
+# decides (15 min before / 30 after, `vix1.py`). Only with no calendar covering now is VIX.1 blind,
+# and then it takes no new trade until one is back.
 def _known(events: list[NewsEvent], now: datetime) -> tuple[bool, str]:
-    if not events or _last_good_at is None:
+    times = [e.scheduled_at for e in events if e.scheduled_at]
+    if not times:
         return False, "no news calendar has been received"
-    age = now - _last_good_at
-    if age > _KNOWN_FOR:
-        return False, f"the news calendar is {age.total_seconds() / 3600:.1f} h old (limit 6 h)"
-    last = max((e.scheduled_at for e in events if e.scheduled_at), default=None)
-    if last is None or last <= now:
-        return False, "the news calendar has no releases after now"
+    if max(times) <= now:
+        return False, "the news calendar ends before now"
+    if min(times) > now:
+        return False, "the news calendar starts after now"
     return True, ""
 
 

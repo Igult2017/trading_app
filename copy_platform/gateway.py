@@ -44,6 +44,7 @@ or the server disconnects an idle connection.
 import asyncio
 import logging
 import time
+import ctrader_send   # every send handles a missing reply (OPEN.md D67)
 
 from ctrader_open_api import Client, Protobuf, TcpProtocol
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoHeartbeatEvent
@@ -123,7 +124,7 @@ class Gateway:
         cid, csec = ctrader_app_creds(self._creds_for_app)
         req = ProtoOAApplicationAuthReq()
         req.clientId, req.clientSecret = cid, csec
-        client.send(req)
+        ctrader_send.send(client, req)
 
     def _on_disconnected(self, client, reason):
         # EVERY ACCOUNT MUST RE-AUTHENTICATE. Keeping the old set would make the next order believe
@@ -143,7 +144,7 @@ class Gateway:
             await asyncio.sleep(CTRADER_HEARTBEAT_SEC)
             try:
                 if self._client is not None and self._app_ready.is_set():
-                    self._client.send(ProtoHeartbeatEvent())
+                    ctrader_send.send(self._client, ProtoHeartbeatEvent())
             except Exception as exc:                 # a heartbeat must never kill the gateway
                 log.debug("[gateway:%s] heartbeat failed: %s", self.env, exc)
 
@@ -176,7 +177,7 @@ class Gateway:
         await self._bucket.take()
         if self._client is None:
             raise ConnectionError(f"[gateway:{self.env}] not connected")
-        self._client.send(req)
+        ctrader_send.send(self._client, req)
 
     async def request(self, req, key: str, timeout: float = 20.0):
         """Send, and wait for the reply THAT THIS REQUEST CAUSED, matched by `key`.

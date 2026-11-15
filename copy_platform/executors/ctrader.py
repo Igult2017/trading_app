@@ -24,6 +24,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType, ProtoOAExecutionType
 
 import symbol_details
+import ctrader_send   # every send handles a missing reply (OPEN.md D67)
 from lot_calc import volume_for
 from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT
 
@@ -245,7 +246,7 @@ class CTraderExecutor:
         req = ProtoOAApplicationAuthReq()
         req.clientId     = cid
         req.clientSecret = csec
-        client.send(req)
+        ctrader_send.send(client, req)
 
     def _on_message(self, client, message):
         ptype = message.payloadType
@@ -254,7 +255,7 @@ class CTraderExecutor:
             req = ProtoOAAccountAuthReq()
             req.ctidTraderAccountId = int(self.creds["ctraderId"])
             req.accessToken         = self.creds["accessToken"]
-            client.send(req)
+            ctrader_send.send(client, req)
 
         elif ptype == ProtoOAAccountAuthRes().payloadType:
             # Opens need a numeric symbolId → fetch the symbol list first.
@@ -278,15 +279,15 @@ class CTraderExecutor:
                     return
                 req = ProtoOASymbolsListReq()
                 req.ctidTraderAccountId = int(self.creds["ctraderId"])
-                client.send(req)
+                ctrader_send.send(client, req)
             elif self._pending_cmd and self._pending_cmd[0] == "find":
                 req = ProtoOAReconcileReq()
                 req.ctidTraderAccountId = int(self.creds["ctraderId"])
-                client.send(req)
+                ctrader_send.send(client, req)
             elif self._modify_needs_reconcile():
                 req = ProtoOAReconcileReq()
                 req.ctidTraderAccountId = int(self.creds["ctraderId"])
-                client.send(req)
+                ctrader_send.send(client, req)
             else:
                 self._send_command(client)
 
@@ -372,7 +373,7 @@ class CTraderExecutor:
         # stepVolume. Ask for the full ProtoOASymbol before sizing anything.
         sid = self._cmd_symbol_id()
         if sid is not None and symbol_details.get(int(self.creds["ctraderId"]), sid) is None:
-            client.send(symbol_details.build_request(int(self.creds["ctraderId"]), sid))
+            ctrader_send.send(client, symbol_details.build_request(int(self.creds["ctraderId"]), sid))
             return
         self._send_command(client)
 
@@ -478,7 +479,7 @@ class CTraderExecutor:
             if label:
                 req.label = label[:100]
                 req.clientOrderId = label[:50]
-            client.send(req)
+            ctrader_send.send(client, req)
 
         elif cmd[0] == "close":
             _, pos_id, lots, close_symbol = cmd
@@ -493,7 +494,7 @@ class CTraderExecutor:
                 self._resolve(ExecResult(ok=False, error=f"close: {refusal}"))
                 return
             req.volume = volume
-            client.send(req)
+            ctrader_send.send(client, req)
 
         elif cmd[0] == "modify":
             _, pos_id, sl, tp = cmd
@@ -502,7 +503,7 @@ class CTraderExecutor:
             req.positionId          = int(pos_id)
             if sl: req.stopLoss   = sl
             if tp: req.takeProfit = tp
-            client.send(req)
+            ctrader_send.send(client, req)
 
         elif cmd[0] == "place":
             _, symbol, action, lots, order_type, price, sl, tp, label = cmd
@@ -541,7 +542,7 @@ class CTraderExecutor:
             # when several orders share one connection (`gateway.request`). Derived from the master
             # order + follower, never random, so a retry produces the SAME key.
             if label: req.clientOrderId = label[:50]
-            client.send(req)
+            ctrader_send.send(client, req)
 
         elif cmd[0] == "amend":
             _, order_id, order_type, price, sl, tp = cmd
@@ -554,11 +555,11 @@ class CTraderExecutor:
                 req.limitPrice = price
             if sl: req.stopLoss   = sl
             if tp: req.takeProfit = tp
-            client.send(req)
+            ctrader_send.send(client, req)
 
         elif cmd[0] == "cancel":
             _, order_id = cmd
             req = ProtoOACancelOrderReq()
             req.ctidTraderAccountId = acct_id
             req.orderId             = int(order_id)
-            client.send(req)
+            ctrader_send.send(client, req)

@@ -236,9 +236,10 @@ goes quiet.
 
 **FIXED 15 Nov 2026**, in the same change as his void rule: `_is_a_void` now uses the pair's own pip
 (`shared.pip.pip_size`). Pinned by `tests/vix1/test_void_his_rule.py`: a 2.00-yen band = 200 pips.
-**Known limit, kept on purpose:** ForexFactory's fallback feed is this-week-only. When MyFXBook is
-stale, a Monday void candle from last Friday has unknown news, and the void check then takes the
-stricter old > 5× line (`vix1_void._big_enough`). That makes VIX.1 more careful, never less.
+**Correction, same day:** I first blamed ForexFactory for a Monday news gap. The news source is
+MyFXBook; ForexFactory is only its 6-hour backup. The real gap was the app deleting high-impact news
+after 48 h (`calendarDb.ts`). It now keeps it 96 h, and the signal platform reads it from
+`economic_events`.
 The original finding is below.
 
 - **What it means:** when VIX.1 refuses a GBP/JPY trade because price is filling a void, the message
@@ -1773,7 +1774,23 @@ sabotage-verified.
 
 ## D. cTrader & copy trading
 
-### D67 — "Unhandled error in Deferred" timeouts in the live log. Found 2026-11-15, source NOT traced yet
+### D67 — ~~"Unhandled error in Deferred" timeouts in the live log~~ FIXED AT THE ROOT 2026-11-15
+
+**ROOT CAUSE:**
+- The cTrader library starts a 5-second wait for a reply on every message it sends
+  (`ctrader_open_api.Client.send`, `responseTimeoutInSeconds=5`) and returns it.
+- The copy service threw all 21 of those waits away, so a missing reply had nobody to handle it.
+- **The heartbeat (every 8 s, `gateway.py` `_heartbeat`) is never answered by the broker**, so its
+  wait always ran out.
+
+**FIX:**
+- One shared `copy_platform/ctrader_send.send` now handles the missing reply: silence for the
+  heartbeat, one named warning for anything else. All 21 sends use it.
+- Test: `copy_platform/tests/test_send_timeouts.py`, which drives the real timeout on a fake clock and
+  also shows the old way fails.
+- The signal platform is not affected: it runs no Twisted reactor.
+
+The original note is below.
 
 - **Seen:** 9 tracebacks in the live log right after the 15 Nov deploy (commit 66c2af49), Sunday,
   market shut. Each is `twisted.internet.defer.TimeoutError: (5, 'Deferred')`, logged just after

@@ -130,13 +130,17 @@ export async function upsertCalendarEvents(events: CalendarEvent[], source = "fo
 
   // Purge expired events:
   //   Low / Medium impact → deleted after 24 h (market has priced them in)
-  //   High impact         → deleted after 48 h (NFP, FOMC, CPI have multi-day ripple effects)
+  //   High impact         → deleted after 96 h. It was 48 h; raised 2026-11-15 because VIX.1's void
+  //   rule asks "was there news in this candle?" up to 48 TRADING hours back, which on a Monday is
+  //   last Thursday/Friday — those rows were already gone, so Monday's checks ran half-blind. The
+  //   calendar PAGE is unaffected: it only loads 2 days back (`dbWindow`). The signal platform reads
+  //   these rows directly (signal_platform/news/news_fetcher.py `_fetch_history_sync`).
   const h24 = new Date(Date.now() - 24 * 3_600_000);
-  const h48 = new Date(Date.now() - 48 * 3_600_000);
+  const hHigh = new Date(Date.now() - 96 * 3_600_000);
   const { rowCount } = await db.delete(economicEvents).where(
     or(
       and(lt(economicEvents.eventTime, h24), inArray(economicEvents.impactLevel, ["Low", "Medium"])),
-      and(lt(economicEvents.eventTime, h48), inArray(economicEvents.impactLevel, ["High"]))
+      and(lt(economicEvents.eventTime, hHigh), inArray(economicEvents.impactLevel, ["High"]))
     )
   );
   if (rowCount) console.log(`[calendarDb] purged ${rowCount} expired events`);
