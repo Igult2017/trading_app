@@ -1773,6 +1773,18 @@ sabotage-verified.
 
 ## D. cTrader & copy trading
 
+### D67 — "Unhandled error in Deferred" timeouts in the live log. Found 2026-11-15, source NOT traced yet
+
+- **Seen:** 9 tracebacks in the live log right after the 15 Nov deploy (commit 66c2af49), Sunday,
+  market shut. Each is `twisted.internet.defer.TimeoutError: (5, 'Deferred')`, logged just after
+  `[AutoSync] ctrader(...): the broker returned no closed trades in that window`.
+- **Not from the VIX.1 void/news change:** that change touches no Twisted or cTrader code.
+- **Not known yet:** which module sets the 5-second timeout (no `addTimeout`/`timeout=5` in
+  `copy_platform/` or `server/python/` matched a first search), and whether these appeared before
+  this deploy.
+- **Risk:** an error nobody handles can hide a real failure in the broker path. Trace it from the
+  first traceback's caller.
+
 ### D66 — he could not see the bot's order in Pepperstone, and a stop he moved by hand was undone. FIXED 2026-11-08
 
 **He asked:** *"Why is it that when autotrader places a trade i am unable to see it when i log in to
