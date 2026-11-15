@@ -2027,3 +2027,42 @@ They are not a second opinion on a direction his change-of-character sequence ha
 structure. Built as `vix1_void.direction_already_confirmed`, and measured: all four real sells the
 rule refuses across 16–18 Sep survive the boundary, and the proof fixture is green in both
 directions. `OPEN.md` B32 closed.
+
+---
+
+## 15 Nov 2026 — Quiet then momentum: should the FIRST momentum candle wait for a SECOND? (his question, study approved)
+
+**His case:** GBP/USD 11 Nov 16:00 (his clock). Pullback, then 17 thin candles (0.07-1.65x normal body,
+no momentum candle for **21 hours**), then a 28.4-pip momentum sell that **traded straight away**.
+
+**Why the code let it through (replayed on real bars, production inputs):**
+- `market_awake` calls a market quiet only after **24 h** with no momentum candle (`vix1_bias.py:78`).
+  21 < 24. The real function on that candle: thresholds 12/16/18/20 h **refuse** it; 21/22/24 h allow it.
+- Even when it fires, it asks for "3 trend-way candles then a pullback", never a SECOND momentum candle.
+- `since_pullback` took the last single 2.9-pip green candle as "the pullback" (1 candle = short), so
+  the first momentum candle was allowed. His yellow pullback was forgotten.
+- There is no thin-versus-near-miss distinction; both are "not momentum".
+
+**The 2-year study** (`trading_app_data/tools/vix1_quiet_study.py`, results in `quiet_study_*.txt/json`).
+GBP/USD + EUR/USD Sep 2024 to Sep 2026, GBP/JPY Dec 2024 to Jul 2026. Every trend-way momentum candle,
+judged by VIX.1's own tests. Each is scored: entry at the close, stop 0.552x body, WIN = +2R before the
+stop within 48 h (break-even 33.3%). Streaks crossing a weekend are excluded. Approximation: no 1-minute
+entry, no spread, no ladder, no other gates.
+
+Pooled, 1,376 first candles, overall win 31.8%:
+
+| quiet >= X h | FIRST candle win% (n) | SECOND candle win% (n) | thin-only first win% (n) |
+|---|---|---|---|
+| 6  | 31.6 (624) | 35.0 (440) | 25.9 (135) |
+| 12 | 29.1 (381) | 37.5 (275) | 20.0 (60) |
+| 18 | 29.8 (215) | 39.6 (159) | 12.5 (24) |
+| 21 | 25.5 (153) | 41.7 (115) | 7.1 (14) |
+| 24 | 27.3 (88)  | 40.8 (76)  | 33.3 (3) |
+
+**Reading it:**
+- The longer the quiet, the WORSE the first candle and the BETTER the second. The gap opens from about
+  12 h and is widest at 18-21 h.
+- THIN quiet (no near-miss at all) is the worst case.
+- Margins are +/-5 to +/-9 points, so the direction is consistent but no single cut-off is proven.
+- A second candle arrived within 24 h for 72-85% of these.
+- Not built. The number is HIS to choose.
