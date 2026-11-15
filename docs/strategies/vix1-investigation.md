@@ -2086,3 +2086,37 @@ Share of no-momentum stretches: 1-2 h 28%, 3-5 h 24%, 6-11 h 20%, 12-17 h 12%, 1
 
 The three pairs agree closely: half <= 5-6 h, 3 in 4 <= 13 h, 9 in 10 <= 21-22 h. Today's 24 h line is
 reached by only 6% of stretches. His 11 Nov GBP/USD stretch (21 h) was in the longest 10%.
+
+### 15 Nov 2026 — After a quiet market wakes: run before the pullback, and when is the move real? (his two tests)
+
+`trading_app_data/tools/vix1_quiet_wake_runs.py`, full output in `trading_app_data/quiet_wake_runs.txt`.
+Same 2 years and 3 pairs. The waking candle is the first momentum candle (2.5x) after Q quiet hours;
+Q = 12/18/24 are all shown, and 24 is today's rule.
+
+Test 1 counts candles AFTER the waking candle, same colour, until the first opposite candle (his
+pullback). That is the FIRST leg only: today's rule can also find its 3-candle run LATER, after an early
+pullback, within 24 h (`vix1_tradeable.py:217-230`).
+
+Test 2: for moves that ran N candles, look forward 48 h from the close of candle N.
+CONTINUED = one more waking-candle body further. FAILED = a close back beyond the waking candle's open.
+
+**Trend-way, quiet >= 12 h, 383 waking candles (all three pairs):**
+
+| candles after it before the first pullback | 0 | 1 | 2 | 3 | 4 | 5+ |
+|---|---|---|---|---|---|---|
+| share | 54% | 25% | 11% | 3% | 3% | 3% |
+
+| move had run N candles | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| moves | 175 | 80 | 37 | 24 | 12 |
+| continued | 62.9% | 63.8% | 67.6% | 66.7% | 75.0% |
+| failed | 34.9% | 32.5% | **24.3%** | 25.0% | 16.7% |
+
+At quiet >= 18 h (216): failed 35.6 / 31.9 / **19.0** / 15.4 / 14.3%. The same step down at 3.
+
+- Over half pull back on the very next candle. Only 1 in 10 runs 3 candles before its first pullback.
+- Failure barely improves from 1 to 2 candles; the clear drop comes at 3. So 2 is not safer than 1, and
+  3 is the first point that is.
+- Samples at 3+ candles are small (37 and 21 moves), so the margins are wide (about +/-15 points).
+  Per pair it varies: GBP/JPY failed 55.6% after 2 candles.
+- Entering after the pullback has NOT been measured.
