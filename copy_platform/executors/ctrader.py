@@ -27,6 +27,7 @@ from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType,
 import symbol_details
 import ctrader_send   # every send handles a missing reply (OPEN.md D67)
 from lot_calc import volume_for
+from risk_stop import relative_levels   # a MARKET order takes its stop as a distance (2026-11-15)
 from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT
 
 log = logging.getLogger("executor.ctrader")
@@ -140,7 +141,8 @@ class CTraderExecutor:
 
     async def open_position(self, symbol: str, action: str,
                             volume_lots: float, sl: float | None,
-                            tp: float | None, label: str = "") -> ExecResult:
+                            tp: float | None, label: str = "",
+                            ref_price: float | None = None) -> ExecResult:
         """Copy a master's POSITION as a market order.
 
         `label` MARKS IT AS A COPY, and that mark is the whole of his rule: *"a slave that copied a
@@ -152,7 +154,7 @@ class CTraderExecutor:
         own trade and was passed on again. The rule held for resting orders and quietly did not hold
         for market ones, which is the worst shape for a safety rule to be in.
         """
-        self._pending_cmd = ("open", symbol, action, volume_lots, sl, tp, label)
+        self._pending_cmd = ("open", symbol, action, volume_lots, sl, tp, label, ref_price)
         return await self._run()
 
     async def close_position(self, position_id: int, volume_lots: float,
@@ -458,7 +460,7 @@ class CTraderExecutor:
         acct_id = int(self.creds["ctraderId"])
 
         if cmd[0] == "open":
-            _, symbol, action, lots, sl, tp, label = cmd
+            _, symbol, action, lots, sl, tp, label, ref_price = cmd
             symbol_id = resolve_symbol_id(symbol, self._symbol_map)
             if symbol_id is None:
                 self._resolve(ExecResult(ok=False, error=f"Symbol {symbol} not on follower account"))
@@ -473,8 +475,19 @@ class CTraderExecutor:
                 self._resolve(ExecResult(ok=False, error=refusal))
                 return
             req.volume = volume
-            if sl: req.stopLoss   = sl
-            if tp: req.takeProfit = tp
+            # A MARKET ORDER TAKES ITS STOP AND TARGET AS DISTANCES, NEVER AS PRICES (fixed 2026-11-15).
+            # Spotware, ProtoOANewOrderReq: `stopLoss` "Not supported for MARKET orders", `takeProfit`
+            # "Unsupported for MARKET orders"; use `relativeStopLoss` / `relativeTakeProfit`, "Specified
+            # in 1/100000 of unit of a price", "For BUY stopLoss = entryPrice - relativeStopLoss, for
+            # SELL stopLoss = entryPrice + relativeStopLoss". This used to send the prices, which cTrader
+            # does not accept on a market order. The distance is measured from `ref_price` (the
+            # master's entry), so the follower's stop sits the same distance from ITS fill.
+            rel_sl, rel_tp, why = relative_levels(action, ref_price, sl, tp)
+            if why:
+                self._resolve(ExecResult(ok=False, error=why))
+                return
+            if rel_sl: req.relativeStopLoss   = rel_sl
+            if rel_tp: req.relativeTakeProfit = rel_tp
             # THE COPY MARK — see `open_position`. Without it a market copy is indistinguishable
             # from a trade the account's owner placed, and gets copied onward.
             if label:

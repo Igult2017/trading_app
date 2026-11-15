@@ -34,6 +34,10 @@ export function useCopySetup(
   const [sizingMode, setSizingMode] = useState("Risk %");
   const [sizingValue, setSizingValue] = useState("1.00");
   const [drawdown, setDrawdown] = useState("10");
+  // MAX RISK PER TRADE — every follower has one, whatever the sizing mode (his rule, 15 Nov 2026):
+  // each copy gets a stop so it loses at most this % of the account. 1% default, 3% the highest; the
+  // server (lib/copyRisk.ts) and the copy engine (risk_stop.py) hold the same limit.
+  const [maxRisk, setMaxRisk] = useState("1.00");
   const [agreed, setAgreed] = useState(false);
   const [telegramChannel, setTelegramChannel] = useState("");
   const [selectedOwnAccounts, setSelectedOwnAccounts] = useState<string[]>([]);
@@ -97,6 +101,7 @@ export function useCopySetup(
     } else if (d.lotMode === "risk" && d.riskPercent != null) {
       setSizingMode("Risk %"); setSizingValue(String(d.riskPercent));
     }
+    if (d.riskPercent != null) setMaxRisk(String(d.riskPercent));
     // The terms were accepted when this was saved; re-ticking a box he already ticked is what made
     // "Stop mirroring" unreachable after a reload.
     if (d.riskAccepted) setAgreed(true);
@@ -178,9 +183,9 @@ export function useCopySetup(
 
   /** Sizing selections → the follower lot fields the backend expects. */
   const lotFields = () =>
-    sizingMode === "Lot Size" ? { lotMode: "fixed", fixedLot: sizingValue }
-    : sizingMode === "Risk %" ? { lotMode: "risk", riskPercent: sizingValue }
-    : { lotMode: "mult", lotMultiplier: sizingValue };
+    sizingMode === "Lot Size" ? { lotMode: "fixed", fixedLot: sizingValue, riskPercent: clampRisk(maxRisk) }
+    : sizingMode === "Risk %" ? { lotMode: "risk", riskPercent: clampRisk(sizingValue) }
+    : { lotMode: "mult", lotMultiplier: sizingValue, riskPercent: clampRisk(maxRisk) };
 
   const handleStart = async () => {
     if (!agreed || startBlockers.length > 0 || busy) return;
@@ -233,6 +238,7 @@ export function useCopySetup(
         await apiRequest("POST", "/api/copy/telegram-follow", {
           brokerAccountId: onto.id, channel: telegramChannel.trim(),
           fixedLot: sizingMode === "Lot Size" ? sizingValue : "0.01",
+          riskPercent: clampRisk(sizingMode === "Risk %" ? sizingValue : maxRisk),
         });
         setToast(`Mirroring started — parsing ${telegramChannel.trim()} onto ${onto.name}.`);
       } else {
@@ -261,6 +267,7 @@ export function useCopySetup(
     sizingMode, setSizingMode,
     sizingValue, setSizingValue,
     drawdown, setDrawdown,
+    maxRisk, setMaxRisk,
     agreed, setAgreed,
     telegramChannel, setTelegramChannel,
     mirroring, accounts, ownAccounts,
@@ -275,3 +282,11 @@ export function useCopySetup(
 }
 
 export type CopySetup = ReturnType<typeof useCopySetup>;
+
+
+/** A risk % as the backend stores it: 1 when blank or invalid, never above 3 (his ceiling). */
+export function clampRisk(v: string): string {
+  const n = parseFloat(v);
+  if (!Number.isFinite(n) || n <= 0) return "1.00";
+  return Math.min(3, Math.max(0.1, n)).toFixed(2);
+}

@@ -108,6 +108,17 @@ _ENTRY_ORDER_TYPES = {"STOP", "LIMIT", "STOP_LIMIT", "MARKET_RANGE"}
 _OUR_COPY_PREFIX = "cp-"
 
 
+def _reduced_fraction(before, after) -> float | None:
+    """How much of a still-open position the master just closed (0-1), or None if it did not shrink."""
+    try:
+        before, after = float(before or 0), float(after or 0)
+    except (TypeError, ValueError):
+        return None
+    if before <= 0 or after <= 0 or after >= before - 1e-9:
+        return None
+    return (before - after) / before
+
+
 def _is_our_own_copy(order) -> bool:
     """Did THIS engine place this order? Then it is a copy, not a master trade to be copied on.
 
@@ -397,6 +408,17 @@ class CTraderProvider:
                 # would copy every position already on the master every time the engine restarts.
                 for pid, snap in fresh.items():
                     if pid in self._positions:
+                        # A PARTIAL CLOSE WHOSE LIVE EVENT WAS MISSED — same recovery as a missed
+                        # open. Compared against the snapshot the live path keeps up to date, so a
+                        # reduction already copied live is not copied a second time.
+                        prev_snap = self._positions[pid]
+                        frac = _reduced_fraction(prev_snap.volume_lots, snap.volume_lots)
+                        if frac:
+                            self._positions[pid] = snap
+                            log.info(f"[{self.master_id}] reconcile: position {pid} was partly "
+                                     f"closed ({frac:.0%}) — the live event was missed, recovering")
+                            asyncio.ensure_future(self.on_event(
+                                {"type": "REDUCE", "snap": snap, "fraction": frac}, self.master_id))
                         continue
                     self._positions[pid] = snap
                     log.info(f"[{self.master_id}] reconcile: position {pid} opened externally "
@@ -497,11 +519,20 @@ class CTraderProvider:
                 oid = event.order.orderId if event.HasField("order") else None
                 await self.on_event({"type": "OPEN", "snap": snap, "master_order_id": oid},
                                     self.master_id)
-            elif prev.stop_loss != snap.stop_loss or prev.take_profit != snap.take_profit:
-                self._positions[pid] = snap
-                await self.on_event({"type": "MODIFY", "snap": snap, "prev": prev}, self.master_id)
             else:
-                self._positions[pid] = snap   # volume/other change — track silently
+                self._positions[pid] = snap
+                # A PARTIAL CLOSE IS COPIED, IN REAL TIME (his instruction, 15 Nov 2026: "partial
+                # closes like partial take profits should also be copied in real time"). The master's
+                # position stays open with less size; this was tracked silently, so the follower kept
+                # the full size until the master closed the rest. Now the follower closes the SAME
+                # FRACTION, on this pushed event.
+                frac = _reduced_fraction(prev.volume_lots, snap.volume_lots)
+                if frac:
+                    await self.on_event({"type": "REDUCE", "snap": snap, "fraction": frac},
+                                        self.master_id)
+                if prev.stop_loss != snap.stop_loss or prev.take_profit != snap.take_profit:
+                    await self.on_event({"type": "MODIFY", "snap": snap, "prev": prev},
+                                        self.master_id)
 
     async def _handle_order(self, event) -> None:
         """A master ORDER: placed, amended or cancelled. Emits nothing for anything else.

@@ -492,7 +492,18 @@ const StepCopy = ({ data, setData }: any) => (
         </span>
         {data.lotMode==='mult'  && <TInput label="Multiplier" hint="1.0 mirrors exactly. 0.5 = half the provider's lot. 2.0 = double." placeholder="1.0" type="number" value={data.lotMultiplier??''} onChange={(e:any)=>setData({...data,lotMultiplier:e.target.value})} />}
         {data.lotMode==='fixed' && <TInput label="Fixed Lot Size" hint="This exact lot value will be used for every copied trade." placeholder="0.01" type="number" value={data.fixedLot??''} onChange={(e:any)=>setData({...data,fixedLot:e.target.value})} />}
-        {data.lotMode==='risk'  && <TInput label="Risk Per Trade (%)" hint="Engine auto-calculates lot size from your free margin and the stop-loss distance." placeholder="1.0" type="number" value={data.riskAmount} onChange={(e: any) => setData({...data,riskAmount:e.target.value})} />}
+        {/* EVERY follower has a risk limit, whatever the sizing mode (his rule, 15 Nov 2026): each copied
+            trade gets a stop so it can lose at most this much. 1% default, 3% the highest. The server and
+            the copy engine enforce the same limit, so a value typed above 3 is held at 3 here too. */}
+        <TInput label="Max Risk Per Trade (%)"
+                hint={data.lotMode==='risk'
+                  ? "Sizes each trade from your balance and the stop distance. Every copy also gets a stop that holds the loss to this %. 1% default, 3% maximum."
+                  : "Every copied trade gets a stop so it can lose at most this % of your account. 1% default, 3% maximum."}
+                placeholder="1.0" type="number" min="0.1" max="3" step="0.1" value={data.riskAmount}
+                onChange={(e: any) => {
+                  const v = e.target.value;
+                  setData({...data, riskAmount: v !== '' && parseFloat(v) > 3 ? '3' : v});
+                }} />
         <TSelect label="Direction Mode" hint={(data.role==='telegram'||data.role==='relay') ? "How trades are placed relative to the signal's direction." : "How trades are copied relative to the provider's direction."}
           options={(data.role==='telegram'||data.role==='relay')
             ? [{value:'same',label:'Same direction (follow the signal)'},{value:'reverse',label:'Reverse direction (counter-trade)'}]

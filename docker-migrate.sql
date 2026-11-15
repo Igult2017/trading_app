@@ -309,6 +309,17 @@ ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS lot_mode          TEXT DEFAU
 ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS lot_multiplier    DECIMAL(6,2) DEFAULT 1.0;
 ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS fixed_lot         DECIMAL(8,2);
 ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS risk_percent      DECIMAL(5,2) DEFAULT 1.0;
+-- RISK PER TRADE: 1% unless set, never above 3% (his rule, 15 Nov 2026 — "Every existing follower
+-- default risk is 1% but they cant reset it to more than 3%"). Existing rows are brought inside the
+-- range first, then the database itself refuses anything outside it. Safe to re-run.
+UPDATE copy_followers SET risk_percent = 1.0 WHERE risk_percent IS NULL OR risk_percent <= 0;
+UPDATE copy_followers SET risk_percent = 3.0 WHERE risk_percent > 3;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'copy_followers_risk_percent_max3') THEN
+    ALTER TABLE copy_followers ADD CONSTRAINT copy_followers_risk_percent_max3
+      CHECK (risk_percent IS NULL OR (risk_percent > 0 AND risk_percent <= 3));
+  END IF;
+END $$;
 ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS direction         TEXT DEFAULT 'same';
 ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS symbol_whitelist  TEXT[];
 ALTER TABLE copy_followers ADD COLUMN IF NOT EXISTS symbol_blacklist  TEXT[];

@@ -108,6 +108,7 @@ def check_follower_allowed(follower, snap, etype: str, broker_account) -> tuple[
 # User rule, 2026-07-26: "a follower cannot trade more than 3% of his total account when following
 # a provider." Overridable per follower via max_trade_risk_pct, and platform-wide by env.
 MAX_TRADE_RISK_PCT = float(os.environ.get("COPY_MAX_TRADE_RISK_PCT", "3") or 3)
+HARD_MAX_TRADE_RISK_PCT = 3.0     # his ceiling; nothing above it, whatever is configured
 
 
 def check_trade_risk(follower, broker_account, lots: float, sl_pips: float | None,
@@ -138,9 +139,11 @@ def check_trade_risk(follower, broker_account, lots: float, sl_pips: float | Non
     if not balance or balance <= 0:
         return True, None                    # unknown balance: the existing guards already no-op
 
-    cap_pct = _to_float(getattr(follower, "max_trade_risk_pct", None)) or MAX_TRADE_RISK_PCT
-    if cap_pct <= 0:
-        return True, None
+    # 3% IS THE CEILING, NOT A DEFAULT (his rule, 15 Nov 2026: "3% is the highest"). A follower's
+    # own `max_trade_risk_pct`, or the environment setting, may LOWER it, never raise it — this used
+    # to take the follower's value with no upper limit, so a follower who set 10% got 10%.
+    own = _to_float(getattr(follower, "max_trade_risk_pct", None))
+    cap_pct = min(x for x in (own, MAX_TRADE_RISK_PCT, HARD_MAX_TRADE_RISK_PCT) if x and x > 0)
 
     if not sl_pips or sl_pips <= 0:
         return False, (f"no stop loss — risk is unbounded and cannot be checked against the "

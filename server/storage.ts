@@ -2,6 +2,7 @@ import { type User, type InsertUser, type Trade, type InsertTrade, type Economic
 import { randomUUID } from "crypto";
 import { db, pool } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
+import { clampRiskPercent } from "./lib/copyRisk";
 
 /**
  * If an entry has entryTime + exitTime but no tradeDuration, compute and
@@ -962,12 +963,16 @@ export class DbStorage implements IStorage {
   }
 
   async createCopyFollower(follower: InsertCopyFollower): Promise<CopyFollower> {
-    const r = await db.insert(copyFollowers).values({ ...follower, id: randomUUID() }).returning();
+    // Risk per trade: 1% unless set, never above 3% (his rule, 15 Nov 2026 — lib/copyRisk.ts).
+    const riskPercent = clampRiskPercent((follower as any).riskPercent);
+    const r = await db.insert(copyFollowers).values({ ...follower, riskPercent, id: randomUUID() }).returning();
     return r[0];
   }
 
   async updateCopyFollower(id: string, follower: Partial<InsertCopyFollower>): Promise<CopyFollower | undefined> {
-    const r = await db.update(copyFollowers).set({ ...follower, updatedAt: new Date() }).where(eq(copyFollowers.id, id)).returning();
+    const patch: any = { ...follower, updatedAt: new Date() };
+    if ("riskPercent" in patch) patch.riskPercent = clampRiskPercent(patch.riskPercent);
+    const r = await db.update(copyFollowers).set(patch).where(eq(copyFollowers.id, id)).returning();
     return r[0];
   }
 

@@ -1774,6 +1774,20 @@ sabotage-verified.
 
 ## D. cTrader & copy trading
 
+### D70 — Copy trades on crosses (EUR/GBP, AUD/CAD…) and indices are NOT copied: their risk cannot be priced yet. Found 2026-11-15
+
+- **What it means:** since 15 Nov every copied trade must carry a stop that holds the loss to the
+  follower's risk % (his rule: 1% default, 3% maximum; `copy_platform/risk_stop.py`).
+- **Why these are refused:** setting that stop needs the money value of a pip, and the copy service
+  only knows it for pairs quoted in USD (exact) and JPY (approximate, `lot_calc.pip_value`). For
+  anything else it returns 0.
+- **So such a trade is refused, with the reason in the copy log**, rather than sent with a guessed
+  stop. Before 15 Nov those trades were copied with no risk limit at all in multiplier mode.
+- **The fix:** a live exchange rate for the quote currency (e.g. GBP→USD for EUR/GBP), the way
+  `signal_platform/execution/pip_value.py` already does for yen. Indices also need their contract
+  value per point.
+- **Not started.**
+
 ### D69 — Follower orders open one connection per order; the gateway that fixes it has 5 faults. DEFERRED BY HIS DECISION 2026-11-15
 
 - **What it means:** every copy order opens a brand-new cTrader connection, logs in twice, sends one

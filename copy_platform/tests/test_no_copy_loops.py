@@ -113,8 +113,12 @@ print()
 print("A COPY IS MARKED HOWEVER IT IS PLACED")
 s.check("the resting-order path marks it", 'if label: req.label = label[:100]' in ex, True)
 s.check("the MARKET path marks it too", "req.clientOrderId = label[:50]" in ex, True)
+# Asked of the REAL function, not its source text: the text check broke on 15 Nov 2026 when a
+# `ref_price` parameter was added after `label`, although the label still worked.
+import inspect                                                     # noqa: E402
+from executors.ctrader import CTraderExecutor                      # noqa: E402
 s.check("...and open_position actually takes a label to stamp",
-        'tp: float | None, label: str = "") -> ExecResult:' in ex, True)
+        "label" in inspect.signature(CTraderExecutor.open_position).parameters, True)
 dispatch = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                              "dispatcher.py"), encoding="utf-8").read()
 s.check("the dispatcher passes one on a market copy",

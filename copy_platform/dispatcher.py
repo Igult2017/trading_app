@@ -18,6 +18,8 @@ from cred_manager import get_creds
 from lot_calc import calc_lots, apply_direction, is_symbol_allowed, pip_size, pip_value
 from session_filter import is_session_allowed
 from risk_guard import check_follower_allowed, check_trade_risk
+from risk_stop import effective_risk_pct, follower_stop, reduce_lots
+from types import SimpleNamespace
 from providers.ctrader import PositionSnapshot
 import mirror
 
@@ -101,7 +103,8 @@ async def dispatch(event: dict, master_id: str) -> None:
     # application throttled. The gateway's token bucket enforces the broker's rule; this stops the
     # queue in front of it growing without limit, and keeps memory flat at any follower count.
     await asyncio.gather(*[
-        _exec_follower_bounded(master_trade_id, f, snap, etype, event.get("master_order_id"))
+        _exec_follower_bounded(master_trade_id, f, snap, etype, event.get("master_order_id"),
+                               event.get("fraction"))
         for f in followers
     ], return_exceptions=True)
 
@@ -110,9 +113,10 @@ async def dispatch(event: dict, master_id: str) -> None:
 _fanout = asyncio.Semaphore(COPY_MAX_CONCURRENT_FOLLOWERS)
 
 
-async def _exec_follower_bounded(master_trade_id, follower, snap, etype, master_order_id=None):
+async def _exec_follower_bounded(master_trade_id, follower, snap, etype, master_order_id=None,
+                                 fraction=None):
     async with _fanout:
-        await _exec_follower(master_trade_id, follower, snap, etype, master_order_id)
+        await _exec_follower(master_trade_id, follower, snap, etype, master_order_id, fraction)
 
 
 def _claim_event(master_id: str, snap, etype: str):
@@ -181,7 +185,9 @@ def _save_master_trade(db: DBSession, master_id: str,
     # AMENDED IS EXEMPT FROM THE DEDUP, because the master can legitimately move one order many
     # times — a trailing entry moves with the market — and every move is a different instruction.
     # Folding them onto one row would leave the mirror resting at the FIRST price for ever.
-    if etype not in ("OPEN", "AMENDED"):
+    # REDUCE is exempt for the same reason: two partial closes of one position are two different
+    # instructions, and folding the second onto the first would leave the follower too big.
+    if etype not in ("OPEN", "AMENDED", "REDUCE"):
         existing = db.query(CopyTradeMaster).filter_by(
             master_id=master_id,
             external_id=snap.key,
@@ -216,7 +222,7 @@ def _save_master_trade(db: DBSession, master_id: str,
 
 async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                          snap: PositionSnapshot, etype: str,
-                         master_order_id=None) -> None:
+                         master_order_id=None, fraction=None) -> None:
     fid = follower.id
     # PUTTING A MIRROR ON THE BOOK IS AN ENTRY, so it faces every gate a fill faces: the session
     # filter, the safety guards, risk-% sizing and the 3% per-trade cap. The alternative — place
@@ -322,7 +328,7 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         # "cancel the XAUUSD one" would cancel whichever the query happened to return first.
         follower_pos_id: str | None = None
         open_vol: float | None = None
-        if etype in ("CLOSE", "MODIFY"):
+        if etype in ("CLOSE", "MODIFY", "REDUCE"):
             follower_pos_id, open_vol = await run_db(_find_follower_position_id, fid, snap.key)
             if follower_pos_id is None:
                 _log(fid, master_trade_id, "INFO", "SKIP",
@@ -356,6 +362,13 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
             lots = calc_lots(follower, snap.volume_lots, sl_pips=sl_pips,
                              follower_equity=equity, pip_value=pip_value(snap.symbol),
                              master_equity=master_equity)
+            # RISK MODE WITH NO MASTER STOP (his rule, 15 Nov 2026): there is no stop to size from,
+            # so the size is the master's × the multiplier, and the risk-% stop set below is what
+            # holds the loss to the follower's %. Before, this trade was simply not copied.
+            if lots <= 0 and (follower.lot_mode or "").lower() == "risk" and not sl_pips:
+                lots = calc_lots(SimpleNamespace(lot_mode="mult", fixed_lot=follower.fixed_lot,
+                                                 lot_multiplier=follower.lot_multiplier),
+                                 snap.volume_lots)
             if lots <= 0:
                 if (follower.lot_mode or "").lower() == "proportional":
                     reason = (
@@ -386,6 +399,49 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
             sl_pips = None
             lots = open_vol if (open_vol and open_vol > 0) else calc_lots(
                 follower, snap.volume_lots, follower_equity=None)
+            # A MOVED STOP KEEPS THE SAME CEILING. The master may move his stop wider later; copied
+            # raw, that would undo the risk-% stop set on entry. So a MODIFY's stop goes through the
+            # same rule, sized on the follower's recorded lots.
+            if etype == "MODIFY":
+                try:
+                    bal = float(broker_account.balance) if broker_account.balance is not None else None
+                except (TypeError, ValueError):
+                    bal = None
+                new_sl, stop_why, refused = follower_stop(
+                    action, snap.entry_price, sl_price, open_vol, bal, effective_risk_pct(follower),
+                    pip_size(snap.symbol), pip_value(snap.symbol))
+                if refused:
+                    _log(fid, master_trade_id, "INFO", "SKIP",
+                         f"master moved his stop, not copied — {stop_why}")
+                    return
+                if new_sl != sl_price:
+                    _log(fid, master_trade_id, "INFO", "STOP",
+                         f"{snap.symbol}: master's new stop — {stop_why} (stop {new_sl})")
+                sl_price = new_sl
+            if etype == "REDUCE":
+                lots = reduce_lots(open_vol, fraction)
+                if not lots:
+                    _log(fid, master_trade_id, "INFO", "SKIP",
+                         f"master closed part of {snap.symbol}, but your remaining size cannot be "
+                         f"reduced by that share (open {open_vol} lots)")
+                    return
+
+        # EVERY COPIED ENTRY CARRIES A STOP THAT HOLDS THE LOSS TO THE FOLLOWER'S RISK % (his rule,
+        # 15 Nov 2026 — `risk_stop.py`): the master's stop if it risks no more; otherwise moved closer
+        # to where the loss = risk %; a stop at that point if the master had none. Default 1%, never
+        # above 3%. A copy whose risk cannot be limited is refused, never sent without a stop.
+        if is_entry:
+            risk_pct = effective_risk_pct(follower)
+            new_sl, stop_why, refused = follower_stop(
+                action, snap.entry_price, sl_price, lots, equity, risk_pct,
+                pip_size(snap.symbol), pip_value(snap.symbol))
+            if refused:
+                _log(fid, master_trade_id, "INFO", "SKIP", f"not copied — {stop_why}")
+                return
+            if new_sl != sl_price:
+                _log(fid, master_trade_id, "INFO", "STOP", f"{snap.symbol}: {stop_why} (stop {new_sl})")
+            sl_price = new_sl
+            sl_pips = abs(float(snap.entry_price) - float(sl_price)) / pip_size(snap.symbol)
 
         # 3% PER-TRADE RISK CAP — checked HERE, not with the other guards, because it needs the
         # FINAL lot size and the stop distance, and both are computed above. A follower may never
@@ -431,12 +487,15 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         for attempt in range(1, max_attempts + 1):
             try:
                 if etype == "OPEN":
+                    # cTrader takes a market order's stop as a DISTANCE from the fill, measured here
+                    # from the master's entry (`risk_stop.relative_levels`); other platforms take prices.
+                    extra = ({"ref_price": snap.entry_price} if platform in ("ctrader", "ct") else {})
                     result = await executor.open_position(
                         snap.symbol, action, lots, sl_price, tp_price,
                         # MARK IT AS A COPY. His rule, 2026-09-27: a slave may not pass on a
                         # trade it copied. The mark is what the provider reads to tell a copy
                         # from a trade the account's own owner placed.
-                        label=mirror.mirror_label(snap.key)
+                        label=mirror.mirror_label(snap.key), **extra
                     )
                 elif etype == "PLACED":
                     result = await executor.place_pending(
@@ -449,6 +508,15 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                     )
                 elif etype == "CANCELLED":
                     result = await executor.cancel_pending(int(follower_pos_id))
+                elif etype == "REDUCE":
+                    # A PARTIAL CLOSE: the same close request, for the follower's share only.
+                    if platform == "binance":
+                        parts = follower_pos_id.split(":") if follower_pos_id else []
+                        if len(parts) == 2:
+                            result = await executor.close_by_symbol(parts[0], parts[1], lots)
+                    else:
+                        result = await executor.close_position(int(follower_pos_id), lots,
+                                                               symbol=snap.symbol)
                 elif etype == "CLOSE":
                     if platform == "binance":
                         parts = follower_pos_id.split(":") if follower_pos_id else []
@@ -557,7 +625,23 @@ def _find_follower_position_id(follower_id: str, master_ext_id: str):
         ).order_by(CopyTradeFollower.executed_at.desc()).first()
         if not trade:
             return None, None
-        return trade.external_id, (float(trade.volume) if trade.volume is not None else None)
+        vol = float(trade.volume) if trade.volume is not None else None
+        # WHAT IS LEFT after partial closes: every executed REDUCE on this follower position since
+        # it opened is taken off, so the final CLOSE closes the remainder, not the original size.
+        if vol is not None:
+            # Matched through the MASTER's position id, exactly as the OPEN above is — a close's
+            # own result id is not guaranteed to be the follower's position id.
+            reduced = (db.query(CopyTradeFollower)
+                         .join(CopyTradeMaster,
+                               CopyTradeFollower.master_trade_id == CopyTradeMaster.id)
+                         .filter(CopyTradeFollower.follower_id == follower_id,
+                                 CopyTradeMaster.external_id == master_ext_id,
+                                 CopyTradeFollower.event_type == "REDUCE",
+                                 CopyTradeFollower.status == "executed",
+                                 CopyTradeFollower.executed_at >= trade.executed_at)
+                         .all())
+            vol = round(vol - sum(float(r.volume or 0) for r in reduced), 2)
+        return trade.external_id, vol
 
 
 def _record_follower_trade(master_trade_id: str, follower: CopyFollower,
