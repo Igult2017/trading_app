@@ -1774,6 +1774,25 @@ sabotage-verified.
 
 ## D. cTrader & copy trading
 
+### D68 — 🔴 4 of 5 copy master accounts never finish logging in. Found 2026-11-15 by the D67 fix
+
+- **What it means:** the copy service starts 5 master accounts. Only `ctraderpep` (5834793) logs in.
+  `ctp2` (5296567), `ctp3` (5347047), `ctrader4` (5347048) and `Hola CHL` (3001655):
+  - never get an answer to the app login (`ProtoOAApplicationAuthReq`);
+  - are rebuilt every ~3 min (`recycling stale provider`);
+  - one was refused with `'Trading account is not authorized'`.
+  - So trades on those 4 accounts are NOT being copied.
+- **Seen in:** the live log, 15 Nov 15:25-15:30 UTC, after the D67 fix named every missing reply:
+  21 unanswered app logins, 11 account logins, 3 reconciles, 2 symbol lists.
+- **Leading cause (NOT yet confirmed):** the second cTrader app (`sync`), which Spotware never
+  approved. See `project-ctrader-sync-app` and `docs/ctrader-open-api-apps.md`.
+  - `CTRADER_SYNC_CLIENT_ID` / `_SECRET` are still set in production (checked 15 Nov).
+  - `copy_platform/config.py:42-47` logs each account in with the app that issued its tokens.
+- **Not checked:** which app each of the 4 accounts' tokens belongs to. It is stored encrypted in the
+  database.
+- **His decision (live accounts):** the documented fix is to unset the two sync variables and
+  re-authorise any account issued under `sync`, because tokens are app-bound.
+
 ### D67 — ~~"Unhandled error in Deferred" timeouts in the live log~~ FIXED AT THE ROOT 2026-11-15
 
 **ROOT CAUSE:**
