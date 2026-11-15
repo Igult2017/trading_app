@@ -50,6 +50,7 @@ corrupt a sequence — there is no sequence stored. The only memory is which ale
 out, and that rides the DB-backed `delivery_ledger`, so a redeploy cannot re-send and a failed send
 retries on the next poll.
 """
+import asyncio
 import logging
 import time
 
@@ -424,6 +425,22 @@ async def _one_position(p, send, r_seen: dict) -> None:
                         f"NOT protected — will retry next poll")
 
 
+_waiting_task = None
+
+
+def _start_waiting_order_work(send) -> None:
+    """Run the news pull, then the waiting-order watch, in the background — one pass at a time."""
+    global _waiting_task
+    if _waiting_task is not None and not _waiting_task.done():
+        return
+
+    async def _pass():
+        from execution import news_pull, resting_watch
+        await news_pull.check(send)          # pull before amending: a pulled order is not adjusted
+        await resting_watch.check(send)
+    _waiting_task = asyncio.get_running_loop().create_task(_pass())
+
+
 async def check_all(send) -> None:
     """One poll. `send` is an async callable taking the message text — the dispatcher's private DM.
 
@@ -497,9 +514,10 @@ async def check_all(send) -> None:
         # WAITING ORDERS (15 Nov 2026): pulled before high-impact news, and kept at 1% risk while they
         # wait — the order follows the spread, and the size follows the stop. After the amends above,
         # on the same reconcile the tracker already holds; neither raises.
-        from execution import news_pull, resting_watch
-        await news_pull.check(send)
-        await resting_watch.check(send)
+        # STARTED BESIDE THIS POLL, NEVER AWAITED BY IT. Both can wait on the network (the news
+        # calendar, the account, an amend round trip); awaited here they held one poll up 12 s in
+        # `test_telegram_independence`. One run at a time: a pass still going skips the next start.
+        _start_waiting_order_work(send)
 
         from execution.fill_watch import check_fills
         await check_fills(positions, send)

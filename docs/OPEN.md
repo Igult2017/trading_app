@@ -1777,6 +1777,14 @@ sabotage-verified.
 
 ## D. cTrader & copy trading
 
+### D73 — `execution/placer.py` is 273 lines, over the 200 limit. Found 15 Nov 2026 — OPEN
+
+- **What it means:** the file was 393 lines. On 15 Nov its order records, fill report and two DM texts
+  moved out (`execution/intents.py`, `execution/placer_messages.py`). What is left is almost all ONE
+  function, `place_for_signal`, most of it the written reasons behind each step.
+- **Why not split further now:** cutting that function in two is a design change to the order path,
+  not a file move, and it was not in the approved plan. It needs its own plan.
+
 ### D72 — The two NEW broker commands (amend a waiting order, close part of a trade) are UNPROVEN against the real broker. Found 15 Nov 2026 — PROOF DUE MONDAY
 
 - **What it means:** the waiting-order watch and the after-fill cut-back send two messages the platform

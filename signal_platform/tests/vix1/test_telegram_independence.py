@@ -106,6 +106,15 @@ def _use(positions):
 
 T.ctrader_positions = _Stub([P(pid=70)])
 from monitor import position_book as PB
+# The exit notice asks the broker how a vanished trade closed (`exit_watch.py:208`) through its OWN
+# import of `ctrader_positions` — a second route to the real broker the stub above did not cover.
+
+
+async def _no_deal(*a, **k):
+    return None
+
+from data import ctrader_positions as _CP   # noqa: E402
+_CP.closing_deal = _no_deal
 _use([P(pid=70)])
 
 
@@ -129,9 +138,18 @@ async def _send_hangs(msg):
 
 # A DEAD TELEGRAM MUST NOT STOP — OR DELAY — THE STOP MOVE.
 order.clear()
-t0 = time.monotonic()
-asyncio.run(T.check_all(_send_hangs))
-elapsed = time.monotonic() - t0
+# TIMED INSIDE THE LOOP (fixed 16 Nov 2026). This timed `asyncio.run` as a whole, which includes the
+# loop's SHUTDOWN — waiting out the deliberately hung send and the offline database thread. Profiled:
+# the poll itself took 0.08 s and the shutdown 2.7 s, so the check failed on the old code too (1.98 s)
+# while measuring nothing about the poll. Now it times exactly the poll.
+
+
+async def _timed_poll():
+    t = time.monotonic()
+    await T.check_all(_send_hangs)
+    return time.monotonic() - t
+
+elapsed = asyncio.run(_timed_poll())
 kinds = [k for k, _ in order]
 s.check("the stop is STILL moved while Telegram hangs", "amend" in kinds, True)
 s.check(f"...and the whole poll stays quick (took {elapsed:.2f}s)", elapsed < 1.0, True)
