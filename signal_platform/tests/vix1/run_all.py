@@ -86,6 +86,10 @@ TESTS = [
     # ADDED 2026-09-15. His EUR/USD sell of 14 Sep 13:03 reached its entry and no order was sent: the
     # duplicate guard counted an order withdrawn five and a half hours earlier as still live.
     "test_guard_live_order.py",     # a withdrawn order must not block the next signal
+    "test_autotrade_one_at_a_time.py",  # 15 Nov: one trade at a time; the best of a batch is placed
+    "test_spread_follow.py",        # 15 Nov: a waiting order follows the spread; its size follows its stop
+    "test_fill_risk_correct.py",    # 15 Nov: a fill worse than planned is cut back to 1%
+    "test_news_pull.py",            # 15 Nov: a waiting order is pulled before news and put back after
     "test_autotrade_decision_log.py",  # every autotrade decision is written where a deploy cannot erase it
     # ADDED 2026-08-30. The watchdog is the point: a dead price stream looks exactly like a quiet
     # market, so it is tested by KILLING the session, not by reading the code.

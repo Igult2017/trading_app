@@ -79,7 +79,6 @@ log = logging.getLogger(__name__)
 # took a full -1R loss where this ladder would have scratched it. See the note in rungs.py.
 from monitor import rungs, stop_placement
 from notifications import safe_notify as notify
-from monitor.rungs import EPS as _EPS
 
 _TTL = 7 * 24 * 3600     # forget a position's alerts a week after they were sent
 
@@ -495,6 +494,13 @@ async def check_all(send) -> None:
         # *"the logic that places trades, moves it to BE and locks Rs... should not be affected by
         # telegram messages or telegram not working."* Neither report is time-critical; the amends
         # are.
+        # WAITING ORDERS (15 Nov 2026): pulled before high-impact news, and kept at 1% risk while they
+        # wait — the order follows the spread, and the size follows the stop. After the amends above,
+        # on the same reconcile the tracker already holds; neither raises.
+        from execution import news_pull, resting_watch
+        await news_pull.check(send)
+        await resting_watch.check(send)
+
         from execution.fill_watch import check_fills
         await check_fills(positions, send)
 

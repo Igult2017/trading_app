@@ -453,6 +453,8 @@ class Vix1Strategy(BaseStrategy):
             # are in scope here and not inside `build_signal`. Autotrade alone reads it; the card,
             # the save and the DM are untouched, which is exactly how he scoped the rule.
             sig.size_from_memory = traded_on_memory(h1, len(h1) - 1, bullish, sym)
+            # The spread the levels above were built with — `vix1_entry` uses exactly this value.
+            sig.spread_used = max(0.0, context.spread or 0.0)
             sig.dedup_key = key          # committed ONLY once the signal is real — never here
             out.append(sig)
             self._recent[sym] = (bullish, now, key)

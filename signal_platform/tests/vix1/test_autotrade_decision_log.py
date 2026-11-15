@@ -18,7 +18,7 @@ import execution.broker as broker_mod
 import storage.observability_repo as obs
 from config.settings import settings
 from data import ctrader_positions as CP
-from execution import canceller, guards, placer
+from execution import canceller, guards, intents, placer
 from monitor import position_book as PB
 from storage import autotrade_repo
 
@@ -229,7 +229,7 @@ acct_mod.load_account, autotrade_repo.record_placed = _real["load"], _real["reco
 autotrade_repo.order_for_signal, autotrade_repo.record_closed = _real["order_for_signal"], _real["record_closed"]
 obs.record = _harness_record
 PB._cached, PB._cached_at, PB._forced, PB._resting = None, 0.0, False, None
-placer._intent.clear()
+intents._intent.clear()
 guards._placed.clear()
 for k, v in _orig.items():
     object.__setattr__(settings, k, v)

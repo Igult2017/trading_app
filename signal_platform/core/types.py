@@ -249,6 +249,12 @@ class Signal:
     # In memory only, never a database column: the placer receives this live object, so nothing
     # needs to survive a restart for the decision to be right.
     size_from_memory:   bool = False
+    # THE SPREAD (ask - bid, price units) THE ENTRY AND STOP WERE BUILT WITH — 0.0 when it could not be
+    # read, which is also what the entry rule used then. Autotrade needs it twice (15 Nov 2026): to
+    # pick the best of signals that arrive together (the one the spread eats least), and to know how
+    # far the spread has moved since, while the order waits (`execution/resting_watch`). In memory;
+    # the order row stores its own copy.
+    spread_used:        float = 0.0
     # Optional price BANDS to shade on the rendered chart card: [(low, high, colour, label)].
     # DELIBERATELY GENERIC. The renderer must not know what any strategy means by a band — one
     # strategy's supply zone and another's range are the same four numbers to it, and a renderer

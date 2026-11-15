@@ -889,7 +889,7 @@ blocked a loser: 0.9 pip in its favour (13:08 low 1.15286), short of the 0.4R st
    `GET /api/admin/autotrade` and the new admin **Autotrade** screen. Refusals exist from this deploy on.
 
 **Unchanged:** the daily cap of 6 still counts every order sent; D48 (one trade at a time across related
-pairs) stays unbuilt, as he ruled.
+pairs) stays unbuilt, as he ruled. *(Both changed on 15 Nov 2026 at his instruction: see D48 and D71, now FIXED.)*
 
 **Verified:** `tests/vix1/test_guard_live_order.py` (41 checks) runs Monday's real event through the real
 `guards.check`, plus placement, refusal, broker refusal and withdrawal through the real placer and canceller.
@@ -1777,7 +1777,30 @@ sabotage-verified.
 
 ## D. cTrader & copy trading
 
-### D71 — Autotrade's daily cap of 6 counts WITHDRAWN orders too. Found 15 Nov 2026 — HIS DECISION PENDING
+### D72 — The two NEW broker commands (amend a waiting order, close part of a trade) are UNPROVEN against the real broker. Found 15 Nov 2026 — PROOF DUE MONDAY
+
+- **What it means:** the waiting-order watch and the after-fill cut-back send two messages the platform
+  never sent before: `ProtoOAAmendOrderReq` and `ProtoOAClosePositionReq` (`execution/orders_change.py`).
+  Their tests fake the broker. Built on Sunday with the market shut, so neither could be sent for real.
+- **What is assumed, from the protocol:** the amend is answered with an `ORDER_REPLACED` event, and a
+  partial close with `ORDER_ACCEPTED` / `ORDER_FILLED` (`orders.read_execution`). If the broker answers
+  differently, the command reports a timeout ("state UNKNOWN") and **nothing is retried**, so the
+  failure is loud and cannot double-act.
+- **Also re-sent on every amend:** the order's target and expiry, read off the same reconcile, because
+  an omitted leg may be deleted (`reference-ctrader-amend`).
+- **How to prove it:** the first `WAITING ORDER ADJUSTED` / `OVER-RISKED FILL CUT BACK` DM on the demo
+  account, then the broker's own order history showing the new volume and levels.
+
+### D71 — Autotrade's daily cap of 6 counts WITHDRAWN orders too. Found 15 Nov 2026 — ✅ FIXED 15 Nov 2026
+
+- **His answer:** *"Trades that are not filled are never counted by the broker."*
+- **Now:** rule 6 counts only orders that FILLED in the last 24 hours (`autotrade_repo.fills_since`).
+  If the fills cannot be read it falls back to the old, stricter count of orders placed.
+- **Tested:** `tests/vix1/test_guard_live_order.py` §3 (six withdrawn orders no longer use up the day;
+  six fills do; unreadable fills fall back).
+
+*The finding as first recorded:*
+
 
 - **What it means:** guard rule 6 counts every order PLACED in the last 24 hours
   (`signal_platform/execution/guards.py:165-169`), including ones withdrawn because their setup died
@@ -2858,7 +2881,20 @@ to see it in.
 **Dead code removed with it:** `storage.deleteCopyFollower` — nothing hard-deletes a relationship any
 more.
 
-### D48 - Autotrade can hold 3 correlated positions at once — 6% on ONE bet. 🔴 BEFORE LIVE MONEY
+### D48 - Autotrade can hold 3 correlated positions at once — 6% on ONE bet. ✅ FIXED 15 Nov 2026
+
+- **His rule, restated 15 Nov:** *"if all the pairs have signals at the same time, we should choose the
+  best one because we only trade 1 signal at a time."*
+- **Now:**
+  - guard rule 7 refuses a new autotrade order while ANY autotrade order rests or ANY autotrade trade
+    is open, on any pair and either side (`execution/liveness.one_trade_live`). It recognises our own
+    trades by the bot's `auto-` mark AND by the placement log;
+  - signals that arrive together wait 5 seconds and only the best is placed: his grade first, then the
+    one the spread eats least (`execution/best_signal.py`).
+- **Tested:** `test_guard_live_order.py` §2 and `test_autotrade_one_at_a_time.py`.
+
+*The finding as first recorded:*
+
 
 **HIS RULE, 2026-09-06, and the code does not do it:**
 

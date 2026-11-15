@@ -66,6 +66,8 @@ function orderOutcome(o: AutotradeOrder): { outcome: string; tone: Tone } {
     return { outcome: 'Filled', tone: 'accent' };
   }
   if (o.status === 'cancelled') return { outcome: 'Withdrawn', tone: 'neutral' };
+  // Pulled before a high-impact release; re-placed (as a new order) or closed 30 min after it.
+  if (o.status === 'news_pulled') return { outcome: 'Withdrawn for news', tone: 'neutral' };
   if (o.status === 'rejected') return { outcome: 'Broker refused', tone: 'bad' };
   return { outcome: 'Resting', tone: 'accent' };
 }
@@ -123,7 +125,7 @@ export function summarise(feed: AutotradeFeed) {
   return {
     sent: feed.orders.length,
     filled: withStatus('filled'),
-    withdrawn: withStatus('cancelled'),
+    withdrawn: withStatus('cancelled') + withStatus('news_pulled'),
     notPlaced: feed.decisions.filter(d => d.stage in NOT_PLACED).length,
   };
 }

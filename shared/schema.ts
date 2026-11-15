@@ -1161,7 +1161,8 @@ export const autotradeOrders = pgTable("autotrade_orders", {
   placedAt:    timestamp("placed_at").defaultNow().notNull(),
   filledAt:    timestamp("filled_at"),
   fillPrice:   decimal("fill_price",   { precision: 12, scale: 5 }),
-  status:      text("status").default("placed"),    // placed | filled | cancelled | rejected
+  status:      text("status").default("placed"),    // placed | filled | cancelled | rejected | news_pulled
+  spreadUsed:  decimal("spread_used",  { precision: 12, scale: 5 }),  // spread the levels were built with
 }, (t) => [
   index("autotrade_orders_order_idx").on(t.orderId),
   index("autotrade_orders_placed_idx").on(t.placedAt),

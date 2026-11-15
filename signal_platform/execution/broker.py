@@ -67,6 +67,16 @@ class StopOrderClient:
         broker cannot read its absence as a removal — see `orders.build_amend`."""
         return await self._run(("amend", int(position_id), symbol, float(sl), tp))
 
+    async def amend_order(self, order_id: int, symbol: str, volume: int, stop_price: float,
+                          sl: float, tp: float | None, expiry_ms: int | None) -> OrderResult:
+        """Change a WAITING order's size, entry and stop; its target and expiry are re-sent as given."""
+        return await self._run(("amend_order", int(order_id), symbol, int(volume), float(stop_price),
+                                float(sl), tp, expiry_ms))
+
+    async def close_part(self, position_id: int, volume: int) -> OrderResult:
+        """Close `volume` of an open trade (the over-risked part — `execution/fill_risk`)."""
+        return await self._run(("close", int(position_id), int(volume)))
+
     # ── internals ──────────────────────────────────────────────────────────────
 
     async def _run(self, cmd: tuple) -> OrderResult:
@@ -129,6 +139,12 @@ class StopOrderClient:
         if cmd[0] == "amend":
             _, position_id, symbol, sl, tp = cmd
             return build_amend(acct, position_id, symbol, sl, tp), None
+        if cmd[0] == "amend_order":
+            from execution.orders_change import build_amend_order
+            return build_amend_order(acct, *cmd[1:]), None
+        if cmd[0] == "close":
+            from execution.orders_change import build_close
+            return build_close(acct, cmd[1], cmd[2]), None
         _, symbol, side, volume, stop_price, sl, tp, expiry_ms, lots, label, comment = cmd
         return build_stop(acct, symbol, side, volume, stop_price, sl, tp, expiry_ms, symbol_map,
                           spec=spec, lots=lots, label=label, comment=comment)
@@ -178,6 +194,6 @@ class StopOrderClient:
             event.ParseFromString(msg.payload)
             verdict = read_execution(event,
                                      is_cancel=(cmd[0] == "cancel"),
-                                     is_amend=(cmd[0] == "amend"))
+                                     is_amend=(cmd[0] in ("amend", "amend_order")))
             if verdict is not None:
                 return verdict

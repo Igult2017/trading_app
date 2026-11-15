@@ -48,6 +48,7 @@ class Pos:
     def __init__(self, symbol="EUR/USD", bullish=False, volume=VOLUME, opened_at=None):
         self.symbol, self.bullish, self.volume = symbol, bullish, volume
         self.opened_at = opened_at if opened_at is not None else int(AT_0723.timestamp()) + 1_140
+        self.label = ""
 
 
 guards._placed.clear()
@@ -70,11 +71,38 @@ s.teeth("the guard tells a live order from a dead one",
         guards.check(**SIGNAL_1303, book=([], set())) is None
         and guards.check(**SIGNAL_1303, book=([], {int(ORDER)})) is not None)
 
-# ── 2. WHAT IS NOT OURS, OR NOT THE SAME BET ───────────────────────────────
-s.check("the OPPOSITE direction is not a duplicate, even with the broker unreadable",
-        guards.check(**dict(SIGNAL_1303, direction="BUY"), book=None), None)
-s.check("another PAIR is not a duplicate",
-        guards.check(**dict(SIGNAL_1303, symbol="GBP/USD"), book=None), None)
+# ── 2. ONE TRADE AT A TIME, AND WHAT IS NOT OURS (his rule, 15 Nov 2026) ───
+# *"we only trade 1 signal at a time."* A live order now blocks EVERY pair and direction, not only
+# its own. What is not ours (his hand trades, a fill of another size) still blocks nothing.
+s.check("the OPPOSITE direction is refused while 360658076 rests (one trade at a time)",
+        "one trade at a time" in (guards.check(**dict(SIGNAL_1303, direction="BUY"),
+                                               book=([], {int(ORDER)})) or ""), True)
+s.check("another PAIR is refused while it rests",
+        "one trade at a time" in (guards.check(**dict(SIGNAL_1303, symbol="GBP/USD"),
+                                               book=([], {int(ORDER)})) or ""), True)
+s.check("...and allowed once the broker shows it gone",
+        guards.check(**dict(SIGNAL_1303, symbol="GBP/USD"), book=([], set())), None)
+s.check("with the broker unreadable another pair is refused too — doubt refuses",
+        guards.check(**dict(SIGNAL_1303, symbol="GBP/USD"), book=None) is not None, True)
+_auto = Pos(symbol="GBP/JPY", bullish=True, volume=5, opened_at=0)
+_auto.label = "auto-vix1-1a2b3c4d"
+guards._placed.clear()
+s.check("an open trade carrying the bot's mark blocks a new order on another pair",
+        "GBP/JPY BUY autotrade trade is still open"
+        in (guards.check(**SIGNAL_1303, book=([_auto], set())) or ""), True)
+_his = Pos(symbol="GBP/JPY", bullish=True, volume=5, opened_at=0)
+_his.label = ""
+s.teeth("his own unmarked trade blocks nothing",
+        guards.check(**SIGNAL_1303, book=([_his], set())) is None)
+from data import ctrader_positions as _CPL   # noqa: E402
+_real_labels = _CPL.last_resting_labels
+_CPL.last_resting_labels = lambda: ["auto-vix1-9f8e7d6c"]
+s.check("a resting order carrying the mark blocks it too",
+        "still resting" in (guards.check(**SIGNAL_1303, book=([], set())) or ""), True)
+_CPL.last_resting_labels = lambda: ["his-own"]
+s.check("...a resting order of HIS does not", guards.check(**SIGNAL_1303, book=([], set())), None)
+_CPL.last_resting_labels = _real_labels
+guards._placed.append((AT_0723, "EUR/USD", "SELL", ORDER, VOLUME))
 s.check("an open EUR/USD sell of a DIFFERENT size is not our fill",
         guards.check(**SIGNAL_1303, book=([Pos(volume=1_000_000)], set())), None)
 s.check("an open EUR/USD sell opened BEFORE we placed is not our fill",
@@ -85,12 +113,25 @@ guards._placed[0] = (AT_0723, "EUR/USD", "SELL", "", VOLUME)
 s.check("a placement with no recorded order id cannot be confirmed gone → refused",
         guards.check(**SIGNAL_1303, book=([], set())) is not None, True)
 
-# ── 3. UNCHANGED: THE DAILY CAP STILL COUNTS EVERY ORDER SENT ──────────────
+# ── 3. THE DAILY CAP COUNTS FILLS ONLY (his ruling, 15 Nov 2026) ───────────
+# *"Trades that are not filled are never counted by the broker."* Six withdrawn orders used to use up
+# the day. Now only FILLED orders count; if the fills cannot be read it falls back to the old,
+# stricter count of placements.
 guards._placed.clear()
 for i in range(6):
     guards._placed.append((NOW - timedelta(hours=20 - i), "XAU/USD", "SELL", str(i), 100))
-s.check("six withdrawn orders in 24h still hit the daily cap of 6",
-        "daily cap" in (guards.check(**SIGNAL_1303, book=([], set())) or ""), True)
+_real_fills = autotrade_repo.fills_since
+autotrade_repo.fills_since = lambda hours=24: 0
+s.check("six WITHDRAWN orders (0 fills) no longer hit the daily cap",
+        guards.check(**SIGNAL_1303, book=([], set())), None)
+autotrade_repo.fills_since = lambda hours=24: 6
+capped = guards.check(**SIGNAL_1303, book=([], set())) or ""
+s.check("six FILLED trades in 24h hit the cap of 6", "daily cap" in capped, True)
+s.check("...and the reason says filled trades", "filled trades" in capped, True)
+autotrade_repo.fills_since = lambda hours=24: None
+s.teeth("fills unreadable → the stricter placement count still refuses",
+        "orders placed" in (guards.check(**SIGNAL_1303, book=([], set())) or ""))
+autotrade_repo.fills_since = _real_fills
 
 # ── 4. A RESTART KEEPS THE ORDER ID AND SIZE ───────────────────────────────
 guards._placed.clear()

@@ -602,6 +602,8 @@ CREATE TABLE IF NOT EXISTS autotrade_orders (
 CREATE INDEX IF NOT EXISTS autotrade_orders_order_idx  ON autotrade_orders (order_id);
 CREATE INDEX IF NOT EXISTS autotrade_orders_placed_idx ON autotrade_orders (placed_at);
 CREATE INDEX IF NOT EXISTS autotrade_orders_status_idx ON autotrade_orders (status);
+-- The spread a waiting order's levels were built with, so the order can follow it (15 Nov 2026).
+ALTER TABLE autotrade_orders ADD COLUMN IF NOT EXISTS spread_used NUMERIC(12,5);
 
 ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS entry_order_id       TEXT;
 ALTER TABLE synced_trades ADD COLUMN IF NOT EXISTS order_type           TEXT;

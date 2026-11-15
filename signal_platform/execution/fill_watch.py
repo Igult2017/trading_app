@@ -27,7 +27,7 @@ import logging
 
 from core import delivery_ledger
 from execution.liveness import fill_matches
-from execution.placer import fill_report, pending_intents, _intent
+from execution.intents import fill_report, pending_intents, _intent
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +53,10 @@ async def check_fills(positions, send) -> None:
             match = next((p for p in positions if _matches(intent, p)), None)
             if match is None:
                 continue
+            # A FILL WORSE THAN PLANNED IS CUT BACK TO 1% FIRST — money before the message
+            # (`execution/fill_risk`, 15 Nov 2026). Once per fill; it marks itself done.
+            from execution import fill_risk
+            await fill_risk.correct(order_id, intent, match, send)
             key = f"fill:{order_id}"
             if delivery_ledger.is_delivered(key):
                 _intent.pop(order_id, None)      # already reported — stop re-checking it

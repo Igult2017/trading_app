@@ -185,7 +185,8 @@ def _no_raw_sends(rel: str) -> list[str]:
 
 for rel in ("monitor/position_tracker.py", "monitor/trade_watcher.py",
             "monitor/exit_watch.py", "monitor/entry_watcher.py",
-            "execution/fill_watch.py", "execution/placer.py"):
+            "execution/fill_watch.py", "execution/placer.py", "execution/intents.py",
+            "execution/resting_watch.py", "execution/fill_risk.py", "execution/news_pull.py"):
     s.check(f"{rel.split('/')[-1]} awaits no raw Telegram send", _no_raw_sends(rel), [])
 
 

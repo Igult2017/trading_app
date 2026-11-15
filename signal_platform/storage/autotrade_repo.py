@@ -28,7 +28,8 @@ __all__ = ["record_placed", "record_filled", "record_closed", "cancelled_since",
 def record_placed(order_id: str, *, symbol: str, side: str, entry: float | None,
                   stop: float | None, target: float | None, lots: float | None,
                   volume: int | None, stop_pips: float | None,
-                  strategy: str | None = None, signal_id: str | None = None) -> None:
+                  strategy: str | None = None, signal_id: str | None = None,
+                  spread_used: float | None = None) -> None:
     """Store what was sent to the broker, and what it was meant to be."""
     try:
         with get_session() as s:
@@ -36,7 +37,7 @@ def record_placed(order_id: str, *, symbol: str, side: str, entry: float | None,
                 order_id=str(order_id), signal_id=signal_id, strategy=strategy,
                 symbol=symbol, side=side, entry_price=entry, stop_loss=stop,
                 take_profit=target, lots=lots, volume=volume, stop_pips=stop_pips,
-                status=STATUS_PLACED))
+                spread_used=spread_used, status=STATUS_PLACED))
     except Exception as exc:
         log.warning(f"[autotrade_repo] could not persist order {order_id}: "
                     f"{type(exc).__name__}: {exc} — the ORDER is unaffected")
@@ -175,6 +176,24 @@ def recent_placements(hours: int = 24) -> list[tuple[datetime, str, str, str, in
     return out
 
 
+def fills_since(hours: int = 24) -> int | None:
+    """How many autotrade orders FILLED in the last `hours` — or None if it could not be read.
+
+    The daily cap counts these (his ruling, 15 Nov 2026: *"Trades that are not filled are never counted
+    by the broker."*). None lets the caller fall back to the stricter count rather than guess zero.
+    """
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        with get_session() as s:
+            return (s.query(AutotradeOrderModel)
+                     .filter(AutotradeOrderModel.filled_at.isnot(None),
+                             AutotradeOrderModel.filled_at >= cutoff)
+                     .count())
+    except Exception as exc:
+        log.warning(f"[autotrade_repo] could not count recent fills: {type(exc).__name__}: {exc}")
+        return None
+
+
 def _as_intent(r: AutotradeOrderModel) -> dict:
     """The same shape `placer._intent` used, so callers did not have to change."""
     f = lambda v: float(v) if v is not None else None      # noqa: E731 — Numeric -> float
@@ -184,4 +203,5 @@ def _as_intent(r: AutotradeOrderModel) -> dict:
     return dict(symbol=r.symbol, side=r.side, entry=f(r.entry_price), sl=f(r.stop_loss),
                 tp=f(r.take_profit), lots=f(r.lots), volume=r.volume,
                 stop_pips=f(r.stop_pips) or 0.0, placed_at=r.placed_at,
-                strategy=r.strategy or "", signal_id=r.signal_id)
+                strategy=r.strategy or "", signal_id=r.signal_id,
+                spread_used=f(r.spread_used) or 0.0)

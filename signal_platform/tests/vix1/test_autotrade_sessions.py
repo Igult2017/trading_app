@@ -35,7 +35,10 @@ s = Suite("AUTOTRADE — sessions, and the equity that refused everything")
 
 # A signal that passes every OTHER gate, so only the one under test can refuse.
 OK = dict(symbol="GBP/USD", direction="SELL", strategy="vix1",
-          account_type="demo", equity=10_000.0, lots=0.1)
+          account_type="demo", equity=10_000.0, lots=0.1,
+          # What the broker holds: nothing. The real placer always passes this; without it the
+          # one-trade-at-a-time rule (15 Nov 2026) refuses, because it cannot see the account.
+          book=([], set()))
 
 
 def _set(**kw):

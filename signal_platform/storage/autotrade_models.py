@@ -34,6 +34,9 @@ STATUS_PLACED    = "placed"
 STATUS_FILLED    = "filled"
 STATUS_CANCELLED = "cancelled"
 STATUS_REJECTED  = "rejected"
+# Withdrawn because a high-impact release for its pair was due; put back 30 min after if the setup
+# still stands, then marked CANCELLED. Durable so a restart in between cannot forget (15 Nov 2026).
+STATUS_NEWS_PULLED = "news_pulled"
 
 
 class AutotradeOrderModel(Base):
@@ -62,6 +65,8 @@ class AutotradeOrderModel(Base):
     filled_at   = Column("filled_at",  UtcDateTime,    nullable=True)
     fill_price  = Column("fill_price", Numeric(12, 5), nullable=True)
     status      = Column("status",     Text,           default=STATUS_PLACED)
+    # The spread the levels were built with; moved with them when the waiting-order watch amends.
+    spread_used = Column("spread_used", Numeric(12, 5), nullable=True)
 
     __table_args__ = (
         Index("autotrade_orders_order_idx", "order_id"),

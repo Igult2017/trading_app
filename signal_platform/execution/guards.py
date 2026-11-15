@@ -73,6 +73,14 @@ def record(symbol: str, direction: str, order_id: str | None = None,
     _placed.append((datetime.now(timezone.utc), symbol, direction, str(order_id or ""), volume))
 
 
+def note_volume(order_id: str, volume: int) -> None:
+    """An order's size was changed at the broker (`execution/resting_watch`): keep the log in step,
+    or the size match in `liveness.why_alive` stops recognising its fill."""
+    for i, (at, s, d, oid, _v) in enumerate(_placed):
+        if oid == str(order_id):
+            _placed[i] = (at, s, d, oid, int(volume))
+
+
 def _recent(hours: int = 24) -> list[tuple[datetime, str, str, str, int | None]]:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     return [p for p in _placed if p[0] >= cutoff]
@@ -162,34 +170,38 @@ def check(symbol: str, direction: str, strategy: str,
     if equity <= 0:
         return "account equity unknown"
 
-    # 6. DAILY CAP.
+    # 6. DAILY CAP — FILLED TRADES ONLY (his ruling, 15 Nov 2026: *"Trades that are not filled are never
+    #    counted by the broker."*). It counted every order PLACED, so a morning of withdrawn setups used
+    #    up the day's 6 and refused a real trade later. If the fills cannot be read, it falls back to
+    #    the old, stricter count of placements — ambiguous refuses, never guesses zero.
     recent = _recent(24)
-    if len(recent) >= settings.autotrade_max_per_day:
-        return (f"daily cap reached ({len(recent)}/{settings.autotrade_max_per_day} "
-                f"orders in the last 24h)")
+    try:
+        from storage import autotrade_repo
+        filled = autotrade_repo.fills_since(24)
+    except Exception:
+        filled = None
+    counted, what = (filled, "filled trades") if filled is not None else (len(recent), "orders placed")
+    if counted >= settings.autotrade_max_per_day:
+        return (f"daily cap reached ({counted}/{settings.autotrade_max_per_day} "
+                f"{what} in the last 24h)")
 
-    # 7. ONE LIVE ORDER PER symbol+direction. The strategy's own dedup key already enforces one
-    #    SIGNAL at a time; this is the same invariant at the broker, so a dedup slip cannot become
-    #    two real orders. Same-symbol OPPOSITE direction is allowed — that is a genuine reversal.
+    # 7. ONE TRADE AT A TIME — on the whole account (his rule, 15 Nov 2026: *"we only trade 1 signal at
+    #    a time"*). It was ONE LIVE ORDER PER symbol+direction, so EUR/USD, GBP/USD and GBP/JPY could
+    #    all be live together (`docs/OPEN.md` D48). The test is `liveness.one_trade_live`.
     #
-    #    LIVE MEANS LIVE, fixed 2026-09-15. This refused on any order PLACED in the last 24h, and
-    #    nothing ever took a dead one off the list. On 14 Sep his EUR/USD sell of 07:23 (order
-    #    360658076) was withdrawn at 07:26, when price touched its stop side first. At 13:03 a new
-    #    EUR/USD sell reached its entry and NO ORDER WAS SENT: refused as a "duplicate" of an order
-    #    dead for five and a half hours. Proven from the broker's own order history.
-    #
-    #    An earlier order now blocks only while the broker still has it RESTING, or it FILLED into a
-    #    trade that is still OPEN. If the broker cannot be read it refuses exactly as before, so
-    #    this only ever lets through what the broker confirms is gone.
-    for placed_at, s, d, order_id, volume in recent:
-        if s != symbol or d != direction:
-            continue
-        if book is None:
-            return (f"an order for {symbol} {direction} (order {order_id or '?'}) was placed in "
-                    f"the last 24h and the broker could not be read to confirm it is gone")
-        alive = liveness.why_alive(order_id, symbol, direction, volume, placed_at, book)
-        if alive:
-            return f"an order for {symbol} {direction} is still live: {alive}"
+    #    LIVE STILL MEANS LIVE (fixed 2026-09-15): on 14 Sep his EUR/USD sell of 07:23 (order
+    #    360658076) was withdrawn at 07:26, and at 13:03 the next sell was refused as a "duplicate"
+    #    of an order dead for five and a half hours. An earlier order blocks only while the broker
+    #    still has it RESTING, or it FILLED into a trade still OPEN. With the broker unreadable it
+    #    refuses, as before.
+    try:
+        from data import ctrader_positions
+        labels = ctrader_positions.last_resting_labels()
+    except Exception:
+        labels = None
+    busy = liveness.one_trade_live(recent, book, labels)
+    if busy:
+        return busy
 
     # RULE 8 IS GONE — the "a sell's stop must be worth 5x the spread" refusal. Removed on his
     # instruction, 2026-09-26: *"How about we just remove it because I have never understood its

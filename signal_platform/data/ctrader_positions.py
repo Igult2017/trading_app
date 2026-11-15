@@ -102,6 +102,49 @@ def _resting_stops(res) -> dict[int, dict[str, float]]:
     return out
 
 
+#: WHAT ELSE EACH RESTING ORDER CARRIES — size, target, expiry and the bot's mark. Added 15 Nov 2026
+#: for the waiting-order watch (`execution/resting_watch`): his point, *"you havent considered when
+#: the SL becomes bigger than we planned before the fill"*, needs the order's real SIZE next to its
+#: real stop, and an amend must re-send the target and expiry or the broker may drop them. Same reply,
+#: no extra request. Kept apart from `_resting_order_stops` so that map stays prices only.
+_resting_order_meta: dict[int, dict] | None = None
+
+
+def _resting_meta(res) -> dict[int, dict]:
+    """order id -> {"volume", "tp", "expiry_ms", "label"} — only the fields the order carries."""
+    out: dict[int, dict] = {}
+    for o in res.order:
+        td = getattr(o, "tradeData", None)
+        meta: dict = {}
+        vol = getattr(td, "volume", 0) if td is not None else 0
+        if vol:
+            meta["volume"] = int(vol)
+        tp = getattr(o, "takeProfit", 0) or 0
+        if tp:
+            meta["tp"] = float(tp) / 100_000
+        exp = getattr(o, "expirationTimestamp", 0) or 0
+        if exp:
+            meta["expiry_ms"] = int(exp)
+        meta["label"] = str(getattr(td, "label", "") or "") if td is not None else ""
+        out[int(o.orderId)] = meta
+    return out
+
+
+def last_resting_meta(order_id: int | str) -> dict | None:
+    """Size, target, expiry and label the BROKER holds for one resting order, or None if unknown."""
+    if _resting_order_meta is None:
+        return None
+    got = _resting_order_meta.get(int(order_id))
+    return dict(got) if got else None
+
+
+def last_resting_labels() -> list[str] | None:
+    """The label of every resting order, from the last good read. None if never read."""
+    if _resting_order_meta is None:
+        return None
+    return [m.get("label", "") for m in _resting_order_meta.values()]
+
+
 def last_resting_order_ids() -> set[int] | None:
     """Resting order ids from the most recent SUCCESSFUL read, or None if there has been none."""
     return None if _resting_order_ids is None else set(_resting_order_ids)
@@ -137,6 +180,10 @@ class Position:
     # THE STOP THE TRADE STARTED WITH — attached by `monitor/start_stops` from the broker's opening
     # order. None until it is known. It is the ONLY yardstick R is counted in (see `r_at`).
     start_stop: float | None = None
+    # THE MARK THE ORDER CARRIED (`auto-vix1-…` for autotrade), copied onto the position by cTrader.
+    # Lets "one trade at a time" find the bot's own trade without matching it by size, which an
+    # amend or a partial close changes (15 Nov 2026).
+    label: str = ""
 
     def risk(self) -> float | None:
         """1R in price: the distance from the fill to the STARTING stop. None if that is not known."""
@@ -199,7 +246,7 @@ async def open_positions() -> list[Position] | None:
     open", None is "I could not find out". Alerting on the first is correct; alerting on the second
     would be inventing a fact.
     """
-    global _resting_order_ids, _resting_order_stops
+    global _resting_order_ids, _resting_order_stops, _resting_order_meta
     try:
         async with _req_lock:
             reader, writer = await _sess.get_connection()
@@ -224,6 +271,7 @@ async def open_positions() -> list[Position] | None:
         res.ParseFromString(resp.payload)
         _resting_order_ids = _resting_ids(res)
         _resting_order_stops = _resting_stops(res)
+        _resting_order_meta = _resting_meta(res)
         out: list[Position] = []
         for p in res.position:
             name = _name_for(p.tradeData.symbolId)
@@ -241,6 +289,7 @@ async def open_positions() -> list[Position] | None:
                 commission=(p.commission or 0) / money,
                 swap=(p.swap or 0) / money,
                 opened_at=int(p.tradeData.openTimestamp / 1000),
+                label=str(getattr(p.tradeData, "label", "") or ""),
             ))
         return out
     except Exception as exc:

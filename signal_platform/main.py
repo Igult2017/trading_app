@@ -60,7 +60,7 @@ async def _startup() -> None:
     # only link back to the signal — and nothing said why. His instruction, 2026-09-02: *"persist
     # every memory that we might need ... I dont want to here that we redeployed and the memory was
     # wiped so we cant know what happened."* Read ONCE here, never on the trading path.
-    from execution.placer import rehydrate_intents
+    from execution.intents import rehydrate_intents
     rehydrate_intents()
 
     # 1c. THE DUPLICATE-ORDER GUARD. `guards._placed` enforces one live order per symbol+direction

@@ -3,7 +3,7 @@
 HIS ASK, 2026-08-31: *"make sure those trades placed by autotrade are also sent to DM so that I can
 review them later and see how well they were placed to help me improve autotrading."*
 
-WHAT WAS ACTUALLY MISSING. `placer.fill_report` already produced the exact comparison he wants —
+WHAT WAS ACTUALLY MISSING. `placer.fill_report` (now `intents.fill_report`) already produced the exact comparison he wants —
 modelled entry beside actual fill, slippage in pips and as a share of the trade's own risk. **It had
 never run once: nothing called it.** Its own docstring calls it *"the deliverable"* and *"the
 point"*, and the measurement the whole autotrade feature exists to produce was never wired up. A
@@ -22,7 +22,8 @@ from datetime import datetime, timedelta, timezone
 from _harness import Suite
 
 from execution import placer
-from execution.placer import fill_report, placement_message, refusal_message, _intent
+from execution.intents import fill_report, placement_message, _intent
+from execution.placer_messages import refusal_message
 from execution.fill_watch import _matches, check_fills
 
 s = Suite("AUTOTRADE — placed, stood down, and where it really filled")
@@ -160,7 +161,7 @@ s.teeth("no intent -> no message, rather than a half-built one", placement_messa
 # that the next deploy destroyed. Guard refusals and successes both reported; this one did not.
 print()
 print("   when the BROKER says no:")
-from execution.placer import rejection_message
+from execution.placer_messages import rejection_message
 
 rej = rejection_message("XAU/USD", "SELL", "VIX.1", 0.15, 4433.96, 4437.39, 4420.24,
                         "INVALID_REQUEST Order price has more digits than symbol allows. Allowed 2 digits")

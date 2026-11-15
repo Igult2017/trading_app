@@ -64,7 +64,7 @@ def recheck_once_soon() -> None:
     Called from the monitor's poll, not at boot: the broker connection is only up once the platform is
     serving. An unreadable broker is retried every `_RETRY_S` rather than giving up — the first
     production run (19 Sep 17:48) was rate limited on 3 of 5 orders and would otherwise never retry."""
-    global _rechecked, _next_try
+    global _next_try
     if _rechecked or time.monotonic() < _next_try:
         return
     try:

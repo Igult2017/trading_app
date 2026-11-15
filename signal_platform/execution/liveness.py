@@ -56,3 +56,36 @@ def why_alive(order_id: str | None, symbol: str, side: str, volume: int | None,
         if ours:
             return f"order {order_id} filled and that trade is still open"
     return None
+
+
+def one_trade_live(recent, book, resting_labels: list[str] | None = None) -> str | None:
+    """Why a NEW autotrade order must wait, or None when nothing of ours is live anywhere.
+
+    HIS RULE, 15 Nov 2026: *"we only trade 1 signal at a time."* So any autotrade order still resting,
+    or any autotrade trade still open, on ANY pair and in EITHER direction, blocks the next one.
+
+    TWO WAYS OF RECOGNISING OUR OWN, because each misses something the other catches:
+      * THE MARK — every autotrade order carries an `auto-` label (`orders.order_label`, since 8 Nov)
+        and cTrader copies it onto the position. It survives an amend and a partial close, which
+        change the SIZE, and it has no 24-hour horizon.
+      * THE PLACEMENT LOG — the orders placed in the last 24 h (`recent`), each asked of the broker
+        by id and by size (`why_alive`). It catches an order whose mark did not come through.
+
+    DOUBT REFUSES: with the broker unreadable (`book` None) nothing can be confirmed gone.
+    """
+    from execution.orders import LABEL_PREFIX
+    if book is None:
+        return "the broker could not be read, so it cannot be confirmed that no autotrade trade is live"
+    positions, _resting = book
+    mark = f"{LABEL_PREFIX}-"
+    for pos in positions:
+        if str(getattr(pos, "label", "") or "").startswith(mark):
+            side = "BUY" if pos.bullish else "SELL"
+            return f"one trade at a time — the {pos.symbol} {side} autotrade trade is still open"
+    if any(str(lab or "").startswith(mark) for lab in (resting_labels or [])):
+        return "one trade at a time — an autotrade order is still resting at the broker"
+    for placed_at, symbol, side, order_id, volume in recent:
+        alive = why_alive(order_id, symbol, side, volume, placed_at, book)
+        if alive:
+            return f"one trade at a time — the {symbol} {side} order is still live: {alive}"
+    return None
