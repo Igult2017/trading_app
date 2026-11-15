@@ -117,7 +117,7 @@ def box_state(h1: list[Candle], tstate) -> State:
 
 
 def not_tradeable(h1: list[Candle], tstate, bullish: bool | None = None,
-                  symbol: str = "") -> str | None:
+                  symbol: str = "", news=None) -> str | None:
     """The message to VIX.1: a reason to stand down, or None to carry on.
 
     HIS SCOPE, given with the rule: *"this idea does not apply when liquidity void is filling because
@@ -128,7 +128,7 @@ def not_tradeable(h1: list[Candle], tstate, bullish: bool | None = None,
     """
     if bullish is not None and symbol:
         from strategies import vix1_void          # imported here: `vix1_void` reads `vix1_momentum`
-        void = vix1_void.state(h1, len(h1) - 1, bullish, symbol)
+        void = vix1_void.state(h1, len(h1) - 1, bullish, symbol, news=news)   # news: his void rule
         if void.kind in ("filling", "filled"):
             return None
     st = box_state(h1, tstate)

@@ -50,7 +50,8 @@ def dedup_key(symbol: str, bullish: bool, bar: Candle) -> str:
     return f"vix1_count_{symbol}_{'B' if bullish else 'S'}_{bar.time}"
 
 
-def check(h1: list[Candle], h4: list[Candle], symbol: str, debut=None) -> tuple[Candle, bool, str] | None:
+def check(h1: list[Candle], h4: list[Candle], symbol: str, debut=None,
+          news=None) -> tuple[Candle, bool, str] | None:
     """(the candle, its direction, why it is still waiting) — or None when there is nothing to say.
 
     Returns something ONLY when every gate passes and the candle count alone refuses.
@@ -66,12 +67,12 @@ def check(h1: list[Candle], h4: list[Candle], symbol: str, debut=None) -> tuple[
         return None
 
     # IF IT ALREADY TRADES, THERE IS NOTHING TO REPORT. The signal itself is the message.
-    if vix1_bias.detect_bias(h1, h4, symbol, debut=debut) is not None:
+    if vix1_bias.detect_bias(h1, h4, symbol, debut=debut, news=news) is not None:
         return None
 
     # ...AND WOULD IT TRADE IF THE COUNT WERE SATISFIED? Only the count refusal is muted; every other
     # gate still runs, so a Bias here means the count was the single thing in the way.
-    shadow = vix1_bias.detect_bias(h1, h4, symbol, debut=debut, ignore_count=True)
+    shadow = vix1_bias.detect_bias(h1, h4, symbol, debut=debut, ignore_count=True, news=news)
     if shadow is None:
         return None
 

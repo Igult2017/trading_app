@@ -232,7 +232,14 @@ goes quiet.
 
 ## B. VIX.1
 
-### B35 — The GBP/JPY void size is printed 10 times too small in VIX.1's refusal message (found 15 Nov 2026)
+### B35 — ~~The GBP/JPY void size is printed 10 times too small in VIX.1's refusal message~~ FIXED 2026-11-15
+
+**FIXED 15 Nov 2026**, in the same change as his void rule: `_is_a_void` now uses the pair's own pip
+(`shared.pip.pip_size`). Pinned by `tests/vix1/test_void_his_rule.py`: a 2.00-yen band = 200 pips.
+**Known limit, kept on purpose:** ForexFactory's fallback feed is this-week-only. When MyFXBook is
+stale, a Monday void candle from last Friday has unknown news, and the void check then takes the
+stricter old > 5× line (`vix1_void._big_enough`). That makes VIX.1 more careful, never less.
+The original finding is below.
 
 - **What it means:** when VIX.1 refuses a GBP/JPY trade because price is filling a void, the message
   says "a 4.5-pip void" when it is really about 45 pips.

@@ -48,8 +48,10 @@ allowed the moment two momentum candles print.
 """
 from dataclasses import dataclass
 
-from core.types import Candle, ZoneType
+from core.types import Candle, NewsContext, ZoneType
+from news.news_candle import release_near
 from shared.candle_math import atr, body_size
+from shared.pip import pip_size
 from shared.zone_detection import find_fvg_zones
 from strategies import vix1_momentum
 from strategies.vix1_momentum import _MIN_BODY_MULT, baseline_body
@@ -107,17 +109,71 @@ class VoidState:
         return self.kind in ("resumed", "no-void")
 
 
-def _big_enough(h1: list[Candle], j: int) -> bool:
-    """HIS SIZE BAR, asked of ONE candle: is this body *"more than twice bigger than the momentum
-    candle"*? A momentum candle is `_MIN_BODY_MULT` (2.5) x the 100-bar median body, so this is more
-    than 5x it. Imported rather than copied, so if his 2.5 ever moves this moves with it, and the
-    strict 2.5 is used rather than the 2.3 `qualifies_for_trade` allows — that margin is about
-    letting a candle TRADE, which has nothing to do with how big a move must be to leave a void."""
+# HIS VOID CANDLE, 2026-11-15 — replaces "more than 5x a normal candle" as the size question.
+#
+#     "it should be twice the size of a momentum candle that we would pick at that time, meaning
+#      anything less than twice the momentum candle is a normal momentum candle."
+#     "News release leads to less trading activities which causes a liquidity void."
+#
+# So a candle makes a void when EITHER
+#   (a) its body is >= 2x the average body of the last `_RECENT_N` momentum candles before it
+#       ("the momentum candle we would pick at that time" — the real ones, not the minimum size), OR
+#   (b) it is more than 5x a normal candle (the old line) AND a high-impact release for this pair
+#       fell in it or the hour before it.
+# Anything else is a normal candle and is traded normally. His 10 Nov 2026 GBP/USD candles (1.3x,
+# 0.8x, 1.8x the recent momentum candles) were blocked by the old line and are not voids now; his
+# 14 Oct 2026 candle (62 pips, 4.4x) is. MEASURED on the real strategy, Feb 2020 - Apr 2025, three
+# pairs: +18R against the old line (docs/strategies/vix1-void-news-report.md, Part 2).
+#
+# ⚠ NEWS UNKNOWN IS TREATED AS NEWS. With no calendar, a calendar marked not-ok, or a candle older
+# than the calendar reaches (ForexFactory's feed is this-week-only), (b) falls back to the old line
+# alone — the stricter side. Missing news can only make VIX.1 MORE careful, never less.
+_RECENT_N = 5          # "at that time" = the last 5 momentum candles (5 was my choice — flagged to him)
+_RECENT_BACK = 400     # how far back to look for them (bars)
+_RECENT_X = 2.0        # his "twice"
+_MOM_CACHE: dict = {}  # (symbol, time, open, close, has-long-history) -> is it a momentum candle
+
+
+def _is_momentum(h1: list[Candle], k: int, symbol: str) -> bool:
+    c = h1[k]
+    key = (symbol, c.time, c.open, c.close, k >= 1800)    # the 2,000-bar floor changes the answer
+    hit = _MOM_CACHE.get(key)
+    if hit is None:
+        if len(_MOM_CACHE) > 50_000:
+            _MOM_CACHE.clear()
+        hit = _MOM_CACHE[key] = (vix1_momentum.is_momentum_candle(h1, k, True, symbol)
+                                 or vix1_momentum.is_momentum_candle(h1, k, False, symbol))
+    return hit
+
+
+def recent_momentum_body(h1: list[Candle], j: int, symbol: str) -> float | None:
+    """Average body of the last `_RECENT_N` momentum candles before `j`, or None if there are fewer."""
+    got = []
+    for k in range(j - 1, max(-1, j - _RECENT_BACK), -1):
+        if _is_momentum(h1, k, symbol):
+            got.append(body_size(h1[k]))
+            if len(got) == _RECENT_N:
+                return sum(got) / _RECENT_N
+    return None
+
+
+def _big_enough(h1: list[Candle], j: int, symbol: str = "",
+                news: NewsContext | None = None) -> bool:
+    """Is candle `j` big enough to make a void? His rule above: (a) OR (b); news unknown = news."""
+    body = body_size(h1[j])
+    if symbol:
+        recent = recent_momentum_body(h1, j, symbol)
+        if recent and body >= _RECENT_X * recent:
+            return True                                    # (a) too long to be a normal candle
     base = baseline_body(h1, j)
-    return base > 0 and body_size(h1[j]) > VOID_MULT * _MIN_BODY_MULT * base
+    if not (base > 0 and body > VOID_MULT * _MIN_BODY_MULT * base):
+        return False                                       # not even the old size line
+    near = release_near(h1[j].time, news, symbol) if symbol else None
+    return True if near is None else near                  # (b); unknown news counts as news
 
 
-def _merge(h1: list[Candle], lo: int, hi: int) -> list[Void]:
+def _merge(h1: list[Candle], lo: int, hi: int, symbol: str = "",
+           news: NewsContext | None = None) -> list[Void]:
     """Every band in `h1[lo:hi + 1]`, before the width test. Consecutive gaps the same way become one
     zone — the standard `join_consecutive` mechanic, and what makes a void span candles.
 
@@ -133,7 +189,7 @@ def _merge(h1: list[Candle], lo: int, hi: int) -> list[Void]:
     out: list[Void] = []
     for z in find_fvg_zones(seg):
         j = lo + z.formed_at                       # lift the gap's bar into h1
-        if not _big_enough(h1, j):
+        if not _big_enough(h1, j, symbol, news):
             continue                               # an ordinary candle's gap is not a void
         bull = z.type == ZoneType.DEMAND           # a gap left BELOW price = the move went up
         if out and out[-1].bullish == bull and j == out[-1].end + 1:
@@ -144,37 +200,39 @@ def _merge(h1: list[Candle], lo: int, hi: int) -> list[Void]:
     return out
 
 
-def _is_a_void(h1: list[Candle], v: Void) -> Void | None:
+def _is_a_void(h1: list[Candle], v: Void, symbol: str = "") -> Void | None:
     """Is this band wide enough to be a zone? Its candles already cleared HIS size bar in `_merge`;
     this is the standard's own width filter on top — see `BAND_ATR`."""
     a = atr(h1[max(0, v.start - 20): v.start], 14)
     if a > 0 and (v.top - v.bottom) < BAND_ATR * a:
         return None                                # a hairline gap is not a zone
-    pip = 0.1 if h1[v.start].high > 100 else 0.0001
+    # THE PAIR'S OWN PIP (fixed 2026-11-15, OPEN.md B35). This guessed 0.1 for any price over 100 —
+    # right for gold, 10x wrong for GBP/JPY (0.01), whose voids were reported 10x too small.
+    pip = pip_size(symbol) if symbol else (0.1 if h1[v.start].high > 100 else 0.0001)
     return Void(v.bullish, v.top, v.bottom, v.start, v.end, h1[v.start].time,
                 (v.top - v.bottom) / pip)
 
 
 def find_void(h1: list[Candle], i: int, bullish: bool, symbol: str,
-              look: int = LOOK) -> Void | None:
+              look: int = LOOK, news: NewsContext | None = None) -> Void | None:
     """The void this trade would be joining: the most recent qualifying band in the trade's own
     direction, inside the look-back. `None` means there is no void here — and then this module has
     nothing to say, which is the usual answer."""
     lo = max(0, i - look)
-    for v in reversed(_merge(h1, lo, i)):
+    for v in reversed(_merge(h1, lo, i, symbol, news)):
         if v.bullish != bullish:
             continue
-        real = _is_a_void(h1, v)
+        real = _is_a_void(h1, v, symbol)
         if real is not None:
             return real
     return None
 
 
 def state(h1: list[Candle], i: int, bullish: bool, symbol: str,
-          protected: float | None = None) -> VoidState:
+          protected: float | None = None, news: NewsContext | None = None) -> VoidState:
     """Read the void at bar `i`. Never raises: anything unreadable comes back as `no-void`, which
     allows — this module may cost a trade on purpose, never by accident."""
-    v = find_void(h1, i, bullish, symbol)
+    v = find_void(h1, i, bullish, symbol, news=news)
     if v is None or v.top <= v.bottom:
         return VoidState("no-void")
     height = v.top - v.bottom
@@ -258,7 +316,7 @@ def direction_already_confirmed(h1: list[Candle], mc_idx: int, direction_since: 
 
 
 def break_of_a_fill(h1: list[Candle], turning_up: bool, broken_level: float | None,
-                    symbol: str) -> bool:
+                    symbol: str, news: NewsContext | None = None) -> bool:
     """Is the pending turn the break of a void price was filling? HIS BRANCH C — SWITCHED OFF.
 
     Kept working, not deleted, so restoring it is one line once the question it got wrong is settled
@@ -267,17 +325,17 @@ def break_of_a_fill(h1: list[Candle], turning_up: bool, broken_level: float | No
     """
     if not _BRANCH_C or not h1 or broken_level is None:
         return False
-    st = state(h1, len(h1) - 1, not turning_up, symbol, broken_level)
+    st = state(h1, len(h1) - 1, not turning_up, symbol, broken_level, news)
     return st.kind == "broken" and st.on_fill
 
 
 def not_filling(h1: list[Candle], protected: float | None, bullish: bool,
-                symbol: str) -> str | None:
+                symbol: str, news: NewsContext | None = None) -> str | None:
     """The veto: a reason to refuse, or None to allow. Same shape as the gates it joins in
     `vix1_bias`, and it only ever refuses — it cannot turn a refusal into a trade."""
     if not h1:
         return None
-    st = state(h1, len(h1) - 1, bullish, symbol, protected)
+    st = state(h1, len(h1) - 1, bullish, symbol, protected, news)
     if st.allows:
         return None
     from datetime import datetime, timezone

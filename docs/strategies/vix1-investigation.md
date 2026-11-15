@@ -2156,3 +2156,10 @@ At quiet >= 18 h (216): failed 35.6 / 31.9 / **19.0** / 15.4 / 14.3%. The same s
   separate plan.
 - **How it works:** today's rule treats many ordinary moves as voids. That both blocks trades and
   silences the range check (`vix1_chop.py:129-132`).
+- **UPDATE, same day — his rule tested.**
+  - **His rule:** a void is a candle at least 2× the last 5 real momentum candles, or a news candle
+    more than 5× normal.
+  - **Result: +18R vs today**, and it reads both his charts correctly.
+  - **Control (no void rule at all): +25R.** So the WAIT after a void is what costs money, not the
+    definition.
+  - **Recommendation now:** his rule with news. See Part 2 of the report.

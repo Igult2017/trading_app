@@ -1,5 +1,8 @@
 # VIX.1 — Liquidity voids and news: final test report (15 Nov 2026)
 
+> **UPDATED THE SAME DAY: read "Part 2 — his rule" at the end first.** It tests the rule he actually
+> asked for, and a control (no void rule at all) that changes the recommendation below.
+
 ## The short answer
 
 | version | what counts as a void | 5.2 years, GBP/USD + EUR/USD + GBP/JPY |
@@ -126,3 +129,94 @@ filling"* (`vix1_chop.py:129-132`).
   (the test).
 - Results in `trading_app_data/void_news/`: `voids_*.json`, `signals_*.json`, `scores_*.json` and
   `summarise.py`.
+
+
+## Part 2 — his rule, and a control (added 15 Nov 2026, later the same day)
+
+**Why there is a Part 2.** He pointed out that the quiet-market version above drifted from what he
+asked. In his words:
+- *"News release leads to less trading activities which causes a liquidity void"*;
+- *"some candles are obviously liquidity voids because they are too long to be normal"*.
+
+His size line: *"twice the size of a momentum candle that we would pick at that time, meaning anything
+less than twice the momentum candle is a normal momentum candle."*
+
+**His rule as tested.** A candle is a void when either:
+- **(a)** its body is at least **2× the average of the last 5 real momentum candles** before it; or
+- **(b)** it is more than 5× a normal candle **and** a high-impact release falls in it or the hour
+  before.
+
+Everything else about a void (the band, the wait for the fill, then 2 momentum candles) is unchanged.
+VIX.1's existing news rules also stay: no trading the news candle itself (`vix1.py:339`), and no entries
+from 15 minutes before to 30 minutes after a release (`vix1.py:342`). He chose to keep the 30.
+
+**It reads his charts correctly:**
+
+| candle | his rule | today's rule |
+|---|---|---|
+| 14 Oct 2026 15:00 (his image 1), 62 pips, 4.4× the recent momentum candles | **void** | void |
+| 10 Nov 2026 16:00 / 17:00 / 18:00 (his image 2), 1.3× / 0.8× / 1.8× | **normal, traded** | void (wrong) |
+
+**The money result.** Same test as above: real VIX.1, 1 Feb 2020 to 7 Apr 2025, each differing trade
+followed on 1-minute prices.
+
+| version | vs today | GBP/USD | EUR/USD | GBP/JPY | chance it is luck* |
+|---|---|---|---|---|---|
+| **no void rule at all** (control) | **+25R** | −5R | +11R | +19R | 3% |
+| void only after a quiet market | +27R | −5R | +12R | +20R | 2% |
+| **his rule, with news (a + b)** | **+18R** | −5R | +4R | +19R | 4% |
+| his rule, size only (a) | +14R | −5R | +1R | +18R | 12% |
+
+\*How often the total came out at zero or worse when the same trades were redrawn at random 10,000 times.
+
+**What the control shows: the void WAIT itself is what costs money, not the definition.**
+- Switching the void rule off entirely does about as well as the best version (+25R vs +27R).
+- So every version gains simply by blocking fewer trades. The trades taken while price is still
+  filling a void have, over 5 years, made more than they lost.
+- **This agrees with Part 1:** voids do fill about 4 times in 5, but a trade taken before the fill
+  is often already at breakeven, or has hit 4R, before the fill arrives.
+
+**Research (15 Nov 2026), which supports his point 1:**
+- The UK regulator's study of GBP/USD order books found that fast traders pull their orders before
+  scheduled news (FCA Occasional Paper 63).
+- A study of the main interbank currency platform found that liquidity dries up at the release and
+  recovers within minutes (Yamada & Ito, NBER w27036).
+- **So the dangerous window is minutes, not hours.** That is exactly what VIX.1's existing
+  15-minutes-before / 30-minutes-after rule covers.
+- No published source gives a size rule or a fill rate for voids. Published fill-rate claims are
+  unsourced, so our measured 81% is the best evidence we have.
+
+**Recommendation (replaces the one in Part 1):**
+- **Use his rule, with news (a + b): +18R vs today.** It is the only version that matches both his
+  charts and keeps a wait on the truly violent news candle.
+- The test cannot fully price that candle: on a real 14 Oct-style move, orders fill late and spreads
+  are wide, and the 1-minute test does not see that.
+- The extra +7R that "no void rule" shows over his rule is inside what luck can produce, so it is not
+  a reason to drop the protection.
+- **Keep the news window as it is** (15 minutes before, 30 after). The research says that is where
+  the market is really empty.
+- **The same cautions apply:** GBP/USD is −5R in every version, because the same GBP/USD trades are
+  involved; and GBP/JPY is scored with no spread.
+
+## BUILT (15 Nov 2026)
+
+- **His rule with news is now live code** (`vix1_void._big_enough`). The news is passed to every place
+  the void rule is asked.
+- **Proof the build equals the test:** the built `detect_bias`, given the repaired 2020-2025 calendar,
+  produces exactly the tested trades.
+
+  | pair | trades | identical to the test |
+  |---|---|---|
+  | GBP/USD | 633 | yes |
+  | EUR/USD | 617 | yes |
+  | GBP/JPY | 627 | yes |
+
+- **A one-week calendar made 3 trades differ** in holiday weeks. There, the calendar started after
+  the void candle, so the built code took the stricter "news unknown" side. That is the intended
+  behaviour.
+- **Also built: news can no longer be silently missed.**
+  - A failed news feed used to read as "no news" and let trades through.
+  - Now VIX.1 refuses new entries while the calendar is unknown: none for 6 hours, or one that ends
+    before now.
+- **Tests:** `tests/vix1/test_void_his_rule.py` and `test_news_unknown_refuses.py`. The whole VIX.1
+  suite passes.

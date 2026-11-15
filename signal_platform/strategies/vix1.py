@@ -192,7 +192,7 @@ class Vix1Strategy(BaseStrategy):
         # NOT GATED BY NEWS OR SPACING. Those two decide whether a TRADE may be taken; this announces
         # a CANDLE. Five minutes out we cannot yet know which setup, if any, the close will produce,
         # and staying silent about a candle he might want to watch is the more expensive mistake.
-        pc = vix1_preclose.check(h1, h1_raw, sym, now)
+        pc = vix1_preclose.check(h1, h1_raw, sym, now, news=context.news)   # news: his void rule
         if pc is not None:
             bar, pc_bull, left = pc
             pkey = vix1_preclose.dedup_key(self.id, sym, pc_bull, bar)
@@ -209,7 +209,7 @@ class Vix1Strategy(BaseStrategy):
         # signal starts at 3rd candle going forward"*. The entry is unchanged; this only reports what
         # has formed so he can take it on his own judgement. See `vix1_countwatch` for how "only the
         # count failed" is decided without keeping a second copy of the rule set.
-        cw = vix1_countwatch.check(h1, h4, sym, debut=self._debut)
+        cw = vix1_countwatch.check(h1, h4, sym, debut=self._debut, news=context.news)
         if cw is not None:
             cw_bar, cw_bull, cw_why = cw
             cwkey = vix1_countwatch.dedup_key(sym, cw_bull, cw_bar)
@@ -302,7 +302,8 @@ class Vix1Strategy(BaseStrategy):
         # Record this instrument's debut against the newest CLOSED bar — bar time, not wall clock, so
         # a replay behaves exactly like a cold start instead of refusing all of history.
         self._debut.note(sym, h1[-1].time)
-        bias = detect_bias(h1, h4, sym, debut=self._debut)   # trend on H4, momentum on H1; logs when None
+        bias = detect_bias(h1, h4, sym, debut=self._debut,   # trend on H4, momentum on H1; logs when None
+                           news=context.news)                # news: his void rule (vix1_void._big_enough)
         if bias is None:
             # ── THE OTHER HALF OF THE STAND-DOWN (added 2026-09-08) ─────────────────────────────
             #
@@ -336,6 +337,15 @@ class Vix1Strategy(BaseStrategy):
         bullish, origin, vol_count = bias.bullish, bias.origin, bias.run_len
         bias_reason = bias.reason
         vc = h1[bias.mc_idx]
+        # NEWS UNKNOWN = NO NEW TRADE (his order, 2026-11-15): *"if we miss the news we risk trading
+        # news candles which can be disastrous for propfirms."* The two checks below used to answer
+        # "no news" when the calendar was missing, and the trade went through. `news_fetcher` marks
+        # the calendar not-ok when none has arrived for 6 h or it ends before now. Open trades,
+        # stops and ladders are untouched — this refuses NEW entries only.
+        if context.news is None or not context.news.ok:
+            why = context.news.why if context.news is not None else "no news calendar was given"
+            vix1_log.say(sym, f"[vix1] {sym} NEWS UNKNOWN — {why} — no new trades until it is back")
+            return StrategyResult(signals=out)
         if is_news_candle(vc, context.news, sym):           # NEVER trade the news candle itself
             vix1_log.say(sym, f"[vix1] {sym} 1st momentum candle is a news candle — skip")
             return StrategyResult(signals=out)

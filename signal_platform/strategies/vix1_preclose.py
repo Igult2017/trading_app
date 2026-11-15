@@ -69,7 +69,7 @@ def seconds_to_close(bar: Candle, now: float | None = None) -> float:
 
 
 def check(h1_closed: list[Candle], h1_raw: list[Candle], symbol: str,
-          now: float | None = None) -> tuple[Candle, bool, float] | None:
+          now: float | None = None, news=None) -> tuple[Candle, bool, float] | None:
     """Is a momentum candle forming, with less than `LEAD_S` left? -> (bar, bullish, secs_left).
 
     THE BASELINES COME FROM THE CLOSED BARS. `qualifies_for_trade` measures the candidate against the
@@ -121,14 +121,14 @@ def check(h1_closed: list[Candle], h1_raw: list[Candle], symbol: str,
     for bullish in (True, False):
         if not qualifies_for_trade(window, len(h1_closed), bullish, symbol):
             continue
-        if not _could_trade(h1_closed, bullish, symbol, bar):
+        if not _could_trade(h1_closed, bullish, symbol, bar, news):
             return None
         return (bar, bullish, left)
     return None
 
 
 def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
-                 forming_bar: Candle | None = None) -> bool:
+                 forming_bar: Candle | None = None, news=None) -> bool:
     """Could a candle THIS WAY produce a bias at all? If not, there is nothing to be at the screen for.
 
     HIS CASE, 26 Aug 2026 01:58 UTC. He was sent *"XAU/USD · BUY · closes in ~1 minute"* and asked
@@ -181,7 +181,7 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
     # wants to be at the screen for. This module is the one place that reads the forming bar on
     # purpose, and this is one of those places.
     if vix1_chop.not_tradeable(h1_closed + ([forming_bar] if forming_bar else []), st,
-                               bullish, symbol):
+                               bullish, symbol, news=news):
         return False
 
     # HIS SCOPED EXEMPTION (2026-09-20), asked through the SAME function the entry asks, so the card
@@ -193,8 +193,8 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
     #   forming bar  the trend is still live and the bar is breaking `kill_level` right now
     #   pending turn the break already happened and `choch_price` holds the level it went through
     from strategies import vix1_void
-    void_break_now = vix1_void.break_of_a_fill(w, bullish, st.kill_level, symbol)
-    void_break_pending = vix1_void.break_of_a_fill(w, bullish, st.choch_price, symbol)
+    void_break_now = vix1_void.break_of_a_fill(w, bullish, st.kill_level, symbol, news=news)
+    void_break_pending = vix1_void.break_of_a_fill(w, bullish, st.choch_price, symbol, news=news)
 
     # A BUY CANDLE THAT IS ITSELF TURNING THE MARKET UP (added 2026-08-29). Without this, the `pending
     # == 1` test below can never fire on the bar that CREATES the pending turn — and that is not a

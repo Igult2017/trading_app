@@ -85,3 +85,34 @@ def in_news_window(
             if (e.scheduled_at - pre) <= now <= (e.scheduled_at + post):
                 return True
     return False
+
+
+def release_near(
+    bar_open: int,
+    news_context: NewsContext | None,
+    instrument: str,
+    impacts: tuple[NewsImpact, ...] = _DEFAULT_IMPACTS,
+) -> bool | None:
+    """Was a release (of `impacts`, for `instrument`'s currencies) in this H1 candle OR the hour before
+    it? Used by VIX.1's void rule: *"News release leads to less trading activities which causes a
+    liquidity void"* (his words, 2026-11-15).
+
+    THREE ANSWERS, AND THE THIRD IS THE POINT. True / False when the calendar covers that hour; **None
+    when it does not** — no calendar, a calendar marked not-`ok`, or a candle older than the earliest
+    release the calendar holds (ForexFactory's feed is this-week-only, so on a Monday last Friday is
+    unknown). The caller must treat None as "there may have been news", never as "there was none".
+    """
+    if news_context is None or not news_context.ok or not news_context.events:
+        return None
+    first = news_context.covers_from
+    if first is None or bar_open < first.timestamp():
+        return None
+    currencies = _currencies_for(instrument)
+    if not currencies:
+        return None
+    lo, hi = bar_open - 3600, bar_open + 3600
+    for e in news_context.events:
+        if e.impact in impacts and e.currency in currencies and e.scheduled_at:
+            if lo <= e.scheduled_at.timestamp() < hi:
+                return True
+    return False

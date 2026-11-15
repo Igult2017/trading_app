@@ -132,6 +132,12 @@ TESTS = [
     # ADDED 2026-09-21. His liquidity-void rule, on the bars of the chart he drew it on, plus his
     # scope ruling of the same day — the proof trade keeps ONE candle, joining a move keeps TWO.
     "test_void_gate.py",             # don't trade while price is filling the move that made the leg
+    # ADDED 2026-11-15. His void candle: 2x the recent momentum candles, or a > 5x candle with news;
+    # unknown news counts as news. Pinned on his 14 Oct (void) and 10 Nov (normal) GBP/USD charts.
+    "test_void_his_rule.py",
+    # ADDED 2026-11-15. His order: "if we miss the news we risk trading news candles". A failed news
+    # feed used to read as "no news" and trade; now it refuses new entries.
+    "test_news_unknown_refuses.py",
     # ADDED 2026-10-04. His ask: *"i need notification for 1st and second candles if they are momentum
     # candles and then signal starts at 3rd candle going forward"* — and only for a candle that fails
     # NOTHING but the count. The entry gained an `ignore_count` switch to answer that question, so the

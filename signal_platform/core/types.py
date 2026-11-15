@@ -161,6 +161,19 @@ class NewsContext:
     events:             list[NewsEvent]
     pre_window_mins:    int = 15
     post_window_mins:   int = 15
+    # IS THE NEWS KNOWN AT ALL? (his order, 2026-11-15: "if we miss the news we risk trading news
+    # candles which can be disastrous for propfirms.") An EMPTY list used to read as "no news" and
+    # let every trade through. `news_fetcher` sets these from the last good calendar it received;
+    # VIX.1 refuses new entries while `ok` is False. Default True only so hand-built contexts in
+    # tests keep working — the live fetcher always sets it.
+    ok:                 bool = True
+    why:                str = ""
+
+    @property
+    def covers_from(self) -> datetime | None:
+        """The earliest release this calendar knows about. Before it, news is UNKNOWN, not absent."""
+        times = [e.scheduled_at for e in self.events if e.scheduled_at]
+        return min(times) if times else None
 
     def has_high_impact(self, currencies: list[str], now: datetime | None = None) -> bool:
         """True only when a HIGH-impact event for one of `currencies` falls inside the

@@ -135,7 +135,7 @@ def _upto(window: list[Candle], h1: list[Candle], mc_idx: int) -> list[Candle]:
 
 
 def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None,
-                ignore_count: bool = False) -> Bias | None:
+                ignore_count: bool = False, news=None) -> Bias | None:
     """
     Returns a `Bias`, or None when no trade may be taken.
 
@@ -198,7 +198,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
     # owns the decision and this one stays silent.
     #
     # It refuses NEW ENTRIES ONLY — an open position, its stop and its ladder are untouched.
-    standdown = vix1_chop.not_tradeable(h1, tstate, tstate.direction == 1, symbol)
+    standdown = vix1_chop.not_tradeable(h1, tstate, tstate.direction == 1, symbol, news=news)
     if standdown:
         vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {standdown}")
         return None
@@ -246,7 +246,7 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         # that proposes the turn, so reading it here asked a question that could never be answered
         # yes (measured: 0 of 476 pending turns over 12 months).
         void_break = vix1_void.break_of_a_fill(window, tstate.pending == 1, tstate.choch_price,
-                                               symbol)
+                                               symbol, news=news)
         bias, why = vix1_choch.choch_entry(window, h1, tstate, turns, _H1_SWING_N, symbol,
                                            void_break=void_break, ignore_count=ignore_count)
         if bias is not None:
@@ -539,7 +539,8 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
                      market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK),
                      None if vix1_void.direction_already_confirmed(
                          awake_window, mc_idx, _ds, bullish, symbol)
-                     else vix1_void.not_filling(awake_window, mstate.protected, bullish, symbol)):
+                     else vix1_void.not_filling(awake_window, mstate.protected, bullish, symbol,
+                                                news=news)):
             if veto:
                 vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {veto} | {state_mc}")
                 return None

@@ -131,16 +131,16 @@ async def fetch(now: datetime | None = None) -> NewsContext:
     Cache TTL = 15 min (matches the app's own calendar refresh interval).
     On failure: returns last cached result (never halts the platform).
     """
-    global _cache_events, _cache_expires
+    global _cache_events, _cache_expires, _last_good_at
     now = now or datetime.now(timezone.utc)
 
     if now < _cache_expires:
         log.debug("[news_fetcher] cache hit — %d events", len(_cache_events))
-        return _build_context(_cache_events)
+        return _build_context(_cache_events, now)
 
     async with _fetch_lock:
         if now < _cache_expires:          # re-check inside lock
-            return _build_context(_cache_events)
+            return _build_context(_cache_events, now)
 
         loop = asyncio.get_running_loop()
         try:
@@ -148,20 +148,50 @@ async def fetch(now: datetime | None = None) -> NewsContext:
                 loop.run_in_executor(None, _fetch_sync),
                 timeout=10,
             )
-            _cache_events  = events
             _cache_expires = now + timedelta(minutes=_CACHE_TTL_MINUTES)
+            # AN EMPTY ANSWER NEVER REPLACES A GOOD CALENDAR. It used to: one failed scrape emptied the
+            # cache, and an empty calendar reads as "no news" — trades through CPI. Keep the last good
+            # one; its age is what decides whether the news is still known (`_known`).
+            if events:
+                _cache_events = events
+                _last_good_at = now
         except asyncio.TimeoutError:
-            log.warning("[news_fetcher] fetch timed out (10s) — using stale/empty cache")
+            log.warning("[news_fetcher] fetch timed out (10s) — keeping the last good calendar")
         except Exception as exc:
-            log.warning("[news_fetcher] error (%s) — using stale/empty cache", exc)
+            log.warning("[news_fetcher] error (%s) — keeping the last good calendar", exc)
 
-    return _build_context(_cache_events)
+    return _build_context(_cache_events, now)
 
 
-def _build_context(events: list[NewsEvent]) -> NewsContext:
+# WHEN IS THE NEWS "KNOWN"? His order, 2026-11-15: *"make sure everything is informed by that news
+# api because if we miss the news we risk trading news candles which can be disastrous for
+# propfirms."* The calendar is published days ahead, so a copy a few hours old is still right; a
+# MISSING one, or one that ends before now, is not. Past this age VIX.1 stops taking new entries.
+_KNOWN_FOR = timedelta(hours=6)
+_last_good_at: datetime | None = None
+
+
+def _known(events: list[NewsEvent], now: datetime) -> tuple[bool, str]:
+    if not events or _last_good_at is None:
+        return False, "no news calendar has been received"
+    age = now - _last_good_at
+    if age > _KNOWN_FOR:
+        return False, f"the news calendar is {age.total_seconds() / 3600:.1f} h old (limit 6 h)"
+    last = max((e.scheduled_at for e in events if e.scheduled_at), default=None)
+    if last is None or last <= now:
+        return False, "the news calendar has no releases after now"
+    return True, ""
+
+
+def _build_context(events: list[NewsEvent], now: datetime | None = None) -> NewsContext:
     from config.settings import settings
+    ok, why = _known(events, now or datetime.now(timezone.utc))
+    if not ok:
+        log.warning("[news_fetcher] NEWS UNKNOWN — %s", why)
     return NewsContext(
         events           = events,
         pre_window_mins  = settings.news_pre_window_mins,
         post_window_mins = settings.news_post_window_mins,
+        ok               = ok,
+        why              = why,
     )
