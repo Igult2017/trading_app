@@ -26,10 +26,12 @@ s = Suite("AUTOTRADE — every decision is written where a deploy cannot erase i
 run = asyncio.new_event_loop().run_until_complete
 
 _KEYS = ("autotrade_enabled", "autotrade_sessions", "autotrade_demo_only", "autotrade_strategies",
-         "autotrade_symbols", "autotrade_max_per_day")
+         "autotrade_symbols", "autotrade_max_per_day",
+         "autotrade_cutoff_utc")
 _orig = {k: getattr(settings, k) for k in _KEYS}
 for k, v in dict(autotrade_enabled=True, autotrade_demo_only=True, autotrade_strategies="vix1",
-                 autotrade_symbols="", autotrade_sessions="", autotrade_max_per_day=6).items():
+                 autotrade_symbols="", autotrade_sessions="", autotrade_max_per_day=6,
+                 autotrade_cutoff_utc="").items():
     object.__setattr__(settings, k, v)
 
 rows: list[tuple] = []

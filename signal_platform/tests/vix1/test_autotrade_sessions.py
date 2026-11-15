@@ -45,9 +45,11 @@ def _set(**kw):
 
 _orig = {k: getattr(settings, k) for k in
          ("autotrade_enabled", "autotrade_sessions", "autotrade_demo_only",
-          "autotrade_strategies", "autotrade_symbols", "autotrade_max_per_day")}
+          "autotrade_strategies", "autotrade_symbols", "autotrade_max_per_day",
+         "autotrade_cutoff_utc")}
 _set(autotrade_enabled=True, autotrade_demo_only=True, autotrade_strategies="vix1",
-     autotrade_symbols="", autotrade_max_per_day=6)
+     autotrade_symbols="", autotrade_max_per_day=6,
+     autotrade_cutoff_utc="")
 guards._placed.clear()
 
 
