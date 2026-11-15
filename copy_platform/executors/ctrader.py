@@ -11,7 +11,8 @@ import logging
 import re
 from dataclasses import dataclass
 
-from ctrader_open_api import Client, Protobuf, TcpProtocol
+from ctrader_open_api import Client, Protobuf
+from ctrader_protocol import OwnQueueProtocol   # each connection its OWN send queue (OPEN.md D68)
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAApplicationAuthReq, ProtoOAApplicationAuthRes,
     ProtoOAAccountAuthReq, ProtoOAAccountAuthRes,
@@ -130,7 +131,7 @@ class CTraderExecutor:
     def _make_client(self) -> Client:
         # Only "demo" uses the demo gateway; live AND funded/prop accounts are live.
         host = CT_DEMO_HOST if self.account_type == "demo" else CT_LIVE_HOST
-        c = Client(host, CT_PORT, TcpProtocol)
+        c = Client(host, CT_PORT, OwnQueueProtocol)
         c.setConnectedCallback(self._on_connected)
         c.setMessageReceivedCallback(self._on_message)
         return c

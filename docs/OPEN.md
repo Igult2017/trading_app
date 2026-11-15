@@ -1774,7 +1774,7 @@ sabotage-verified.
 
 ## D. cTrader & copy trading
 
-### D68 — 🔴 4 of 5 copy master accounts never finish logging in. Found 2026-11-15 by the D67 fix
+### D68 — ~~4 of 5 copy master accounts never finish logging in~~ ROOT CAUSE FIXED 2026-11-15 (live proof pending)
 
 - **What it means:** the copy service starts 5 master accounts. Only `ctraderpep` (5834793) logs in.
   `ctp2` (5296567), `ctp3` (5347047), `ctrader4` (5347048) and `Hola CHL` (3001655):
@@ -1784,14 +1784,34 @@ sabotage-verified.
   - So trades on those 4 accounts are NOT being copied.
 - **Seen in:** the live log, 15 Nov 15:25-15:30 UTC, after the D67 fix named every missing reply:
   21 unanswered app logins, 11 account logins, 3 reconciles, 2 symbol lists.
-- **Leading cause (NOT yet confirmed):** the second cTrader app (`sync`), which Spotware never
-  approved. See `project-ctrader-sync-app` and `docs/ctrader-open-api-apps.md`.
-  - `CTRADER_SYNC_CLIENT_ID` / `_SECRET` are still set in production (checked 15 Nov).
-  - `copy_platform/config.py:42-47` logs each account in with the app that issued its tokens.
-- **Not checked:** which app each of the 4 accounts' tokens belongs to. It is stored encrypted in the
-  database.
-- **His decision (live accounts):** the documented fix is to unset the two sync variables and
-  re-authorise any account issued under `sync`, because tokens are app-bound.
+- ~~Leading cause: the second cTrader app~~ **WITHDRAWN.** There is one app; his accounts sync fine in
+  the journal. That guess came from an old note and was wrong.
+- **ROOT CAUSE (found the same day, in the cTrader library's own source):**
+  - `ctrader_open_api/tcpProtocol.py` declares `_send_queue = deque([])` on the CLASS: one outgoing
+    queue shared by EVERY connection in the program.
+  - Each connection's once-a-second timer sends up to 5 queued messages down ITS OWN socket, so a
+    message goes out on whichever connection drains first.
+  - The broker said so itself: ctraderpep's connection was told "Trading account is already authorized
+    **in this channel**" and "Open API application is already authorized". Those were the other
+    masters' logins, sent down its socket.
+  - The 9 "Unhandled error" lines at every restart (D67) were exactly these lost logins (5 app + 4
+    account).
+- **FIXED 15 Nov 2026:**
+  - `copy_platform/ctrader_protocol.OwnQueueProtocol` gives each connection its own queue. It is used
+    at all 3 places a cTrader connection is opened (`providers/ctrader.py`, `executors/ctrader.py`,
+    `gateway.py`).
+  - **The event-listener design is unchanged:** one listening connection per master, with trades
+    pushed by cTrader.
+  - **Same connection count and the same 5-messages-per-second cap per connection**, so no new
+    rate-limit exposure.
+  - Test: `copy_platform/tests/test_own_queue.py`. The library's class reproduces the crossing; ours
+    does not.
+- **Follower orders were exposed to the same fault:** each copy order opens its own connection while
+  the master connections are open. This may be why no copy has ever been seen placed
+  (`project-copy-never-sent`). **NOT PROVEN: check the first real copy after the market opens.**
+- **His decision, open:** `copy_platform/gateway.py` (one shared connection per environment) is built
+  and tested but used by nothing in production. Wire it in later, or delete it as unused. He said one
+  shared connection for all accounts will not work.
 
 ### D67 — ~~"Unhandled error in Deferred" timeouts in the live log~~ FIXED AT THE ROOT 2026-11-15
 

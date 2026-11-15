@@ -46,7 +46,8 @@ import logging
 import time
 import ctrader_send   # every send handles a missing reply (OPEN.md D67)
 
-from ctrader_open_api import Client, Protobuf, TcpProtocol
+from ctrader_open_api import Client, Protobuf
+from ctrader_protocol import OwnQueueProtocol   # each connection its OWN send queue (OPEN.md D68)
 from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoHeartbeatEvent
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAApplicationAuthReq, ProtoOAApplicationAuthRes,
@@ -112,7 +113,7 @@ class Gateway:
             if self._app_ready.is_set() and self._client is not None:
                 return
             self._creds_for_app = creds
-            self._client = Client(self.host, CT_PORT, TcpProtocol)
+            self._client = Client(self.host, CT_PORT, OwnQueueProtocol)
             self._client.setConnectedCallback(self._on_connected)
             self._client.setDisconnectedCallback(self._on_disconnected)
             self._client.setMessageReceivedCallback(self._on_message)
