@@ -2102,11 +2102,11 @@ CONTINUED = one more waking-candle body further. FAILED = a close back beyond th
 
 **Trend-way, quiet >= 12 h, 383 waking candles (all three pairs):**
 
-| candles after it before the first pullback | 0 | 1 | 2 | 3 | 4 | 5+ |
+| candles that MOVED before the first pullback, momentum candle INCLUDED as candle 1 | 1 | 2 | 3 | 4 | 5 | 6+ |
 |---|---|---|---|---|---|---|
 | share | 54% | 25% | 11% | 3% | 3% | 3% |
 
-| move had run N candles | 1 | 2 | 3 | 4 | 5 |
+| move had run, momentum candle INCLUDED | 2 | 3 | **4** | 5 | 6 |
 |---|---|---|---|---|---|
 | moves | 175 | 80 | 37 | 24 | 12 |
 | continued | 62.9% | 63.8% | 67.6% | 66.7% | 75.0% |
@@ -2114,7 +2114,12 @@ CONTINUED = one more waking-candle body further. FAILED = a close back beyond th
 
 At quiet >= 18 h (216): failed 35.6 / 31.9 / **19.0** / 15.4 / 14.3%. The same step down at 3.
 
-- Over half pull back on the very next candle. Only 1 in 10 runs 3 candles before its first pullback.
+- ⚠ LABELLING CORRECTED 15 Nov (his challenge: *"Zero means no candle and no movement"*). The first
+  version counted from the candle AFTER the momentum candle, as the code's run does, and printed
+  "0" for "the next candle was already a pullback". These tables now count the momentum candle as
+  candle 1, the way he counts. Today's rule = momentum candle + 3 more = 4 candles in total.
+- In 54% of moves the momentum candle is the only candle that way; the next candle pulls back. Only 1
+  in 10 moves for 4 candles (momentum + 3) before its first pullback.
 - Failure barely improves from 1 to 2 candles; the clear drop comes at 3. So 2 is not safer than 1, and
   3 is the first point that is.
 - Samples at 3+ candles are small (37 and 21 moves), so the margins are wide (about +/-15 points).
