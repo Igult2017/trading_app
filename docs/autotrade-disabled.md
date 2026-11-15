@@ -1,4 +1,20 @@
-# Autotrade — OFF from 2026-10-05, BACK ON from 2026-11-14
+# Autotrade — OFF from 2026-10-05, BACK ON from 2026-11-14, SWITCHED FROM THE ADMIN PANEL from 2026-11-16
+
+> ⚠ **HOW IT IS TURNED ON AND OFF CHANGED ON 16 NOV 2026.** The `AUTOTRADE_ENABLED` environment
+> variable is GONE. The admin **Autotrade** page now has two switches, and only one can be on:
+>
+> | switch on | what happens to a signal autotrade would take |
+> |---|---|
+> | **Autotrade** | placed by itself |
+> | **DM confirmation** | sent to his Telegram DM with ✅ Confirm / ❌ Reject; placed only on Confirm, after every check runs again. No answer = nothing. A Confirm after the price reached the entry is refused with the reason |
+> | neither | nothing placed; every setup still recorded as *"Refused — trading is OFF"* |
+>
+> Saved as one value, `trade_mode` = off | auto | confirm, in the `platform_settings` table, read by the
+> signal engine within 5 seconds (`signal_platform/execution/trade_mode.py`). No redeploy. If it cannot
+> be read it counts as OFF. **The sections below that say "set `AUTOTRADE_ENABLED` in Coolify and
+> redeploy" are HISTORY** — they record how it was done before 16 Nov. The OFF behaviour they describe
+> (record everything, place nothing) is unchanged.
+
 
 > ⚠ **IT IS ON AGAIN.** His instruction, 2026-11-14: *"enable autotrader and let it only
 > take trades that have qualified all the requirements including Market state and stomach

@@ -98,3 +98,10 @@ def load(fn, tf, limit=None):
         rows = rows[-limit:]
     return [Candle(time=t, open=o, high=h, low=l, close=c, volume=0, timeframe=tf)
             for t, o, h, l, c in rows]
+
+
+def trade_mode_is(value: str) -> None:
+    """Set the trading mode (off | auto | confirm) for a test, in place of the database read — the
+    admin switch that replaced AUTOTRADE_ENABLED on 16 Nov 2026 (`execution/trade_mode`)."""
+    from execution import trade_mode
+    trade_mode.mode = lambda: value

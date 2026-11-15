@@ -429,15 +429,17 @@ _waiting_task = None
 
 
 def _start_waiting_order_work(send) -> None:
-    """Run the news pull, then the waiting-order watch, in the background — one pass at a time."""
+    """Run the news pull, the waiting-order watch and his DM confirmations in the background, one
+    pass at a time."""
     global _waiting_task
     if _waiting_task is not None and not _waiting_task.done():
         return
 
     async def _pass():
-        from execution import news_pull, resting_watch
+        from execution import confirmations, news_pull, resting_watch
         await news_pull.check(send)          # pull before amending: a pulled order is not adjusted
         await resting_watch.check(send)
+        await confirmations.check(send)      # his DM Confirm presses (16 Nov 2026)
     _waiting_task = asyncio.get_running_loop().create_task(_pass())
 
 

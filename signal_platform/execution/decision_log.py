@@ -20,7 +20,7 @@ import logging
 
 from storage.observability_models import (
     STAGE_AUTOTRADE_CANCELLED, STAGE_AUTOTRADE_FAILED, STAGE_AUTOTRADE_FILLED_UNSEEN,
-    STAGE_AUTOTRADE_PLACED, STAGE_AUTOTRADE_REFUSED, STAGE_AUTOTRADE_REJECTED,
+    STAGE_AUTOTRADE_OFFERED, STAGE_AUTOTRADE_PLACED, STAGE_AUTOTRADE_REFUSED, STAGE_AUTOTRADE_REJECTED,
 )
 
 log = logging.getLogger(__name__)
@@ -57,6 +57,14 @@ async def placed(signal, order_id, lots, entry, sl, tp) -> None:
     await _write(STAGE_AUTOTRADE_PLACED, strategy, symbol, sid,
                  dict(side=side, order=str(order_id) if order_id else None, lots=lots,
                       entry=entry, stop=sl, target=tp))
+
+
+async def offered(signal, lots, confirmation_id: str) -> None:
+    """DM confirmation (16 Nov 2026): what autotrade would have placed, sent to him to decide."""
+    strategy, symbol, sid, side = _about(signal)
+    await _write(STAGE_AUTOTRADE_OFFERED, strategy, symbol, sid,
+                 dict(side=side, lots=lots, **_levels(signal), confirmation=confirmation_id,
+                      reason="sent to your Telegram DM for Confirm / Reject"))
 
 
 async def refused(signal, reason: str, lots=None) -> None:

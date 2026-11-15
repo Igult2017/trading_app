@@ -101,18 +101,25 @@ s.check("   the cut-off is 16:00 UTC", settings.autotrade_cutoff_utc, "16:00")
 
 
 def at_utc(hh, mm):
-    """Ask the guard as if the clock read this UTC time. Only the kill switch is stood aside."""
+    """Ask the guard as if the clock read this UTC time. The kill switch AND the session list are stood
+    aside: the session list reads the REAL clock (`get_current_sessions`), so left on it refused first
+    whenever the test ran outside London/New York (found 16 Nov 2026, 21:5x UTC = Asian) and the
+    cut-off was never reached. Only the cut-off is under test here."""
     class _Clock(datetime):
         @classmethod
         def now(cls, tz=None):
             return datetime(2026, 11, 14, hh, mm, tzinfo=timezone.utc)
-    real_dt, real_on = guards.datetime, settings.autotrade_enabled
-    settings.autotrade_enabled = True
+    from execution import trade_mode
+    real_dt, real_mode = guards.datetime, trade_mode.mode
+    real_sessions = settings.autotrade_sessions
+    trade_mode.mode = lambda: "auto"
+    object.__setattr__(settings, "autotrade_sessions", "")
     guards.datetime = _Clock
     try:
         return guards.check("EUR/USD", "buy", "vix1", "demo", 10000.0, 0.10)
     finally:
-        guards.datetime, settings.autotrade_enabled = real_dt, real_on
+        guards.datetime, trade_mode.mode = real_dt, real_mode
+        object.__setattr__(settings, "autotrade_sessions", real_sessions)
 
 
 late = at_utc(16, 30)

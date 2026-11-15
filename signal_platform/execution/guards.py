@@ -95,9 +95,13 @@ def check(symbol: str, direction: str, strategy: str,
     reply (`monitor.position_book.snapshot`). None means it could not be read. Only rule 7 uses it.
     """
 
-    # 1. THE KILL SWITCH. One flag, checked first, no exceptions and no overrides.
-    if not settings.autotrade_enabled:
-        return "autotrade is OFF (autotrade_enabled=false)"
+    # 1. THE KILL SWITCH — the trading MODE from the admin panel (16 Nov 2026, `execution/trade_mode`),
+    #    checked first, no exceptions. OFF refuses; AUTO and CONFIRM both go on through every rule below
+    #    (in CONFIRM the placer offers the signal to him instead of placing, AFTER these rules pass).
+    #    Unreadable reads as OFF.
+    from execution import trade_mode
+    if trade_mode.mode() == trade_mode.OFF:
+        return f"{trade_mode.describe(trade_mode.OFF)} — nothing is placed"
 
     # 2. DEMO ONLY — checked at RUNTIME against the account we are about to trade, not assumed from
     #    config. The whole exercise is diagnostic; there is no version of it that needs a live

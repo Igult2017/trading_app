@@ -5,6 +5,7 @@ import { eq, and, lte, gte } from 'drizzle-orm';
 import { format } from 'date-fns';
 import { buildDailySchedule, shouldStillFire } from './marketSessionAlerts';
 import { buildNewsSchedule, type NewsEventLike } from './newsAlerts';
+import { attachTradeConfirmPress } from './tradeConfirmPress';
 
 // Session definitions and the whole "what fires when" decision live in marketSessionAlerts so the
 // weekend rule is testable on any day of the week. The local HIGH_VOLUME_SESSIONS const that used
@@ -131,6 +132,8 @@ export class TelegramNotificationService {
 
       this.isInitialized = true;
       this.setupCommands();
+      // His Confirm / Reject presses on DM-confirmation cards (16 Nov 2026).
+      attachTradeConfirmPress(this.bot);
       console.log('[Telegram] Bot ready with polling enabled');
 
     } catch (error: any) {

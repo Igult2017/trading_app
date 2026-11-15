@@ -16,6 +16,7 @@ import { accountTypeEdit } from "./lib/accountFilters";
 import { decideRole, describeDecision } from "./lib/adminRole";
 import { asDateKey, filterEntriesByPeriod } from "./lib/periodFilter";
 import { canonicalSession } from "../shared/sessions";
+import { readTradeMode, writeTradeMode, isTradeMode } from "./lib/tradeMode";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking,
          platformHeartbeat, platformDowntime } from "@shared/schema";
@@ -1297,7 +1298,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * `signal_platform/execution/decision_log.py` writes to `signal_events`.
    */
   const AUTOTRADE_STAGES = ['autotrade_placed', 'autotrade_refused', 'autotrade_rejected',
-                            'autotrade_cancelled', 'autotrade_failed'];
+                            'autotrade_cancelled', 'autotrade_failed', 'autotrade_offered'];
+  // ── THE TRADING MODE — the Autotrade page's two switches (16 Nov 2026) ─────────────────────────
+  // ONE value: off | auto | confirm (`server/lib/tradeMode.ts`). His rule: Autotrade and DM
+  // confirmation are never on together. Admin only; the value is checked against the three words.
+  app.get("/api/admin/trade-mode", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      return res.json(await readTradeMode());
+    } catch (error) {
+      console.error('[Admin/trade-mode]', error);
+      return res.status(500).json({ error: 'Could not read the trading mode' });
+    }
+  });
+  app.put("/api/admin/trade-mode", requireAdmin, async (req: Request, res: Response) => {
+    const mode = req.body?.mode;
+    if (!isTradeMode(mode)) return res.status(400).json({ error: 'mode must be off, auto or confirm' });
+    try {
+      const by = String((req as any).adminUser?.email || (req as any).adminUser?.id || 'admin');
+      const state = await writeTradeMode(mode, by);
+      console.log(`[Admin/trade-mode] set to ${mode.toUpperCase()} by ${by}`);
+      return res.json(state);
+    } catch (error) {
+      console.error('[Admin/trade-mode]', error);
+      return res.status(500).json({ error: 'Could not save the trading mode' });
+    }
+  });
+
   app.get("/api/admin/autotrade", requireAdmin, async (req: Request, res: Response) => {
     try {
       // AT MOST 30 DAYS: `signal_events` is purged after 30, so a longer window would show orders whose

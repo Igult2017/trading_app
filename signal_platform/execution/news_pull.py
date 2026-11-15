@@ -111,23 +111,14 @@ async def _put_back(oid: str, rec: dict, send) -> None:
 
 
 def _signal_for(rec: dict):
-    """The saved signal behind a pulled order, rebuilt for the placer — or None if it is not still a
-    live, untriggered setup."""
-    from core.types import Direction, Signal
-    from storage.db import get_session
-    from storage.models import SignalModel
-    if not rec.get("signal_id"):
-        return None
-    with get_session() as s:
-        row = s.get(SignalModel, rec["signal_id"])
-        if row is None or row.status != "active" or row.triggered_at is not None:
-            return None
-        f = lambda v: float(v) if v is not None else 0.0      # noqa: E731
-        return Signal(symbol=row.symbol, direction=Direction(row.type), strategy_id=row.strategy or "",
-                      strategy_name=row.strategy or "", entry_price=f(row.entry_price),
-                      stop_loss=f(row.stop_loss), take_profit=f(row.take_profit),
-                      confidence=(row.confidence or 0) / 100.0, expires_at=row.expires_at,
-                      db_id=row.id, spread_used=float(rec.get("spread_used") or 0.0))
+    """The saved signal behind a pulled order, if it can still be taken (`execution/saved_signal`).
+    MARKED CONFIRMED: an order already placed — by autotrade, or because he confirmed it in the DM —
+    is put back without asking him again (16 Nov 2026)."""
+    from execution import saved_signal
+    sig, _why = saved_signal.load(rec.get("signal_id"), rec.get("spread_used") or 0.0)
+    if sig is not None:
+        sig.confirmed = True
+    return sig
 
 
 async def _say(send, text: str) -> None:

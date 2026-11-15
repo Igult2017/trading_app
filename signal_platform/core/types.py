@@ -255,6 +255,10 @@ class Signal:
     # far the spread has moved since, while the order waits (`execution/resting_watch`). In memory;
     # the order row stores its own copy.
     spread_used:        float = 0.0
+    # HE ALREADY SAID YES (16 Nov 2026). With DM confirmation on, the placer offers a signal to him
+    # instead of placing it; True means he pressed Confirm (or it is an order of his being put back
+    # after news), so the placer places it — still through every guard. In memory only.
+    confirmed:          bool = False
     # Optional price BANDS to shade on the rendered chart card: [(low, high, colour, label)].
     # DELIBERATELY GENERIC. The renderer must not know what any strategy means by a band — one
     # strategy's supply zone and another's range are the same four numbers to it, and a renderer

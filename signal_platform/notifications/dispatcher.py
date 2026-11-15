@@ -323,14 +323,16 @@ async def _autotrade(signal) -> None:
     """Place the stop order for a confirmed signal, if autotrade is on.
 
     Everything expensive — the credential fetch, the balance call, the broker connection — sits
-    BEHIND the kill switch, so with autotrade off this costs one boolean and touches no network.
+    BEHIND the kill switch, so with trading off this costs one cached read and touches no broker.
 
     ⚠ WITH AUTOTRADE OFF THE SETUP IS STILL RECORDED. That is his instruction of 2026-10-05:
     *"Disable autotrade... However, the setups recording in autotrade section still remains so that
     we can use it for investigations. Just disable it from taking trades only."* See below.
     """
-    from config.settings import settings as _s
-    if not _s.autotrade_enabled:
+    # THE TRADING MODE (16 Nov 2026) — the admin switch, `execution/trade_mode`. AUTO places; CONFIRM
+    # goes the same way and the placer offers it to him in the DM instead of placing; OFF records it.
+    from execution import trade_mode
+    if trade_mode.mode() == trade_mode.OFF:
         # ── OFF MEANS "PLACE NOTHING", NOT "SEE NOTHING" (2026-10-05) ───────────────────────────────
         #
         # THIS LINE USED TO BE A BARE `return`, and that quietly took the Autotrade screen with it.
@@ -357,7 +359,7 @@ async def _autotrade(signal) -> None:
         from execution import decision_log
         await decision_log.refused(
             signal,
-            "autotrade is OFF (autotrade_enabled=false) — the setup is recorded for investigation, "
+            f"{trade_mode.describe(trade_mode.OFF)} — the setup is recorded for investigation, "
             "no order was sent",
             None,           # no lot size: sizing needs the account, and that is behind the switch
         )

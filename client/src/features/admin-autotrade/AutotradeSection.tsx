@@ -4,6 +4,7 @@ import { Panel, Pill, StatCard } from '@/components/admin-ui/AdminUI';
 import { useAdminData } from '@/features/admin-data/useAdminData';
 import { StatsAndTableSkeleton } from '@/features/admin-data/AdminSkeleton';
 import { buildRows, price, summarise, when, type AutotradeFeed } from './autotradeRows';
+import TradeModeSwitches from './TradeModeSwitches';
 
 /**
  * AUTOTRADE: every order the auto-trader sent, and every signal it did not act on, with the reason.
@@ -37,6 +38,7 @@ export default function AutotradeSection({ bp }: { bp: { isMobile: boolean; isTa
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <TradeModeSwitches />
       <div style={{ display: 'grid', gridTemplateColumns: statCols, gap: 18 }}>
         <StatCard title="Orders sent" value={String(total.sent)} caption={`Last ${feed.days} days`} icon={Send} />
         <StatCard title="Filled" value={String(total.filled)} caption="Became a trade" icon={CheckCircle2} tone="good" />

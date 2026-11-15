@@ -843,5 +843,43 @@ CREATE TABLE IF NOT EXISTS scrape_runs (
 ALTER TABLE scrape_runs ADD COLUMN IF NOT EXISTS new_count INTEGER DEFAULT 0;
 CREATE INDEX IF NOT EXISTS scrape_runs_source_started_idx ON scrape_runs (source, started_at);
 
+-- ── THE TRADING MODE AND DM CONFIRMATIONS (16 Nov 2026) ──────────────────────────────────────────
+-- His ask: a switch in the admin panel for autotrade, and a second for "DM confirmation", where each
+-- signal autotrade would take is sent to his DM with Confirm / Reject. Only one can be on at a time,
+-- so it is ONE value: off | auto | confirm. Seeded 'auto' — autotrade is ON today, so deploying
+-- changes nothing until he flips a switch. Replaces the AUTOTRADE_ENABLED environment variable.
+CREATE TABLE IF NOT EXISTS platform_settings (
+  key         TEXT PRIMARY KEY,
+  value       TEXT NOT NULL,
+  updated_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_by  TEXT
+);
+INSERT INTO platform_settings (key, value, updated_by) VALUES ('trade_mode', 'auto', 'migration')
+  ON CONFLICT (key) DO NOTHING;
+
+-- One row per signal offered for his confirmation. status: pending -> confirmed | rejected (his press,
+-- written by the website server) -> placed | refused | too_late (written by the signal engine), or
+-- expired (never answered, its setup over).
+CREATE TABLE IF NOT EXISTS trade_confirmations (
+  id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  signal_id   VARCHAR,
+  strategy    TEXT,
+  symbol      TEXT NOT NULL,
+  side        TEXT NOT NULL,
+  entry_price NUMERIC(12,5),
+  stop_loss   NUMERIC(12,5),
+  take_profit NUMERIC(12,5),
+  lots        NUMERIC(10,5),
+  spread_used NUMERIC(12,5),
+  status      TEXT NOT NULL DEFAULT 'pending',
+  chat_id     TEXT,
+  message_id  INTEGER,
+  outcome     TEXT,
+  created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+  decided_at  TIMESTAMP,
+  settled_at  TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS trade_confirmations_status_idx ON trade_confirmations (status);
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

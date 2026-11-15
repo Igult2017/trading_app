@@ -16,7 +16,7 @@ The decisions each of these produces are checked in `test_autotrade_decision_log
 import asyncio
 from datetime import datetime, timedelta, timezone
 
-from _harness import Suite
+from _harness import Suite, trade_mode_is
 
 from config.settings import settings
 from data import ctrader_positions as CP
@@ -27,11 +27,12 @@ from storage import autotrade_repo
 s = Suite("AUTOTRADE — a withdrawn order must not block the next signal (14 Sep 13:03)")
 run = asyncio.new_event_loop().run_until_complete
 
-_KEYS = ("autotrade_enabled", "autotrade_sessions", "autotrade_demo_only", "autotrade_strategies",
+_KEYS = ("autotrade_sessions", "autotrade_demo_only", "autotrade_strategies",
          "autotrade_symbols", "autotrade_max_per_day",
          "autotrade_cutoff_utc")
 _orig = {k: getattr(settings, k) for k in _KEYS}
-for k, v in dict(autotrade_enabled=True, autotrade_demo_only=True, autotrade_strategies="vix1",
+trade_mode_is("auto")
+for k, v in dict(autotrade_demo_only=True, autotrade_strategies="vix1",
                  autotrade_symbols="", autotrade_sessions="", autotrade_max_per_day=6,
                  autotrade_cutoff_utc="").items():
     object.__setattr__(settings, k, v)      # every OTHER gate open; no session list, so no clock decides

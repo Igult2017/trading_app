@@ -194,6 +194,15 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
                     symbol, side, signal.strategy_name or signal.strategy_id, why))
             return None
 
+        # DM CONFIRMATION (his switch, 16 Nov 2026). Everything above has passed, so this is exactly
+        # what autotrade would place — and in CONFIRM mode it is sent to his DM with Confirm / Reject
+        # instead. His Confirm comes back marked `confirmed` and goes through every guard again.
+        from execution import trade_mode
+        if not getattr(signal, "confirmed", False) and trade_mode.mode() == trade_mode.CONFIRM:
+            from execution import confirmations
+            await confirmations.offer(signal, lots, stop_pips)
+            return None
+
         # THE BROKER'S OWN 24-HOUR CAP — the BACKSTOP, armed 2026-09-04.
         #
         # This line used to read `... if signal.expires_at else None`, and `expires_at` DEFAULTS TO

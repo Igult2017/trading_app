@@ -11,7 +11,7 @@ placer, the guards, sizing and the canceller are the real ones.
 """
 import asyncio
 
-from _harness import Suite
+from _harness import Suite, trade_mode_is
 
 import execution.account as acct_mod
 import execution.broker as broker_mod
@@ -25,11 +25,12 @@ from storage import autotrade_repo
 s = Suite("AUTOTRADE — every decision is written where a deploy cannot erase it")
 run = asyncio.new_event_loop().run_until_complete
 
-_KEYS = ("autotrade_enabled", "autotrade_sessions", "autotrade_demo_only", "autotrade_strategies",
+_KEYS = ("autotrade_sessions", "autotrade_demo_only", "autotrade_strategies",
          "autotrade_symbols", "autotrade_max_per_day",
          "autotrade_cutoff_utc")
 _orig = {k: getattr(settings, k) for k in _KEYS}
-for k, v in dict(autotrade_enabled=True, autotrade_demo_only=True, autotrade_strategies="vix1",
+trade_mode_is("auto")
+for k, v in dict(autotrade_demo_only=True, autotrade_strategies="vix1",
                  autotrade_symbols="", autotrade_sessions="", autotrade_max_per_day=6,
                  autotrade_cutoff_utc="").items():
     object.__setattr__(settings, k, v)
@@ -185,7 +186,7 @@ async def _never_place(*a, **k):
 
 acct_mod.load_account = _counting_account
 placer.place_for_signal = _never_place
-object.__setattr__(settings, "autotrade_enabled", False)
+trade_mode_is("off")
 rows.clear()
 run(disp._autotrade(Sig()))
 
@@ -194,7 +195,7 @@ s.check("...and it is a refusal, so the Autotrade screen shows it",
         rows and rows[0][0], "autotrade_refused")
 s.check("...naming the signal, so it can be tied back to the setup", rows and rows[0][2], "sig-1303")
 s.check("...and it says the switch is the reason, in words he can act on",
-        rows and "autotrade is OFF" in rows[0][3], True)
+        rows and "trading is OFF" in rows[0][3], True)
 s.check("...and it says the setup was kept for investigation",
         rows and "recorded for investigation" in rows[0][3], True)
 # THE LEVELS ARE THE SETUP. Without them the row says only "something was refused", which is the
@@ -213,7 +214,7 @@ s.teeth("OFF records but does not place",
 
 # ...AND THE ON PATH IS UNCHANGED. The risk in this change is breaking the live path while disabling
 # it, so the same call with the switch ON must still reach the placer.
-object.__setattr__(settings, "autotrade_enabled", True)
+trade_mode_is("auto")
 rows.clear()
 run(disp._autotrade(Sig()))
 s.check("with the switch ON the account IS loaded", _touched["account"], 1)

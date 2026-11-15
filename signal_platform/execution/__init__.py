@@ -1,7 +1,7 @@
 """
 VIX.1 autotrade — real pending stop orders, for measurement rather than profit.
 
-OFF unless `autotrade_enabled` is set, demo-only unless that is explicitly relaxed, and refused by
+OFF unless the trading mode (`trade_mode.py`, the admin switch) says auto or confirm, demo-only unless that is explicitly relaxed, and refused by
 `guards` for a dozen reasons before anything reaches a broker.
 
   sizing.py   risk % -> lots -> the Open API's integer `volume`. The encoding lives here, once.

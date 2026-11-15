@@ -1169,6 +1169,42 @@ export const autotradeOrders = pgTable("autotrade_orders", {
   index("autotrade_orders_status_idx").on(t.status),
 ]);
 
+/**
+ * THE TRADING MODE (16 Nov 2026) — one switch with three positions, set from the admin Autotrade page:
+ * off | auto | confirm. His rule: autotrade and DM confirmation can never both be on. Read by the
+ * signal engine (`signal_platform/execution/trade_mode.py`); replaces AUTOTRADE_ENABLED.
+ */
+export const platformSettings = pgTable("platform_settings", {
+  key:       text("key").primaryKey(),
+  value:     text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedBy: text("updated_by"),
+});
+
+/**
+ * A signal offered to him in the DM with Confirm / Reject (16 Nov 2026). The website server records his
+ * press (pending -> confirmed | rejected); the signal engine places or refuses and records the outcome.
+ */
+export const tradeConfirmations = pgTable("trade_confirmations", {
+  id:         varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  signalId:   varchar("signal_id"),
+  strategy:   text("strategy"),
+  symbol:     text("symbol").notNull(),
+  side:       text("side").notNull(),
+  entryPrice: decimal("entry_price", { precision: 12, scale: 5 }),
+  stopLoss:   decimal("stop_loss",   { precision: 12, scale: 5 }),
+  takeProfit: decimal("take_profit", { precision: 12, scale: 5 }),
+  lots:       decimal("lots",        { precision: 10, scale: 5 }),
+  spreadUsed: decimal("spread_used", { precision: 12, scale: 5 }),
+  status:     text("status").notNull().default("pending"),
+  chatId:     text("chat_id"),
+  messageId:  integer("message_id"),
+  outcome:    text("outcome"),
+  createdAt:  timestamp("created_at").defaultNow().notNull(),
+  decidedAt:  timestamp("decided_at"),
+  settledAt:  timestamp("settled_at"),
+}, (t) => [index("trade_confirmations_status_idx").on(t.status)]);
+
 export type SyncEvent = typeof syncEvents.$inferSelect;
 export type AutotradeOrder = typeof autotradeOrders.$inferSelect;
 export type SignalEvent = typeof signalEvents.$inferSelect;

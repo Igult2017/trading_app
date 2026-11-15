@@ -54,6 +54,8 @@ const NOT_PLACED: Record<string, { outcome: string; tone: Tone }> = {
   autotrade_refused: { outcome: 'Refused', tone: 'warn' },
   autotrade_rejected: { outcome: 'Broker refused', tone: 'bad' },
   autotrade_failed: { outcome: 'Failed', tone: 'bad' },
+  // DM confirmation (16 Nov 2026): sent to his DM; a Confirm then shows up as an order, a Reject as Refused.
+  autotrade_offered: { outcome: 'Sent to your DM', tone: 'accent' },
 };
 
 function orderOutcome(o: AutotradeOrder): { outcome: string; tone: Tone } {
@@ -126,6 +128,7 @@ export function summarise(feed: AutotradeFeed) {
     sent: feed.orders.length,
     filled: withStatus('filled'),
     withdrawn: withStatus('cancelled') + withStatus('news_pulled'),
-    notPlaced: feed.decisions.filter(d => d.stage in NOT_PLACED).length,
+    // An offer is not a refusal: its outcome arrives as a later order or refusal of its own.
+    notPlaced: feed.decisions.filter(d => d.stage in NOT_PLACED && d.stage !== 'autotrade_offered').length,
   };
 }

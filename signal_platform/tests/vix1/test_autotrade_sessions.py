@@ -24,7 +24,7 @@ TWO THINGS, BOTH FOUND ON 31 AUG WHILE ANSWERING "is autotrading working now?".
 """
 from datetime import datetime, timezone
 
-from _harness import Suite
+from _harness import Suite, trade_mode_is
 from config.settings import settings
 from core.types import Session
 from execution import guards
@@ -47,10 +47,11 @@ def _set(**kw):
 
 
 _orig = {k: getattr(settings, k) for k in
-         ("autotrade_enabled", "autotrade_sessions", "autotrade_demo_only",
+         ("autotrade_sessions", "autotrade_demo_only",
           "autotrade_strategies", "autotrade_symbols", "autotrade_max_per_day",
          "autotrade_cutoff_utc")}
-_set(autotrade_enabled=True, autotrade_demo_only=True, autotrade_strategies="vix1",
+trade_mode_is("auto")
+_set(autotrade_demo_only=True, autotrade_strategies="vix1",
      autotrade_symbols="", autotrade_max_per_day=6,
      autotrade_cutoff_utc="")
 guards._placed.clear()
@@ -106,9 +107,10 @@ s.check("the shipped default is London + New York",
 # ── THE GATE MUST NOT OVERRIDE THE ONES BEFORE IT ───────────────────────────
 # Order matters for the message: the kill switch must still win, so the log says "autotrade is off"
 # rather than blaming the session.
-_set(autotrade_enabled=False, autotrade_sessions="asian")
-s.check("the kill switch still answers first", "autotrade is OFF" in (guards.check(**OK) or ""), True)
-_set(autotrade_enabled=True)
+trade_mode_is("off")
+_set(autotrade_sessions="asian")
+s.check("the kill switch still answers first", "trading is OFF" in (guards.check(**OK) or ""), True)
+trade_mode_is("auto")
 
 # A live account is refused before the session is even considered.
 _set(autotrade_sessions="london,new_york")
