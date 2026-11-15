@@ -2066,3 +2066,23 @@ Pooled, 1,376 first candles, overall win 31.8%:
 - Margins are +/-5 to +/-9 points, so the direction is consistent but no single cut-off is proven.
 - A second candle arrived within 24 h for 72-85% of these.
 - Not built. The number is HIS to choose.
+
+### 15 Nov 2026 (corrected) — HOW LONG DOES A MARKET STAY QUIET? (the question he actually asked)
+
+**He corrected me:** *"Your test is very wrong. We are testing how long the market goes quiet most of the
+time and what is the shortest time the market goes quiet ... after how many candles or duration do we
+consider the market as quiet."* The win-rate study above answers a DIFFERENT question. Keep it as
+background only.
+
+`trading_app_data/tools/vix1_quiet_lengths.py`. Same 2 years and 3 pairs, a measurement of the market,
+nothing scored. Runs of consecutive 1-hour candles. Runs crossing a weekend are excluded (276 and 230).
+
+| all three pairs | stretches | shortest | most common | half are <= | 3 in 4 are <= | 9 in 10 are <= | longest |
+|---|---|---|---|---|---|---|---|
+| NO-MOMENTUM (no 2.5x candle either way) | 2,954 | 1 h | 1 h | 5 h | 13 h | 21 h | 77 h |
+| THIN (nothing even 2.0x normal) | 5,100 | 1 h | 1 h | 3 h | 6 h | 12 h | 38 h |
+
+Share of no-momentum stretches: 1-2 h 28%, 3-5 h 24%, 6-11 h 20%, 12-17 h 12%, 18-23 h 10%, 24 h+ 6%.
+
+The three pairs agree closely: half <= 5-6 h, 3 in 4 <= 13 h, 9 in 10 <= 21-22 h. Today's 24 h line is
+reached by only 6% of stretches. His 11 Nov GBP/USD stretch (21 h) was in the longest 10%.
