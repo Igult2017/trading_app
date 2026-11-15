@@ -1774,6 +1774,28 @@ sabotage-verified.
 
 ## D. cTrader & copy trading
 
+### D69 — Follower orders open one connection per order; the gateway that fixes it has 5 faults. DEFERRED BY HIS DECISION 2026-11-15
+
+- **What it means:** every copy order opens a brand-new cTrader connection, logs in twice, sends one
+  order and disconnects (`copy_platform/executors/ctrader.py:228-238`).
+  - That is fine for a handful of followers.
+  - It does not scale: one master trade to 200 followers is 200 connections and 400 logins, the kind
+    of load that rate-limited the web app (D63).
+- **The fix exists but is NOT ready:** `copy_platform/gateway.py` (2 shared connections, built
+  26 Sep) is used by nothing.
+  - **Audited 15 Nov — 5 faults:**
+    1. its speed limit is really 5 msg/s, not 45;
+    2. it leaks a connection on a failed login;
+    3. it leaks a connection on every disconnect;
+    4. it never notices an account being logged out;
+    5. its reply matching was never written.
+  - Its test covers almost none of this.
+- **THE KEPT PLAN: `docs/copy-gateway-plan.md`** has the audit with file:line, and the 7-step order
+  of work. **Start there; do not re-audit.**
+- **His instruction:** *"First audit the gateway and then plan and keep the plan and record that it
+  will be fixed later."*
+- **Precondition:** a copy must first be seen placed through today's path (D68 live proof).
+
 ### D68 — ~~4 of 5 copy master accounts never finish logging in~~ ROOT CAUSE FIXED 2026-11-15 (live proof pending)
 
 - **What it means:** the copy service starts 5 master accounts. Only `ctraderpep` (5834793) logs in.
@@ -1809,9 +1831,8 @@ sabotage-verified.
 - **Follower orders were exposed to the same fault:** each copy order opens its own connection while
   the master connections are open. This may be why no copy has ever been seen placed
   (`project-copy-never-sent`). **NOT PROVEN: check the first real copy after the market opens.**
-- **His decision, open:** `copy_platform/gateway.py` (one shared connection per environment) is built
-  and tested but used by nothing in production. Wire it in later, or delete it as unused. He said one
-  shared connection for all accounts will not work.
+- **`copy_platform/gateway.py`** (unused in production) was audited the same day: **see D69** and
+  `docs/copy-gateway-plan.md`. It is kept, to be fixed later, by his decision.
 
 ### D67 — ~~"Unhandled error in Deferred" timeouts in the live log~~ FIXED AT THE ROOT 2026-11-15
 
