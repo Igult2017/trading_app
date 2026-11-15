@@ -2141,3 +2141,14 @@ At quiet >= 18 h (216): failed 35.6 / 31.9 / **19.0** / 15.4 / 14.3%. The same s
   36.5% at 12 h).
 - But it is 17 cases in 2 years across 3 pairs (about 3 a year per pair) at 12 h, 8 at 18 h and 2 at
   today's 24 h. The margin at 17 cases is about +/-18 points. Promising, not proven.
+
+## Liquidity voids with news (15 Nov 2026) — INTERIM
+
+- The full report is in `docs/strategies/vix1-void-news-report.md`.
+- **The test:** a void counts only if it comes out of a quiet market (no momentum candle in the 24 h
+  before it), optionally only if it comes with news. Tested on the real VIX.1, with the ForexFactory
+  calendar copied from Hugging Face. Its clock was repaired (summer +1 h from 2023, blank times filled),
+  and the repaired times agree with the recorded ones 100%.
+- **Final so far:** neither quiet nor news separates the voids that fill. All kinds fill about 4 in 5
+  (81% overall, 84% after a quiet market, 78% with news). Only 8% of voids come out of a quiet market.
+- **Still running:** the money result of the ~283 trades that differ.

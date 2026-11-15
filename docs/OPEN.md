@@ -232,6 +232,17 @@ goes quiet.
 
 ## B. VIX.1
 
+### B35 — The GBP/JPY void size is printed 10 times too small in VIX.1's refusal message (found 15 Nov 2026)
+
+- **What it means:** when VIX.1 refuses a GBP/JPY trade because price is filling a void, the message
+  says "a 4.5-pip void" when it is really about 45 pips.
+- **Cause:** `strategies/vix1_void.py:153` guesses the pip from the price: 0.1 for anything over 100,
+  else 0.0001. A GBP/JPY pip is 0.01. Gold's 0.1 is right, which is why it went unnoticed.
+- **Effect:** the message only. `pips` is never used in a decision; the decision uses the band's prices.
+- **Fix:** use the shared pip table (`shared.pip.pip_size(symbol)`), which already knows GBP/JPY.
+- **Why it was not fixed on the spot:** it was found during the void/news test, whose approved plan
+  said nothing in the strategy changes. It is the next change, under its own plan.
+
 ### B34 — ~~Gold's pip was 1,000x wrong on every signal card: a 34-pip stop printed as 34,300 pips~~ FIXED 2026-10-05
 
 **Found while adding GBP/JPY**, by the sweep the standing rule demands — *"adding a symbol re-opens
