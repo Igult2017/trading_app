@@ -2125,3 +2125,19 @@ At quiet >= 18 h (216): failed 35.6 / 31.9 / **19.0** / 15.4 / 14.3%. The same s
 - Samples at 3+ candles are small (37 and 21 moves), so the margins are wide (about +/-15 points).
   Per pair it varies: GBP/JPY failed 55.6% after 2 candles.
 - Entering after the pullback has NOT been measured.
+
+### 15 Nov 2026 — His proposed rule measured exactly: trade candle 3's close if candle 3 is a momentum candle
+
+`trading_app_data/tools/vix1_quiet_third_momentum.py`. Candle 1 is the waking momentum candle. Candles
+2 and 3 go the same way with no pullback, trend-way. Scored from candle 3's close as in the run test.
+
+| quiet >= | candle 3 IS momentum (his rule) | candle 3 NOT momentum | any candle 3 |
+|---|---|---|---|
+| 12 h | 17 cases, failed **17.6%**, continued 76.5% | 63 cases, failed 36.5% | 80, failed 32.5% |
+| 18 h | 8 cases, failed 25.0%, continued 75.0% | 39, failed 33.3% | 47, failed 31.9% |
+| 24 h | 2 cases (too few to read) | 19, failed 42.1% | 21, failed 38.1% |
+
+- Direction SUPPORTS him: when candle 3 is itself a momentum candle, failure roughly halves (17.6% vs
+  36.5% at 12 h).
+- But it is 17 cases in 2 years across 3 pairs (about 3 a year per pair) at 12 h, 8 at 18 h and 2 at
+  today's 24 h. The margin at 17 cases is about +/-18 points. Promising, not proven.
