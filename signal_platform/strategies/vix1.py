@@ -174,10 +174,10 @@ class Vix1Strategy(BaseStrategy):
         # returns. Nothing downstream reads its result, so it cannot change what gets traded.
         ann = vix1_momentum_watch.check(h1, sym)
         if ann is not None:
-            abar, a_bull, a_how, a_stomach = ann
+            abar, a_bull, a_how, a_stomach, a_chaos = ann
             akey = vix1_momentum_watch.dedup_key(sym, abar)
             if not delivery_ledger.is_delivered(akey):
-                anote = vix1_momentum_watch.note(sym, a_bull, abar, pip, self.name, a_how, a_stomach)
+                anote = vix1_momentum_watch.note(sym, a_bull, abar, pip, self.name, a_how, a_stomach, a_chaos)
                 anote.dedup_key = akey    # committed only once the DM actually lands
                 # ✅ Tradeable / ⛔ Untradeable buttons on this card (his ask, 16 Nov 2026).
                 anote.mark_candle = (sym, abar.time, a_bull)

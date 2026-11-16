@@ -232,6 +232,14 @@ goes quiet.
 
 ## B. VIX.1
 
+### B37 — The chaotic-move check is REPORTED on the DM but does not refuse trades yet. Built 17 Nov 2026 — HIS DECISION PENDING
+- **What:** `strategies/vix1_chaos.py` labels every momentum announcement CLEAN MOVE / CHAOTIC MOVE · WAIT FOR
+  2ND/3RD. It gates nothing — the stomach rule's road (watch first, then switch on).
+- **Waiting on:** his "switch it on". Then it becomes one veto in `vix1_bias.detect_bias`'s list, and the teeth
+  in `tests/vix1/test_chaos.py` §7 are changed to allow that one reader.
+- **Known limit, not fixable by a look-back:** the first candle INTO a chaotic market after a clean move (his
+  Wed 11 Nov 16:00) reads CLEAN. Report: `docs/strategies/vix1-chaos-report.md`.
+
 ### B36 — Autotrade could not withdraw ANY order: the broker's order prices were divided by 100,000. Found 16 Nov 2026 — FIXED 16 Nov 2026
 
 - **His report:** *"Can you check why autotrade is unable to withdraw orders?"*

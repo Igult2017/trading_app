@@ -51,15 +51,17 @@ from notifications import titles
 from shared.candle_math import body_size, is_bullish
 from strategies.vix1_momentum import momentum_grade, qualifies_for_trade, size_note
 from strategies import vix1_open_rule
+from strategies import vix1_chaos
 
 # The fewest bars worth asking about. `baseline_body` needs a population before its median means
 # anything, and below this the answer would be noise dressed as a measurement.
 _MIN_BARS = 20
 
 
-def check(h1_closed: list[Candle], symbol: str) -> tuple[Candle, bool, str | None, str | None] | None:
+def check(h1_closed: list[Candle], symbol: str) -> tuple | None:
     """Is the NEWEST CLOSED 1H bar a qualifying momentum candle?
-    -> (bar, bullish, how_it_qualified, (stomach_tag, stomach_sentence)), else None.
+    -> (bar, bullish, how_it_qualified, (stomach_tag, stomach_sentence), (chaos_tag, chaos_sentence)),
+    else None.
 
     `h1_closed` must already have the forming bar removed (`shared.mtf_utils.closed_only`). The
     direction is the candle's OWN colour, not a side being tested: `qualifies_for_trade` refuses a
@@ -86,9 +88,12 @@ def check(h1_closed: list[Candle], symbol: str) -> tuple[Candle, bool, str | Non
     # started to matter. Every momentum candle is still announced, with its verdict on line 2.
     if not qualifies_for_trade(h1_closed, i, bullish, symbol, ignore_open_rule=True):
         return None
+    # The fifth is his CHAOTIC-MOVE check (`vix1_chaos`, 17 Nov 2026) — REPORTED, never applied, the
+    # stomach rule's road: watch it on the DM first, switch it on when he says so.
     return (bar, bullish, size_note(h1_closed, i, bullish, symbol),
             (vix1_open_rule.tag(h1_closed, i, bullish),
-             vix1_open_rule.line(h1_closed, i, bullish)))
+             vix1_open_rule.line(h1_closed, i, bullish)),
+            vix1_chaos.verdict(h1_closed, i, bullish, symbol))
 
 
 def dedup_key(symbol: str, bar: Candle) -> str:
@@ -103,7 +108,8 @@ def dedup_key(symbol: str, bar: Candle) -> str:
 
 def note(symbol: str, bullish: bool, bar: Candle, pip: float, strategy_name: str,
          admitted_note: str | None = None,
-         stomach: tuple[str, str] | None = None) -> Signal:
+         stomach: tuple[str, str] | None = None,
+         chaos: tuple[str, str] | None = None) -> Signal:
     """The DM card. No entry, no stop, no target — this is NOT a trade, and must not read as one.
 
     `admitted_note` is `check`'s third value: how the candle qualified, stated only when the
@@ -142,17 +148,19 @@ def note(symbol: str, bullish: bool, bar: Candle, pip: float, strategy_name: str
         confidence        = 0.0,
         headline          = titles.MOMENTUM_ANNOUNCEMENT,
         label             = (f"{side} · ANNOUNCEMENT ONLY"
-                             + (f" · {stomach[0]}" if stomach else "")),
+                             + (f" · {stomach[0]}" if stomach else "")
+                             + (f" · {chaos[0]}" if chaos else "")),
         chart_marks       = [(bar.time, "MOMENTUM")],
         technical_reasons = [r for r in [
             f"A {side} momentum candle has CLOSED on the 1H — {body:.1f} pip body, grade {grade}.",
             admitted_note and f"How it qualified: {admitted_note}",
             stomach and stomach[1],
-            "THIS IS AN ANNOUNCEMENT, NOT A SIGNAL. It says only that a momentum candle closed. It "
-            "says nothing about the trend, the range, the pullback or the candle count, and the "
-            "strategy may well have refused this setup already.",
-            "No entry, stop or target is attached, because no trade is being proposed. If a trade "
-            "does come from this candle it arrives as its own separate signal.",
+            chaos and chaos[1],
+            # ONE bullet, not two: the formatter shows only five details
+            # (`telegram_formatter.py:52`) and the chaotic-move verdict needed the room.
+            "THIS IS AN ANNOUNCEMENT, NOT A SIGNAL — it says nothing about the trend, the range, the "
+            "pullback or the candle count, and no entry, stop or target is attached. If a trade does "
+            "come from this candle it arrives as its own separate signal.",
         ] if r],
         market_context    = f"VIX.1 — {symbol} 1H {side} momentum candle closed (announcement only)",
     )
