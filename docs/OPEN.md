@@ -5145,7 +5145,22 @@ look-back would create exactly the hole it is meant to close.
 
 ---
 
-### C10 — The signal platform's 2-second position tracker keeps SKIPPING runs. Found 29-30 Sep 2026
+### C10 — The signal platform's 2-second position tracker keeps SKIPPING runs. Found 29-30 Sep 2026 — CAUSE FOUND + FIX SHIPPED 16 Nov 2026, LIVE PROOF PENDING
+
+- **Measured 16 Nov, 07:51–08:56 UTC, no trades open:** 149 skips; 1,808 passes ran of ~1,960 due (~8%
+  dropped); longest gap between passes 4.5 s. The minute scan took ~16 s with EVERY candle from memory
+  (`cache: fresh 39, expired 0`) — no broker requests, so not the shared broker queue.
+- **Cause:** `await strategy.analyze(...)` (`orchestrator/strategy_runner.py`) runs pure calculation (VIX.1
+  and BX have no waits inside) ON the single event loop, so the tracker AND the tick-driven stop mover sat
+  frozen behind every scan.
+- **Fix:** strategies calculate on ONE dedicated thread (`_STRATEGY_THREAD`) — still one at a time; the
+  record both sides share is locked (`core/fired_registry.py`). Test: `tests/vix1/test_strategy_thread.py`
+  (old way froze a 0.1 s job for 1.00 s; new way 0.12 s).
+- **Measured from now on:** `[position_tracker] health: N passes in 600s (due M) · longest gap X s` every
+  10 minutes. **Close this only when that line shows passes ≈ due and the longest gap ≲ 2.5 s.**
+
+*The finding as first recorded:*
+
 
 Production logs `Execution of job "Position tracker (trigger: interval[0:00:02])" skipped: maximum number
 of running instances reached (1)` — repeatedly, three times inside one two-minute window on 30 Sep. It

@@ -449,6 +449,28 @@ def _start_waiting_order_work(send) -> None:
         _confirm_task = loop.create_task(confirmations.check(send))
 
 
+# HEALTH (16 Nov 2026, `docs/OPEN.md` C10) — how many passes really ran, and the longest gap between
+# two, logged every 10 minutes. The skips used to be inferred from scheduler warnings; this measures them.
+_HEALTH_EVERY_S = 600.0
+_health = {"since": None, "last": None, "passes": 0, "longest": 0.0}
+
+
+def _note_pass() -> None:
+    now = time.monotonic()
+    h = _health
+    if h["since"] is None:
+        h.update(since=now, last=now, passes=0, longest=0.0)
+    gap = now - h["last"]
+    h["longest"] = max(h["longest"], gap)
+    h["passes"] += 1
+    h["last"] = now
+    span = now - h["since"]
+    if span >= _HEALTH_EVERY_S:
+        log.info(f"[position_tracker] health: {h['passes']} passes in {span:.0f}s "
+                 f"(due {span / 2:.0f}) · longest gap between passes {h['longest']:.1f}s")
+        h.update(since=now, passes=0, longest=0.0)
+
+
 async def check_all(send) -> None:
     """One poll. `send` is an async callable taking the message text — the dispatcher's private DM.
 
@@ -456,6 +478,7 @@ async def check_all(send) -> None:
     watching on live signals, which matters far more than an advisory message.
     """
     global _last_seen
+    _note_pass()
     try:
         delivery_ledger.cleanup(_TTL)
         # SHARED WITH THE FAST WATCHER, so the two do not each spend a broker request asking the same

@@ -10,6 +10,7 @@ import asyncio
 import logging
 import traceback
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 
 from core import event_bus
@@ -32,6 +33,18 @@ from risk import spread_filter, volatility_filter, sl_validator
 from charting import signal_card
 
 log = logging.getLogger(__name__)
+
+# THE STRATEGY THREAD (C10, 16 Nov 2026). One worker, so strategies still calculate one at a time —
+# no new parallelism between them — while the main worker stays free for the tracker, the stop mover,
+# Telegram and the price feed. Shared state they both touch is locked (`core/fired_registry`).
+_STRATEGY_THREAD = ThreadPoolExecutor(max_workers=1, thread_name_prefix="strategy")
+
+
+def _calculate(strategy, context):
+    """Run one strategy's `analyze` on the strategy thread. It contains no waits, so it runs straight
+    through on a loop of its own; a strategy that DID wait on the main loop's resources would fail
+    loudly here rather than silently block."""
+    return asyncio.run(strategy.analyze(context))
 
 
 def _chart_candles(signal, candle_view: dict, fallback: list) -> list:
@@ -287,7 +300,13 @@ async def run_strategy(
         return
 
     try:
-        result = await strategy.analyze(context)
+        # ON THE STRATEGY THREAD, NOT THE MAIN WORKER (16 Nov 2026, `docs/OPEN.md` C10). `analyze`
+        # is pure calculation — no waits inside — so awaiting it here froze the whole event loop for
+        # its full length: the 2-second position tracker dropped ~8% of its passes (149 in 65 min)
+        # and the tick-driven stop mover waited up to ~4.5 s behind a scan. ONE thread keeps the
+        # strategies calculating one at a time, exactly as before.
+        result = await asyncio.get_running_loop().run_in_executor(
+            _STRATEGY_THREAD, _calculate, strategy, context)
     except Exception:
         log.error(f"[runner] {strategy.id} on {instrument}:\n{traceback.format_exc()}")
         return

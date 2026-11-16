@@ -16,6 +16,7 @@ Usage in a strategy:
     ...
     self.fired.add(key)
 """
+import threading
 import time
 import logging
 
@@ -28,6 +29,8 @@ class FiredRegistry:
     def __init__(self, strategy_id: str):
         self.strategy_id = strategy_id
         self._fired: dict[str, float] = {}   # key → wall-clock unix ts fired
+        # Re-entrant: `add` and `cleanup` call `_persist`, which reads the dict, inside the lock.
+        self._lock = threading.RLock()
         self._load()
 
     def _load(self) -> None:
@@ -41,22 +44,32 @@ class FiredRegistry:
 
     def _persist(self) -> None:
         try:
-            strategy_state_repo.save(self.strategy_id, {"fired": self._fired})
+            with self._lock:
+                snapshot = dict(self._fired)
+            strategy_state_repo.save(self.strategy_id, {"fired": snapshot})
         except Exception as exc:
             log.warning("[fired_registry] %s persist failed (%s) — keeping in-memory", self.strategy_id, exc)
 
+    # ONE LOCK AROUND EVERY READ AND CHANGE (16 Nov 2026, C10). The strategies now calculate on their
+    # own worker thread (`orchestrator/strategy_runner._STRATEGY_THREAD`) while the main worker keeps
+    # delivering messages and running the tracker — and BOTH use this record (`delivery_ledger`).
+    # Without the lock, one side changing the dict while the other walks it (cleanup, persist) raises
+    # "dictionary changed size during iteration".
     def has(self, key: str) -> bool:
-        return key in self._fired
+        with self._lock:
+            return key in self._fired
 
     def add(self, key: str) -> None:
-        if key not in self._fired:
-            self._fired[key] = time.time()
-            self._persist()
+        with self._lock:
+            if key not in self._fired:
+                self._fired[key] = time.time()
+                self._persist()
 
     def cleanup(self, ttl_seconds: int) -> None:
         cutoff = time.time() - ttl_seconds
-        stale  = [k for k, ts in self._fired.items() if ts < cutoff]
-        if stale:
-            for k in stale:
-                self._fired.pop(k, None)
-            self._persist()
+        with self._lock:
+            stale = [k for k, ts in self._fired.items() if ts < cutoff]
+            if stale:
+                for k in stale:
+                    self._fired.pop(k, None)
+                self._persist()
