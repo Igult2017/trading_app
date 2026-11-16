@@ -127,7 +127,9 @@ check("the flag defaults to False, so nothing else is affected",
 # ── 4. the placer declines, and only the placer ────────────────────────────────────────────────
 print("\n4. autotrade declines it, visibly, and places everything else:")
 pl = (ROOT / "execution/placer.py").read_text(encoding="utf-8")
-gate = pl.find('if getattr(signal, "size_from_memory", False):')
+# 16 Nov 2026: a candle HE marked Tradeable skips this setup check (his ruling B1), so the line now
+# reads `... and not getattr(signal, "manual", False):` — the memory refusal itself is unchanged.
+gate = pl.find('if getattr(signal, "size_from_memory", False) and not getattr(signal, "manual", False):')
 teeth("the placer really checks the flag", gate > 0)
 teeth("...before it sizes anything (no point sizing a trade it will not place)",
       0 < gate < pl.index("lots, volume, stop_pips = plan_size("))
