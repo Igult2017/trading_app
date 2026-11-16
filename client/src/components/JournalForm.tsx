@@ -1657,7 +1657,8 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
     set4("actualEntry",  fields.openingPrice  != null ? String(fields.openingPrice)  : (fields.entryPrice != null ? String(fields.entryPrice) : null));
     set4("actualSL",     fields.stopLoss      != null ? String(fields.stopLoss)      : null);
     set4("actualTP",     fields.closingPrice  != null ? String(fields.closingPrice)  : (fields.takeProfit != null ? String(fields.takeProfit) : null));
-    set4("profitLoss",   fields.profitLoss    != null ? String(fields.profitLoss)    : null);
+    // NO MONEY FROM A SCREENSHOT (his rule, 16 Nov 2026): the P&L is calculated below from the risk he
+    // entered, never copied from a chart. The server strips money fields too (`server/lib/noMoneyFields.ts`).
     // mae/mfe: Python's map_to_journal_fields renames drawdownPoints→mae, runUpPoints→mfe
     const maeVal = fields.mae ?? fields.drawdownPoints;
     const mfeVal = fields.mfe ?? fields.runUpPoints;
@@ -1701,9 +1702,9 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
       // which is what forced a recompute. Calculating here removes the timing
       // dependency: capture and calculation are the same step.
       //
-      // OCR's own profitLoss still wins — set4("profitLoss", ...) runs above, so
-      // if the screenshot reported a real figure this leaves it alone.
-      if (s4Up.profitLoss == null) {
+      // THE JOURNAL'S OWN FIGURE ALWAYS (16 Nov 2026). A screenshot's dollar P&L used to "win" here; his
+      // rule is that money is never read off a chart — it comes from the risk he enters.
+      {
         const { riskPercent, balance } = pnlInputsRef.current;
         const pct   = parseFloat(riskPercent);
         const rrNum = rrStr ? parseRRNum(rrStr) : 0;   // fmtRR can return null

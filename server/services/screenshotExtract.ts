@@ -23,7 +23,7 @@ const MAX_WIDTH  = 1280;   // 1920→1280: ~55% fewer pixels, text stays legible
 const MAX_HEIGHT = 800;    // 1200→800
 const JPEG_QUALITY = 82;   // 92→82: further cuts payload, no readability loss on chart text
 
-async function compressForGemini(
+export async function compressForGemini(
   base64: string,
 ): Promise<{ data: string; mimeType: string }> {
   try {
@@ -82,7 +82,7 @@ const TZ_LABELS: Record<number, string> = {
   3: "UTC+3 (Broker EEST summer)",
 };
 
-function buildExtractionPrompt(brokerTimezone?: number | null): string {
+export function buildExtractionPrompt(brokerTimezone?: number | null): string {
   // Build the timezone + session derivation block when we know the offset
   const tzBlock = brokerTimezone != null ? `
 ═══════════════════════════════════════════
@@ -172,11 +172,8 @@ Return ONLY valid JSON (no markdown fences, no explanation) with ALL of these fi
   "openPLPips": number or null,
   "closedPLPips": number or null,
   "profitLossPoints": number or null,
-  "profitLossUSD": number or null,
   "drawdownPoints": number or null,
-  "drawdownUSD": number or null,
   "runUpPoints": number or null,
-  "runUpUSD": number or null,
   "primaryExitReason": "Target Hit or Partial TP or Trailing Stop or Stop Hit or Break-Even or Time Exit or Manual or null",
   "chartType": "Candles or Bars or Line",
   "spreadInfo": "any spread data visible or null",
@@ -548,7 +545,7 @@ function normalizeLotSize(raw: any): number | null {
   return nums ? parseFloat(nums[0]) : null;
 }
 
-function parseGeminiJson(text: string): Record<string, any> {
+export function parseGeminiJson(text: string): Record<string, any> {
   const stripped = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
   try { return JSON.parse(stripped); } catch {}
   const m = stripped.match(/\{[\s\S]*\}/);
@@ -556,7 +553,10 @@ function parseGeminiJson(text: string): Record<string, any> {
   throw new Error(`Could not parse JSON from Gemini response: ${text.slice(0, 200)}`);
 }
 
-function mapToJournalFields(extracted: Record<string, any>, knownTz?: number | null): Record<string, any> {
+// NO MONEY VALUES (his rule, 16 Nov 2026): *"we dont extract money values. The journal requires that one enters
+// amount he risks in every trade then it calculates the rest."* So nothing here carries a dollar figure —
+// P&L comes from the risk he enters (`JournalForm.tsx`), never from a screenshot. Points/pips and R:R stay.
+export function mapToJournalFields(extracted: Record<string, any>, knownTz?: number | null): Record<string, any> {
   // Session resolution priority:
   //   1. Gemini's own sessionName/sessionPhase when it was told the authoritative timezone (knownTz)
   //   2. Server-side derivation from entryTime + timezone (either knownTz or what Gemini guessed)
@@ -616,7 +616,6 @@ function mapToJournalFields(extracted: Record<string, any>, knownTz?: number | n
     primaryExitReason:      extracted.primaryExitReason    ?? null,
     openPLPips:             extracted.openPLPips           ?? null,
     closedPLPips:           extracted.closedPLPips         ?? null,
-    profitLoss:             extracted.profitLossUSD        ?? null,
     pipsGainedLost:         extracted.profitLossPoints     ?? null,
     mae:                    extracted.drawdownPoints       ?? null,
     mfe:                    extracted.runUpPoints          ?? null,

@@ -39,6 +39,8 @@ import { insertTradeSchema, insertEconomicEventSchema, insertTradingSignalSchema
 import { readingTime } from "@shared/readingTime";
 import { analyzeScreenshotWithOCR, isOCRAvailable } from "./services/ocrScreenshotAnalyzer";
 import { analyzeScreenshotWithGemini, isGeminiScreenshotAvailable } from "./services/geminiScreenshotAnalyzer";
+import { extractWithNvidia, isNvidiaScreenshotAvailable } from "./services/nvidiaScreenshot";
+import { stripMoneyFields } from "./lib/noMoneyFields";
 import { parseTradeText } from "./services/textTradeAnalyzer";
 import { computeMetrics } from "./services/metricsCalculator";
 import { computeCalendar } from "./services/calendarCalculator";
@@ -1604,6 +1606,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Also re-derives session/phase using the session's stored broker timezone when available,
       // overriding whatever Gemini guessed from the chart image.
       const normalizeFields = (f: Record<string, any>): Record<string, any> => {
+        // NO MONEY VALUES FROM ANY READER (his rule, 16 Nov 2026): *"we dont extract money values. The
+        // journal requires that one enters amount he risks in every trade then it calculates the rest."*
+        // ONE place for all three readers (Gemini, NVIDIA, OCR) — the P&L is calculated from his risk.
+        stripMoneyFields(f);
         if (f.stopLossDistancePips == null && f.stopLossPips != null)   f.stopLossDistancePips   = f.stopLossPips;
         if (f.takeProfitDistancePips == null && f.takeProfitPips != null) f.takeProfitDistancePips = f.takeProfitPips;
         f.entryTime = normTs(f.entryTime);
@@ -1637,7 +1643,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json({ ...geminiResult, method: "gemini", confidence: "high" });
         }
         geminiErrorMsg = geminiResult.error ?? "Gemini returned no data";
-        console.error(`[Screenshot] Gemini failed: ${geminiErrorMsg} — falling back to OCR`);
+        console.error(`[Screenshot] Gemini failed: ${geminiErrorMsg} — trying the NVIDIA backup`);
+      }
+
+      // ── Backup: NVIDIA (16 Nov 2026) — same instruction, same mapping, used only when Gemini fails ──
+      if (isNvidiaScreenshotAvailable()) {
+        const nv = await extractWithNvidia(image, sessionBrokerTz);
+        if (nv.success && nv.fields) {
+          nv.fields = normalizeFields(nv.fields);
+          const f = nv.fields;
+          console.log(`[NVIDIA] instrument:${f.instrument} direction:${f.direction} entryPrice:${f.entryPrice} entryTime:${f.entryTime} exitTime:${f.exitTime}`);
+          return res.json({ ...nv, method: "nvidia", confidence: "high",
+            ...(geminiErrorMsg ? { geminiWarning: `Gemini failed: ${geminiErrorMsg} — read by the NVIDIA backup` } : {}) });
+        }
+        console.error(`[Screenshot] NVIDIA backup failed: ${nv.error} — falling back to OCR`);
+        geminiErrorMsg = `${geminiErrorMsg ? geminiErrorMsg + "; " : ""}${nv.error}`;
       }
 
       // ── Fallback: local OCR pipeline ────────────────────────────────────────
@@ -1690,6 +1710,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? "Active — best for full chart screenshots with timestamps and P&L panels"
             : "Set GOOGLE_API_KEY to enable Gemini vision extraction",
         },
+        nvidia: {
+          available: isNvidiaScreenshotAvailable(),
+          provider: "NVIDIA Nemotron Vision",
+          note: isNvidiaScreenshotAvailable()
+            ? "Backup — used automatically when Gemini fails"
+            : "Set NVIDIA_API_KEY to enable the NVIDIA backup",
+        },
         ocr: {
           available: ocrAvailable,
           provider: "Tesseract OCR",
@@ -1697,7 +1724,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? "Available as fallback — calibrated for JForex dark-theme screenshots"
             : "Tesseract or Python dependencies not installed",
         },
-        activeMethod: geminiAvailable ? "gemini" : ocrAvailable ? "ocr" : "none",
+        activeMethod: geminiAvailable ? "gemini" : isNvidiaScreenshotAvailable() ? "nvidia"
+          : ocrAvailable ? "ocr" : "none",
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to check analysis status" });
