@@ -246,6 +246,11 @@ goes quiet.
   210.597). One-off repair in `docker-migrate.sql` puts back any adopted entry/stop below 1% of the placed
   level (count in the deploy log, "B36 repair"). Outcomes already recorded against garbage levels are NOT
   rewritten.
+- **AND HIS RULE, same day:** *"Even if i moved the stop, if the signal has died it should be removed. It
+  should check if the price has moved past the SL band to the opposite side."* `cancel_for_signal` NEVER
+  withdrew an order whose stop he had moved; now (`canceller._past_his_stop`) it withdraws it once price has
+  been past HIS stop since placement (1M highs/lows + the live price; a SELL on the ask), keeps it — telling
+  him once — while price has not reached it. Test: `tests/vix1/test_moved_stop_dies.py` (9).
 - **Live proof pending:** the next dead setup's order is withdrawn (`[canceller] … cancelled resting order`).
 
 ### B35 — ~~The GBP/JPY void size is printed 10 times too small in VIX.1's refusal message~~ FIXED 2026-11-15

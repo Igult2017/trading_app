@@ -95,6 +95,50 @@ def _levels_he_moved(order_id) -> dict[str, float] | None:
         return None
 
 
+async def _past_his_stop(order_id, symbol: str, his_stop: float) -> tuple[bool | None, str]:
+    """Has price been past HIS stop since the order was placed? (yes/no/unknown, what was seen).
+
+    His rule (16 Nov 2026): the setup is dead once price has gone past the stop to the opposite side. A
+    SELL's stop sits above it: dead when a HIGH reached the stop. A BUY's: when a LOW reached it. Read on
+    the 1-minute bars since placement (so a spike between two checks is not missed) plus the live price.
+    Unknown (no bars, no side) answers None — the caller keeps the order this pass and asks again on the
+    next one (the sweep runs every 30 s), rather than guessing either way.
+    """
+    try:
+        from datetime import datetime, timezone
+        from data.candle_fetcher import fetch_candles
+        intent = autotrade_repo.intent_for(str(order_id)) or {}
+        side, placed = intent.get("side"), intent.get("placed_at")
+        if side not in ("BUY", "SELL"):
+            return None, "the order's side is not known"
+        minutes = 30
+        if placed is not None:
+            minutes = int((datetime.now(timezone.utc) - placed).total_seconds() // 60) + 2
+        bars = await fetch_candles(symbol, "M1", max(2, min(minutes, 1440)))
+        since = int(placed.timestamp()) - 60 if placed is not None else 0
+        bars = [b for b in (bars or []) if b.time >= since]
+        if side == "SELL":
+            extreme = max((b.high for b in bars), default=None)
+        else:
+            extreme = min((b.low for b in bars), default=None)
+        try:
+            from data import fix_quotes
+            q = fix_quotes.live_quote(symbol)
+            if q and q[0] and q[1]:
+                now = q[1] if side == "SELL" else q[0]      # a sell's stop fires on the ask, a buy's on the bid
+                extreme = now if extreme is None else (max(extreme, now) if side == "SELL" else min(extreme, now))
+        except Exception:
+            pass
+        if extreme is None:
+            return None, "no price to judge it against yet"
+        past = extreme >= his_stop if side == "SELL" else extreme <= his_stop
+        return past, f"{'highest' if side == 'SELL' else 'lowest'} since placement {extreme}"
+    except Exception as exc:
+        log.warning(f"[canceller] could not check price against his stop for {order_id}: "
+                    f"{type(exc).__name__}: {exc}")
+        return None, "the price check failed"
+
+
 async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
     """Cancel the resting order this platform placed for `signal_id`. True only if it really went.
 
@@ -129,20 +173,33 @@ async def cancel_for_signal(signal_id: str, symbol: str, why: str) -> bool:
         # to the cancel below — because a dead order left resting is the exact thing he complained
         # about on 2026-09-04 (a gold buy stop sitting 72 points offside). Keeping an unwatched
         # order alive on a guess is worse than cancelling one he had edited.
+        #
+        # ⚠ SUPERSEDED 16 Nov 2026 — a moved stop is no longer a reason NEVER to withdraw. His rule:
+        # *"Even if i moved the stop, if the signal has died it should be removed. It should check if
+        # the price has moved past the SL band to the opposite side meaning the price is no longer in
+        # our direction."* So with HIS stop on the order, the order goes the moment price has been past
+        # HIS stop (`_past_his_stop`); until then his wider stop is still alive and it stays.
         moved = _levels_he_moved(order_id)
         if moved:
             from storage import signal_repo
             signal_repo.adopt_levels(signal_id, entry=moved.get("entry"), stop=moved.get("sl"))
-            what = " and ".join(f"{'entry' if k == 'entry' else 'stop'} to {v}"
-                                for k, v in moved.items())
-            log.info(f"[canceller] {symbol}: NOT cancelling order {order_id} — you moved its "
-                     f"{what}. Treating those as yours and judging the setup against them from now "
-                     f"on; the replay starts from this moment so no earlier bar is re-judged.")
-            await withdrawal_notice.announce(
-                order_id, symbol,
-                f"left resting — you moved its {what}, so the platform is now using your levels "
-                f"instead of its own", withdrawal_notice.NOT_WITHDRAWN)
-            return False
+            his_stop = moved.get("sl")
+            if his_stop is not None:
+                past, detail = await _past_his_stop(order_id, symbol, his_stop)
+                if past:
+                    why = f"price went past your stop at {his_stop} ({detail}) — the setup is dead"
+                    log.info(f"[canceller] {symbol}: withdrawing order {order_id} — {why}")
+                else:
+                    what = f"stop to {his_stop}"
+                    log.info(f"[canceller] {symbol}: keeping order {order_id} — you moved its {what} "
+                             f"and price has not been past it ({detail}); re-checked every pass")
+                    await withdrawal_notice.announce(
+                        order_id, symbol,
+                        f"left resting — you moved its {what} and price has not reached it yet; it is "
+                        f"withdrawn the moment price goes past your stop", withdrawal_notice.NOT_WITHDRAWN)
+                    return False
+            # Only his ENTRY moved: the stop is still ours, and the caller has already judged the setup
+            # dead against it — so it is withdrawn like any other.
 
         from execution.account import load_account
         acct = await load_account()
