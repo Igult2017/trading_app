@@ -70,6 +70,10 @@ const fakeQuery: any = async (sql: string, args: unknown[]) => {
   check('waiting updates are never dropped', /drop_pending_updates:\s*true/.test(tn), false);
   check('a button press counts as "listening" too', /on\('callback_query', listening\)/.test(tn), true);
   check('TEETH — a network failure retries instead of stopping', /EFATAL[\s\S]{0,80}onPollingFailure/.test(tn), true);
+  // THE ROOT CAUSE FOUND BY HIS LIVE TEST CARD: a plain array was never read by Telegram, so presses
+  // were never delivered. The list must go as a JSON string that includes callback_query.
+  check('TEETH — button presses are subscribed as a JSON string Telegram can read',
+        /allowed_updates:\s*JSON\.stringify\(\[[^\]]*'callback_query'[^\]]*\]\)/.test(tn), true);
 
   const saved = process.env.WATCHDOG_CHAT_ID;
   process.env.WATCHDOG_CHAT_ID = '';

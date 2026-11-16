@@ -78,7 +78,12 @@ export class TelegramNotificationService {
           autoStart: false,
           params: { 
             timeout: 30,
-            allowed_updates: ['message', 'callback_query']
+            // A JSON STRING, NOT AN ARRAY (16 Nov 2026). The library sends a plain array as form fields
+            // Telegram cannot read (it only converts reply_markup / entities / reply_parameters), so
+            // Telegram ignored this list and kept an old subscription WITHOUT callback_query — every
+            // button press (Confirm / Reject, Tradeable / Untradeable) was never delivered. Found by
+            // his live test card; `getWebhookInfo` showed the subscription had no button presses.
+            allowed_updates: JSON.stringify(['message', 'callback_query']) as any
           }
         }
       });
