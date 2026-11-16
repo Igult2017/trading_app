@@ -1642,7 +1642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`[Gemini] instrument:${f.instrument} direction:${f.direction} lotSize:${f.lotSize} entryPrice:${f.entryPrice} entryTime:${f.entryTime} exitTime:${f.exitTime} session:${f.sessionName}/${f.sessionPhase}`);
           return res.json({ ...geminiResult, method: "gemini", confidence: "high" });
         }
-        geminiErrorMsg = geminiResult.error ?? "Gemini returned no data";
+        geminiErrorMsg = `Gemini failed: ${geminiResult.error ?? "Gemini returned no data"}`;
         console.error(`[Screenshot] Gemini failed: ${geminiErrorMsg} — trying the NVIDIA backup`);
       }
 
@@ -1654,10 +1654,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const f = nv.fields;
           console.log(`[NVIDIA] instrument:${f.instrument} direction:${f.direction} entryPrice:${f.entryPrice} entryTime:${f.entryTime} exitTime:${f.exitTime}`);
           return res.json({ ...nv, method: "nvidia", confidence: "high",
-            ...(geminiErrorMsg ? { geminiWarning: `Gemini failed: ${geminiErrorMsg} — read by the NVIDIA backup` } : {}) });
+            ...(geminiErrorMsg ? { geminiWarning: `${geminiErrorMsg} — read by the NVIDIA backup` } : {}) });
         }
         console.error(`[Screenshot] NVIDIA backup failed: ${nv.error} — falling back to OCR`);
-        geminiErrorMsg = `${geminiErrorMsg ? geminiErrorMsg + "; " : ""}${nv.error}`;
+        // Names only the readers actually tried — Gemini is not mentioned when it is not set up.
+        geminiErrorMsg = `${geminiErrorMsg ? geminiErrorMsg + "; " : ""}NVIDIA failed: ${String(nv.error).replace(/^NVIDIA: /, "")}`;
       }
 
       // ── Fallback: local OCR pipeline ────────────────────────────────────────
@@ -1669,12 +1670,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[OCR] instrument:${f.instrument} entryTime:${f.entryTime} exitTime:${f.exitTime} session:${f.sessionName}/${f.sessionPhase}`);
         // Surface the Gemini failure reason so the UI can show it as a warning
         return res.json({ ...ocrResult, method: "ocr", confidence: "medium",
-          ...(geminiErrorMsg ? { geminiWarning: `Gemini failed: ${geminiErrorMsg}` } : {}) });
+          ...(geminiErrorMsg ? { geminiWarning: `${geminiErrorMsg} — read by OCR instead` } : {}) });
       }
 
       return res.status(422).json({
-        error: isGeminiScreenshotAvailable()
-          ? "Gemini analysis failed and OCR fallback also failed. Check server logs for details."
+        error: geminiErrorMsg
+          ? `${geminiErrorMsg}, and OCR found no trade data either.`
           : "Screenshot analysis failed. No recognisable trade data found.",
         details: ocrResult.error,
         method: isGeminiScreenshotAvailable() ? "gemini" : "ocr",

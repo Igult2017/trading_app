@@ -505,8 +505,11 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
     const items = Array.from((e as any).clipboardData?.items ?? []);
     const img = (items as DataTransferItem[]).find(i => i.type.startsWith("image/"));
     if (img) {
+      // preventDefault marks this paste as HANDLED; the page listener below skips a handled paste.
+      // React's paste object has no stopImmediatePropagation, so it is called on the real browser
+      // event — without both, one paste filled the box twice and sent two readings (16 Nov 2026).
       e.preventDefault();
-      (e as any).stopImmediatePropagation?.();
+      ((e as any).nativeEvent ?? e).stopImmediatePropagation?.();
       if (editRef.current) editRef.current.textContent = "";
       const f = img.getAsFile();
       if (f) { const r = new FileReader(); r.onloadend = () => onChange(r.result as string); r.readAsDataURL(f); }
@@ -520,6 +523,7 @@ function UploadBox({ label, value, onChange, inputId, onPasteText, analyzing }: 
   useEffect(() => {
     if (value) return;
     const handler = (e: ClipboardEvent) => {
+      if (e.defaultPrevented) return;   // the box (or another box) already took this paste
       const active = document.activeElement as HTMLElement | null;
       if (active && active !== document.body && active !== editRef.current) {
         const tag = active.tagName;
@@ -1762,7 +1766,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
               // actual outcome, don't override it with plannedRR.
               achievedRRAutoRef.current = false;
             }
-            const methodLabel = res.method === "gemini" ? "Powered by AI" : "Powered by OCR";
+            const methodLabel = res.method === "gemini" || res.method === "nvidia" ? "Powered by AI" : "Powered by OCR";
             const geminiWarn  = res.geminiWarning ? ` ⚠ ${res.geminiWarning}` : "";
             setS2(prev => ({ ...prev, ocrConfidence: methodLabel, ocrValidation: geminiWarn }));
           } else if (res?.error) {

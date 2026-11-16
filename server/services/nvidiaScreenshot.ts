@@ -41,27 +41,40 @@ export function buildNvidiaRequest(prompt: string, mimeType: string, imageData: 
   };
 }
 
+/** A refusal worth asking again: NVIDIA busy or briefly down (its safety check was "temporarily
+ *  unavailable" on 16 Nov). Never a wrong key, no credit or a bad request — asking again cannot help. */
+export function isTemporaryRefusal(status: number, why: string): boolean {
+  return status === 429 || status >= 500 || /temporar/i.test(why);
+}
+
 export async function extractWithNvidia(
   base64Image: string,
   brokerTimezone?: number | null,
   fetchImpl: typeof fetch = fetch,
+  retryWaitsMs: number[] = [2000, 4000],
 ): Promise<{ success: boolean; fields?: Record<string, any>; method: "nvidia"; modelUsed?: string; error?: string }> {
   const key = process.env.NVIDIA_API_KEY?.trim();
   if (!key) return { success: false, method: "nvidia", error: "NVIDIA_API_KEY not set" };
   try {
     const { data, mimeType } = await compressForGemini(base64Image);
-    const body = buildNvidiaRequest(buildExtractionPrompt(brokerTimezone), mimeType, data);
+    const body = JSON.stringify(buildNvidiaRequest(buildExtractionPrompt(brokerTimezone), mimeType, data));
     const t0 = Date.now();
-    const res = await fetchImpl(NVIDIA_URL, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
-    const json: any = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const why = json?.detail || json?.error?.message || json?.title || `HTTP ${res.status}`;
-      return { success: false, method: "nvidia", error: `NVIDIA: ${String(why).slice(0, 200)}` };
+    let res: Response, json: any;
+    for (let attempt = 0; ; attempt++) {
+      res = await fetchImpl(NVIDIA_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body,
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+      });
+      json = await res.json().catch(() => ({}));
+      if (res.ok) break;
+      const why = String(json?.detail || json?.error?.message || json?.title || `HTTP ${res.status}`);
+      if (attempt >= retryWaitsMs.length || !isTemporaryRefusal(res.status, why)) {
+        return { success: false, method: "nvidia", error: `NVIDIA: ${why.slice(0, 200)}` };
+      }
+      console.warn(`[NvidiaScreenshot] temporary refusal (${why.slice(0, 80)}) — asking again in ${retryWaitsMs[attempt] / 1000}s`);
+      await new Promise(r => setTimeout(r, retryWaitsMs[attempt]));
     }
     const text: string | null = json?.choices?.[0]?.message?.content ?? null;
     if (!text) return { success: false, method: "nvidia", error: "NVIDIA returned no answer" };

@@ -250,6 +250,7 @@ All vars live in `.env` at project root (loaded by `dotenv/config`). Signal plat
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `ADMIN_SECRET` | Yes | Admin login password / bearer token |
 | `GOOGLE_API_KEY` | Optional | Gemini AI (screenshot analysis, AI Q&A — Node side only) |
+| `NVIDIA_API_KEY` | Optional | Journal screenshot reading — the automatic backup when Gemini fails (`server/services/nvidiaScreenshot.ts`). No money values are read from any screenshot |
 | `TELEGRAM_BOT_TOKEN` | Optional | Telegram trade alerts (event-driven only, never polled) |
 | `VITE_SUPABASE_URL` | Optional | Supabase auth URL |
 | `VITE_SUPABASE_ANON_KEY` | Optional | Supabase publishable key |

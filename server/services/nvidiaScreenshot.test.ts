@@ -55,6 +55,24 @@ const IMG = "data:image/png;base64," + readFileSync(join(ROOT, "attached_assets"
   const refused: any = async () => ({ ok: false, status: 402, json: async () => ({ detail: "credits depleted" }) });
   const bad = await nv.extractWithNvidia(IMG, null, refused);
   check("NVIDIA refuses → a clean failure (the route then falls to OCR)", [bad.success, bad.error], [false, "NVIDIA: credits depleted"]);
+  let asked402 = 0;
+  const count402: any = async () => { asked402++; return { ok: false, status: 402, json: async () => ({ detail: "credits depleted" }) }; };
+  await nv.extractWithNvidia(IMG, null, count402, [0, 0]);
+  check("no credit → asked ONCE (asking again cannot help)", asked402, 1);
+
+  // his 16 Nov refusal, word for word: refused once, then fine
+  let askedBlip = 0;
+  const blip: any = async () => (++askedBlip === 1
+    ? { ok: false, status: 503, json: async () => ({ detail: "content safety screening is temporarily unavailable" }) }
+    : { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: JSON.stringify(answer) } }] }) });
+  const rb = await nv.extractWithNvidia(IMG, null, blip, [0, 0]);
+  check("'temporarily unavailable' → asked again, read on the 2nd try", [rb.success, askedBlip], [true, 2]);
+  let askedDown = 0;
+  const down: any = async () => { askedDown++; return { ok: false, status: 503,
+    json: async () => ({ detail: "content safety screening is temporarily unavailable" }) }; };
+  const rd = await nv.extractWithNvidia(IMG, null, down, [0, 0]);
+  check("still down after 3 tries → clean failure, no 4th try", [rd.success, askedDown], [false, 3]);
+
   const empty: any = async () => ({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: null } }] }) });
   check("an empty answer (thinking left on) → failure, not a blank form",
         (await nv.extractWithNvidia(IMG, null, empty)).success, false);
@@ -81,6 +99,14 @@ const IMG = "data:image/png;base64," + readFileSync(join(ROOT, "attached_assets"
   check("the instruction no longer asks for USD amounts", /"(profitLoss|drawdown|runUp)USD"/.test(prompt), false);
   const form = readFileSync(join(ROOT, "client", "src", "components", "JournalForm.tsx"), "utf8");
   check("TEETH — the form never copies a screenshot P&L", /fields\.profitLoss\b/.test(form), false);
+  check("TEETH — an NVIDIA reading is labelled AI, not OCR",
+        /const methodLabel = res\.method === "gemini" \|\| res\.method === "nvidia" \? "Powered by AI"/.test(form), true);
+  check("TEETH — the warning never hard-codes 'Gemini failed' around another reader's error",
+        /geminiWarning: `Gemini failed: \$\{geminiErrorMsg\}/.test(routes), false);
+  check("TEETH — the page paste listener skips a paste the box already took",
+        /const handler = \(e: ClipboardEvent\) => \{\s*if \(e\.defaultPrevented\) return;/.test(form), true);
+  check("TEETH — the box stops the REAL browser paste event (React's has no such method)",
+        /\(\(e as any\)\.nativeEvent \?\? e\)\.stopImmediatePropagation\?\.\(\)/.test(form), true);
 
   // ── one REAL call, when asked ───────────────────────────────────────────
   if (process.env.NVIDIA_LIVE === "1" && LIVE_KEY) {
