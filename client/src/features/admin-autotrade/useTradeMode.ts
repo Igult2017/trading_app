@@ -44,5 +44,18 @@ export function useTradeMode() {
     }
   };
 
-  return { state: data, loading, error, saving, saveError, setMode };
+  /** "Send a test card" — the live end-to-end check of DM confirmation. Places nothing. */
+  const [test, setTest] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  const sendTestCard = async () => {
+    setTest('sending');
+    try {
+      const { authFetch } = await import('@/lib/queryClient');
+      const r = await authFetch(`${TRADE_MODE_URL}/test-card`, { method: 'POST' });
+      setTest(r.ok ? 'sent' : 'failed');
+    } catch {
+      setTest('failed');
+    }
+  };
+
+  return { state: data, loading, error, saving, saveError, setMode, test, sendTestCard };
 }

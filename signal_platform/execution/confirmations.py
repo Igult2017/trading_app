@@ -21,23 +21,10 @@ Never raises.
 """
 import logging
 
-from shared.pip import price_digits
+from execution.confirm_messages import (TEST_CARD, TEST_OK, card, refusal_reason,  # noqa: F401
+                                        send_dm as _send, too_late_by_price)
 
 log = logging.getLogger(__name__)
-
-_YES, _NO = "tc:y:", "tc:n:"          # button data: a prefix and the offer id, nothing else
-
-
-def card(signal, lots, stop_pips) -> str:
-    d = price_digits(signal.symbol)
-    side = "BUY" if signal.direction.value == "buy" else "SELL"
-    strategy = signal.strategy_name or signal.strategy_id
-    return (f"🟡 <b>CONFIRM THIS TRADE?</b> · {signal.symbol} {side} · {strategy}\n"
-            f"entry <code>{signal.entry_price:.{d}f}</code> · stop <code>{signal.stop_loss:.{d}f}</code>"
-            f" · target <code>{signal.take_profit:.{d}f}</code>\n"
-            f"{lots} lots · {stop_pips:.1f} pip stop · 1% risk\n"
-            f"<i>It passed every autotrade check. Confirm places it; Reject or no answer places nothing. "
-            f"A Confirm after the price has reached the entry is refused.</i>")
 
 
 async def offer(signal, lots, stop_pips) -> None:
@@ -56,8 +43,16 @@ async def offer(signal, lots, stop_pips) -> None:
             return                       # not saved → not offered (a press could not be matched)
         chat = settings.watchdog_chat_id
         message_id = await _send(chat, card(signal, lots, stop_pips), buttons=cid)
-        if message_id:
-            confirm_repo.set_message(cid, chat, message_id)
+        if not message_id:
+            # NOT SENT IS NOT OFFERED (audit, 16 Nov 2026). This used to record "Sent to your DM" even
+            # when Telegram refused, so the Autotrade screen showed an offer he never received. The
+            # offer is closed (a press can never match it) and the record says what happened.
+            why = "the card could not be sent to your Telegram DM, so the trade was not offered"
+            confirm_repo.close_unsent(cid, why)
+            await decision_log.failed(signal, why)
+            log.warning(f"[confirmations] {signal.symbol} {side}: {why}")
+            return
+        confirm_repo.set_message(cid, chat, message_id)
         await decision_log.offered(signal, lots, cid)
         log.info(f"[confirmations] {signal.symbol} {side} offered to his DM (offer {cid})")
     except Exception as exc:
@@ -65,41 +60,71 @@ async def offer(signal, lots, stop_pips) -> None:
                   f"{type(exc).__name__}: {exc}", exc_info=True)
 
 
-def too_late_by_price(signal, quote) -> str | None:
-    """Is the live price already through the entry? (bid, ask) or None when not known."""
-    if not quote or not quote[0] or not quote[1]:
-        return None
-    bid, ask = quote
-    d = price_digits(signal.symbol)
-    if signal.direction.value == "buy" and ask >= signal.entry_price:
-        return f"the price ({ask:.{d}f}) had already reached the {signal.entry_price:.{d}f} entry"
-    if signal.direction.value == "sell" and bid <= signal.entry_price:
-        return f"the price ({bid:.{d}f}) had already reached the {signal.entry_price:.{d}f} entry"
-    return None
+_EXPIRE_EVERY_S = 60.0          # the 24-hour clean-up is a database write: once a minute is plenty
+_last_expire = 0.0
 
 
 async def check(send) -> None:
-    """Act on every offer he has confirmed. One pass; called on the tracker's clock."""
+    """Act on every offer he has confirmed, and send any test card asked for. One pass; started on the
+    tracker's clock as its OWN task (`position_tracker._start_confirm_work`), so a Confirm never waits
+    behind the news check or an order amendment (audit, 16 Nov 2026)."""
+    global _last_expire
     try:
         import asyncio
+        import time
         from storage import confirm_repo
         loop = asyncio.get_running_loop()
+        for cid in await loop.run_in_executor(None, confirm_repo.test_requests):
+            await _send_test(cid)
         for row in await loop.run_in_executor(None, confirm_repo.confirmed):
             await _act(row, send)
-        await loop.run_in_executor(None, confirm_repo.expire_unanswered)
+        if time.monotonic() - _last_expire >= _EXPIRE_EVERY_S:
+            _last_expire = time.monotonic()
+            await loop.run_in_executor(None, confirm_repo.expire_unanswered)
     except Exception as exc:
         log.error(f"[confirmations] {type(exc).__name__}: {exc}", exc_info=True)
 
 
+async def _send_test(cid: str) -> None:
+    """The admin page's "Send a test card" (16 Nov 2026): the live end-to-end check."""
+    from config.settings import settings
+    from storage import confirm_repo
+    chat = settings.watchdog_chat_id
+    confirm_repo.mark_test_sent(cid, chat, await _send(chat, TEST_CARD, buttons=cid))
+
+
 async def _act(row: dict, send) -> None:
     import asyncio
+    from storage import confirm_repo
+    from storage.confirm_models import REFUSED
+    loop = asyncio.get_running_loop()
+    if not await loop.run_in_executor(None, confirm_repo.claim, row["id"]):
+        return                            # another pass has it, or it was already acted on
+    if row.get("is_test"):
+        # A TEST card is answered HERE, before anything that could place: it carries no signal and is
+        # never handed to the placer. Reaching this line is the proof the whole chain works.
+        from storage.confirm_models import TESTED
+        if confirm_repo.settle(row["id"], TESTED, "test confirmed — the chain works"):
+            await _reply(row, TEST_OK)
+        return
+    try:
+        await _act_claimed(row, send, loop)
+    except Exception as exc:
+        # NEVER LEFT HANGING (audit, 16 Nov 2026). A failure after the claim used to leave the offer
+        # "placing" for ever with no reply. Now it is closed and he is told. It is NOT retried: if the
+        # failure came after the order was sent, its outcome is unknown, and a retry could place twice.
+        log.error(f"[confirmations] offer {row['id']} failed after his Confirm: "
+                  f"{type(exc).__name__}: {exc}", exc_info=True)
+        why = f"it could not be checked ({type(exc).__name__}) — check the broker before trying again"
+        if confirm_repo.settle(row["id"], REFUSED, why):
+            await _reply(row, f"⚠️ <b>NOT PLACED</b> — {why}.")
+
+
+async def _act_claimed(row: dict, send, loop) -> None:
     from data import fix_quotes
     from execution import saved_signal
     from storage import confirm_repo
     from storage.confirm_models import PLACED, REFUSED, TOO_LATE
-    loop = asyncio.get_running_loop()
-    if not await loop.run_in_executor(None, confirm_repo.claim, row["id"]):
-        return                            # another pass has it, or it was already acted on
     sig, why = await loop.run_in_executor(None, saved_signal.load, row["signal_id"], row["spread_used"])
     if sig is not None:
         why = too_late_by_price(sig, fix_quotes.live_quote(sig.symbol))
@@ -127,7 +152,7 @@ async def _act(row: dict, send) -> None:
         if confirm_repo.settle(row["id"], PLACED, f"order {order_id}"):
             await _reply(row, f"✅ <b>PLACED</b> — order {order_id}.")
     else:
-        reason = next((t.split("\n")[1] for t in told if "\n" in t), "an autotrade check refused it")
+        reason = refusal_reason(told)
         if confirm_repo.settle(row["id"], REFUSED, reason):
             await _reply(row, f"⛔ <b>NOT PLACED</b> — {reason}")
 
@@ -135,25 +160,3 @@ async def _act(row: dict, send) -> None:
 async def _reply(row: dict, text: str) -> None:
     if row.get("chat_id"):
         await _send(row["chat_id"], text, reply_to=row.get("message_id"))
-
-
-async def _send(chat_id, text: str, buttons: str | None = None, reply_to: int | None = None) -> int | None:
-    """Send to his DM, with Confirm / Reject when `buttons` is an offer id. Returns the message id."""
-    if not chat_id:
-        log.warning("[confirmations] no WATCHDOG_CHAT_ID — the offer cannot be sent")
-        return None
-    try:
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        from notifications.dispatcher import _get_bot
-        bot = _get_bot()
-        if bot is None:
-            return None
-        markup = InlineKeyboardMarkup([[InlineKeyboardButton("✅ Confirm", callback_data=_YES + buttons),
-                                        InlineKeyboardButton("❌ Reject", callback_data=_NO + buttons)]]
-                                      ) if buttons else None
-        msg = await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML", reply_markup=markup,
-                                     reply_to_message_id=reply_to)
-        return int(msg.message_id)
-    except Exception as exc:
-        log.warning(f"[confirmations] Telegram send failed: {type(exc).__name__}: {exc}")
-        return None

@@ -16,7 +16,7 @@ import { accountTypeEdit } from "./lib/accountFilters";
 import { decideRole, describeDecision } from "./lib/adminRole";
 import { asDateKey, filterEntriesByPeriod } from "./lib/periodFilter";
 import { canonicalSession } from "../shared/sessions";
-import { readTradeMode, writeTradeMode, isTradeMode } from "./lib/tradeMode";
+import { readTradeMode, writeTradeMode, isTradeMode, requestTestCard } from "./lib/tradeMode";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking,
          platformHeartbeat, platformDowntime } from "@shared/schema";
@@ -1321,6 +1321,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[Admin/trade-mode]', error);
       return res.status(500).json({ error: 'Could not save the trading mode' });
+    }
+  });
+
+  // "Send a test card" — the live end-to-end check of DM confirmation (16 Nov 2026). Places nothing.
+  app.post("/api/admin/trade-mode/test-card", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const by = String((req as any).adminUser?.email || (req as any).adminUser?.id || 'admin');
+      const id = await requestTestCard(by);
+      console.log(`[Admin/trade-mode] test card ${id} requested by ${by}`);
+      return res.json({ id });
+    } catch (error) {
+      console.error('[Admin/trade-mode/test-card]', error);
+      return res.status(500).json({ error: 'Could not request a test card' });
     }
   });
 

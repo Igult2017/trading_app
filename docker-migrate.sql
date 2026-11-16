@@ -880,6 +880,8 @@ CREATE TABLE IF NOT EXISTS trade_confirmations (
   settled_at  TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS trade_confirmations_status_idx ON trade_confirmations (status);
+-- A TEST card from the admin page (16 Nov 2026): runs the whole chain, can never reach the placer.
+ALTER TABLE trade_confirmations ADD COLUMN IF NOT EXISTS is_test BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

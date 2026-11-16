@@ -426,21 +426,27 @@ async def _one_position(p, send, r_seen: dict) -> None:
 
 
 _waiting_task = None
+_confirm_task = None
 
 
 def _start_waiting_order_work(send) -> None:
-    """Run the news pull, the waiting-order watch and his DM confirmations in the background, one
-    pass at a time."""
-    global _waiting_task
-    if _waiting_task is not None and not _waiting_task.done():
-        return
+    """Run the news pull and the waiting-order watch in the background, one pass at a time — and his
+    DM Confirm presses in a SEPARATE task beside them.
 
-    async def _pass():
-        from execution import confirmations, news_pull, resting_watch
-        await news_pull.check(send)          # pull before amending: a pulled order is not adjusted
-        await resting_watch.check(send)
-        await confirmations.check(send)      # his DM Confirm presses (16 Nov 2026)
-    _waiting_task = asyncio.get_running_loop().create_task(_pass())
+    SEPARATE SINCE THE AUDIT (16 Nov 2026). The Confirm pickup shared this pass, so a Confirm waited
+    behind a news-calendar re-fetch (up to 10 s) and any order amendment (a broker round trip) — long
+    enough for the price to reach the entry and his Confirm to be refused as too late."""
+    global _waiting_task, _confirm_task
+    loop = asyncio.get_running_loop()
+    if _waiting_task is None or _waiting_task.done():
+        async def _pass():
+            from execution import news_pull, resting_watch
+            await news_pull.check(send)          # pull before amending: a pulled order is not adjusted
+            await resting_watch.check(send)
+        _waiting_task = loop.create_task(_pass())
+    if _confirm_task is None or _confirm_task.done():
+        from execution import confirmations
+        _confirm_task = loop.create_task(confirmations.check(send))
 
 
 async def check_all(send) -> None:

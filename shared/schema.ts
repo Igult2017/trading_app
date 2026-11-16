@@ -1203,6 +1203,7 @@ export const tradeConfirmations = pgTable("trade_confirmations", {
   createdAt:  timestamp("created_at").defaultNow().notNull(),
   decidedAt:  timestamp("decided_at"),
   settledAt:  timestamp("settled_at"),
+  isTest:     boolean("is_test").notNull().default(false),   // admin "Send a test card"
 }, (t) => [index("trade_confirmations_status_idx").on(t.status)]);
 
 export type SyncEvent = typeof syncEvents.$inferSelect;

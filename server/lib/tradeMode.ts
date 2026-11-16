@@ -27,6 +27,20 @@ export async function readTradeMode(): Promise<TradeModeState> {
            updatedBy: row?.updated_by ?? null };
 }
 
+/**
+ * "SEND A TEST CARD" (16 Nov 2026) — the live end-to-end check of DM confirmation. Writes a TEST offer
+ * that the signal engine sends to his DM with Confirm / Reject (the engine owns sending, as for real
+ * cards). His press then travels the whole real chain. A test offer has no signal and is marked test, and
+ * the engine answers it before anything that could place (`signal_platform/execution/confirmations._act`).
+ */
+export async function requestTestCard(by: string): Promise<string> {
+  const { rows } = await pool.query(
+    `INSERT INTO trade_confirmations (symbol, side, strategy, status, is_test, outcome)
+          VALUES ('TEST', 'TEST', 'test', 'test_requested', TRUE, $1) RETURNING id`,
+    [`test card requested by ${by.slice(0, 120)}`]);
+  return rows[0].id as string;
+}
+
 export async function writeTradeMode(mode: TradeMode, by: string): Promise<TradeModeState> {
   await pool.query(
     `INSERT INTO platform_settings (key, value, updated_at, updated_by)

@@ -8,7 +8,8 @@ tradeConfirmPress.ts`); everything else is written here.
 import logging
 from datetime import datetime, timedelta, timezone
 
-from storage.confirm_models import (CONFIRMED, EXPIRED, PENDING, PLACING, TradeConfirmationModel)
+from storage.confirm_models import (CONFIRMED, EXPIRED, PENDING, PLACING, TEST_REQUESTED,
+                                    TradeConfirmationModel)
 from storage.db import get_session
 
 log = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ def confirmed() -> list[dict]:
     try:
         with get_session() as s:
             return [dict(id=r.id, signal_id=r.signal_id, symbol=r.symbol, side=r.side,
-                         chat_id=r.chat_id, message_id=r.message_id,
+                         chat_id=r.chat_id, message_id=r.message_id, is_test=bool(r.is_test),
                          spread_used=float(r.spread_used) if r.spread_used is not None else 0.0)
                     for r in s.query(TradeConfirmationModel)
                     .filter(TradeConfirmationModel.status == CONFIRMED).limit(20).all()]
@@ -98,3 +99,45 @@ def expire_unanswered(hours: int = 24) -> int:
     except Exception as exc:
         log.warning(f"[confirm_repo] could not expire old offers: {type(exc).__name__}: {exc}")
         return 0
+
+
+def close_unsent(cid: str, outcome: str) -> None:
+    """A PENDING offer whose card never reached him: closed, so a press can never match it."""
+    from storage.confirm_models import UNSENT
+    try:
+        with get_session() as s:
+            (s.query(TradeConfirmationModel)
+              .filter(TradeConfirmationModel.id == cid, TradeConfirmationModel.status == PENDING)
+              .update({"status": UNSENT, "outcome": outcome[:500],
+                       "settled_at": datetime.now(timezone.utc)}, synchronize_session=False))
+    except Exception as exc:
+        log.warning(f"[confirm_repo] could not close unsent {cid}: {type(exc).__name__}: {exc}")
+
+
+def test_requests() -> list[str]:
+    """Test cards asked for on the admin page (written by the website server), not yet sent."""
+    try:
+        with get_session() as s:
+            return [r.id for r in s.query(TradeConfirmationModel)
+                    .filter(TradeConfirmationModel.status == TEST_REQUESTED,
+                            TradeConfirmationModel.is_test.is_(True)).limit(5).all()]
+    except Exception as exc:
+        log.warning(f"[confirm_repo] could not read test requests: {type(exc).__name__}: {exc}")
+        return []
+
+
+def mark_test_sent(cid: str, chat_id: str, message_id: int | None) -> None:
+    """The test card went out (now PENDING, waiting for his press) — or could not (UNSENT)."""
+    from storage.confirm_models import UNSENT
+    try:
+        with get_session() as s:
+            row = s.get(TradeConfirmationModel, cid)
+            if row is None or row.status != TEST_REQUESTED:
+                return
+            if message_id:
+                row.status, row.chat_id, row.message_id = PENDING, str(chat_id), int(message_id)
+            else:
+                row.status, row.outcome = UNSENT, "the test card could not be sent"
+                row.settled_at = datetime.now(timezone.utc)
+    except Exception as exc:
+        log.warning(f"[confirm_repo] could not mark test {cid}: {type(exc).__name__}: {exc}")

@@ -9,7 +9,7 @@ ONE value, `trade_mode`: off | auto | confirm. Both tables are also declared in 
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Column, Integer, Numeric, String, Text
 
 from storage.db import Base
 from storage.models import UtcDateTime
@@ -17,6 +17,8 @@ from storage.models import UtcDateTime
 PENDING, CONFIRMED, REJECTED = "pending", "confirmed", "rejected"
 PLACING = "placing"          # claimed by the engine: acted on ONCE, never retried after a crash
 PLACED, REFUSED, TOO_LATE, EXPIRED = "placed", "refused", "too_late", "expired"
+UNSENT = "unsent"            # the card could not be sent, so nothing was offered
+TEST_REQUESTED, TESTED = "test_requested", "tested"   # the admin "Send a test card" (16 Nov 2026)
 
 
 class PlatformSettingModel(Base):
@@ -46,3 +48,5 @@ class TradeConfirmationModel(Base):
     created_at  = Column("created_at", UtcDateTime, default=lambda: datetime.now(timezone.utc))
     decided_at  = Column("decided_at", UtcDateTime, nullable=True)
     settled_at  = Column("settled_at", UtcDateTime, nullable=True)
+    # A TEST card from the admin page: goes through the whole chain, can never reach the placer.
+    is_test     = Column("is_test", Boolean, nullable=False, default=False)

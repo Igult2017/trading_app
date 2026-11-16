@@ -1,4 +1,5 @@
-import { Loader2, MessageSquareText, Power } from 'lucide-react';
+import { Loader2, MessageSquareText, Power, Send } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { C, FONT } from '@/components/admin-ui/tokens';
 import { Panel } from '@/components/admin-ui/AdminUI';
@@ -24,7 +25,7 @@ function stamp(at: string | null, by: string | null): string {
 }
 
 export default function TradeModeSwitches() {
-  const { state, loading, error, saving, saveError, setMode } = useTradeMode();
+  const { state, loading, error, saving, saveError, setMode, test, sendTestCard } = useTradeMode();
   const mode: TradeMode | null = state?.mode ?? null;
 
   return (
@@ -65,6 +66,26 @@ export default function TradeModeSwitches() {
             </div>
           );
         })}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', padding: '16px 24px',
+          borderTop: `1px solid ${C.border}`,
+        }}>
+          <p style={{ flex: '1 1 240px', margin: 0, fontFamily: FONT, fontSize: 14,
+                      color: test === 'failed' ? C.red : C.muted }}
+             role={test === 'failed' ? 'alert' : undefined} aria-live="polite">
+            {test === 'sent' ? 'Test card on its way to your Telegram DM (within a few seconds). Press Confirm or Reject on it — the answer comes back under the card. Nothing is placed.'
+              : test === 'failed' ? 'The test card could not be requested. Nothing was sent; try again.'
+              : 'Check the Confirm / Reject chain end to end with a test card. It never places a trade.'}
+          </p>
+          <Button variant="outline" size="sm" onClick={sendTestCard} disabled={test === 'sending'}
+                  className="transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90"
+                  // The panel's own palette, so the button follows its light / dark themes.
+                  style={{ background: C.card, color: C.text, borderColor: C.border2, fontFamily: FONT }}
+                  aria-label="Send a test confirmation card to your Telegram DM">
+            {test === 'sending' ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
+            {test === 'sending' ? 'Sending…' : 'Send a test card'}
+          </Button>
+        </div>
         {(error || saveError || state?.updatedAt) ? (
           <p role={error || saveError ? 'alert' : undefined} style={{
             margin: 0, padding: '12px 24px 16px', fontFamily: FONT, fontSize: 13,

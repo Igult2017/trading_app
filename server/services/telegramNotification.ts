@@ -15,7 +15,10 @@ export class TelegramNotificationService {
   private bot: TelegramBot | null = null;
   private isInitialized = false;
   private pollingRetryCount = 0;
-  private maxPollingRetries = 5;
+  // Listening health (audit, 16 Nov 2026) — see the note on `onPollingFailure` below.
+  private deafSince: number | null = null;
+  private lastPollError = 0;
+  private warnedDeaf = false;
   private _eventTimers: NodeJS.Timeout[] = [];
   private _sessionTimers: NodeJS.Timeout[] = [];
 
@@ -57,20 +60,12 @@ export class TelegramNotificationService {
       }
 
       try {
-        console.log('[Telegram] Clearing any pending updates and releasing previous connections...');
-        
-        await (testBot as any).deleteWebHook({ drop_pending_updates: true });
-        
-        try {
-          const updates = await testBot.getUpdates({ offset: -1, limit: 1, timeout: 0 });
-          if (updates && updates.length > 0) {
-            const lastUpdateId = updates[updates.length - 1].update_id;
-            await testBot.getUpdates({ offset: lastUpdateId + 1, limit: 1, timeout: 0 });
-          }
-        } catch (updateError: any) {
-          console.log('[Telegram] Could not clear update queue:', updateError.message);
-        }
-        
+        // RELEASE ANY WEBHOOK, BUT KEEP WHAT IS WAITING (audit, 16 Nov 2026). This used to drop every
+        // pending update and then skip past the rest, so a Confirm / Reject pressed while the app was
+        // restarting after a deploy was thrown away. A press delivered late is safe: the engine still
+        // checks the trade can be taken and refuses it, with the reason, if the price reached the entry.
+        console.log('[Telegram] Releasing any webhook; pending updates are kept...');
+        await (testBot as any).deleteWebHook({ drop_pending_updates: false });
         await new Promise(resolve => setTimeout(resolve, 3000));
       } catch (clearError: any) {
         console.log('[Telegram] Could not clear pending updates:', clearError.message);
@@ -91,44 +86,53 @@ export class TelegramNotificationService {
       
       this.bot.startPolling();
 
+      // ── LISTENING MUST NEVER STOP FOR GOOD (audit, 16 Nov 2026) ──────────────────────────────────
+      // Button presses on his DM-confirmation cards arrive ONLY while this listens. It used to give up
+      // for good after 5 "another program is listening" conflicts (409) — and the counter reset only
+      // on a TEXT message, never on a button press — and on any network failure (EFATAL). After that
+      // every Confirm was silently ignored until the next restart. It also told Telegram to DROP every
+      // update waiting to be delivered on each retry, so a press made during a deploy was thrown away.
+      // Now: retry for ever with a growing pause (max 60 s), never drop waiting updates, reset on ANY
+      // update, log when listening resumes, and DM him if it has been deaf for over 2 minutes.
+      const onPollingFailure = async (what: string) => {
+        this.pollingRetryCount++;
+        const now = Date.now();
+        if (!this.deafSince || now - this.lastPollError > 90_000) this.deafSince = now;
+        this.lastPollError = now;
+        const waitTime = Math.min(5000 * this.pollingRetryCount, 60_000);
+        console.log(`[Telegram] ${what} (attempt ${this.pollingRetryCount}) - retrying in ${waitTime / 1000}s`);
+        if (!this.warnedDeaf && now - this.deafSince > 120_000) {
+          this.warnedDeaf = true;
+          const owner = (process.env.WATCHDOG_CHAT_ID ?? '').trim().replace(/^"|"$/g, '');
+          if (owner) {
+            this.bot?.sendMessage(owner, '⚠️ <b>Telegram listening is down</b> — Confirm / Reject presses '
+              + 'cannot be received right now. It keeps retrying; you will see no reply to a press until it '
+              + 'recovers.', { parse_mode: 'HTML' }).catch(() => {});
+          }
+        }
+        try { await this.bot?.stopPolling(); } catch {}
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        try { await this.bot?.startPolling(); } catch {}
+      };
+
       this.bot.on('polling_error', async (error: any) => {
         if (error.code === 'ETELEGRAM' && error.response?.statusCode === 409) {
-          this.pollingRetryCount++;
-          
-          if (this.pollingRetryCount <= this.maxPollingRetries) {
-            console.log(`[Telegram] Polling conflict detected (attempt ${this.pollingRetryCount}/${this.maxPollingRetries}) - waiting before retry...`);
-            
-            if (this.bot) {
-              this.bot.stopPolling();
-            }
-            
-            const waitTime = Math.min(5000 * this.pollingRetryCount, 30000);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            
-            try {
-              const freshBot = new TelegramBot(token!, { polling: false });
-              await (freshBot as any).deleteWebHook({ drop_pending_updates: true });
-            } catch (e) {
-            }
-            
-            if (this.bot) {
-              this.bot.startPolling();
-            }
-          } else {
-            console.log('[Telegram] Max polling retries reached - bot will operate in send-only mode');
-            this.bot?.stopPolling();
-          }
+          await onPollingFailure('Polling conflict detected - another program is listening');
         } else if (error.code === 'EFATAL') {
-          console.error('[Telegram] Fatal polling error - stopping polling');
-          this.bot?.stopPolling();
+          await onPollingFailure(`Polling failed (${error.message || 'network'})`);
         } else {
           console.error('[Telegram] Polling error:', error.message || error.code);
         }
       });
 
-      this.bot.on('message', () => {
+      const listening = () => {
+        if (this.deafSince) console.log('[Telegram] listening again');
         this.pollingRetryCount = 0;
-      });
+        this.deafSince = null;
+        this.warnedDeaf = false;
+      };
+      this.bot.on('message', listening);
+      this.bot.on('callback_query', listening);
 
       this.isInitialized = true;
       this.setupCommands();

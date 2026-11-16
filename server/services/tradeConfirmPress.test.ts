@@ -19,12 +19,16 @@ function check(name: string, got: unknown, want: unknown) {
 
 const ID = '1a2b3c4d-5e6f-7890-abcd-ef1234567890';
 const asked: { sql: string; args: unknown[] }[] = [];
+const TEST_ID = '0f0f0f0f-1111-2222-3333-444455556666';
 let pending = new Set([ID]);
+const tests = new Set([TEST_ID]);
+const statusOf: Record<string, string> = {};
 const fakeQuery: any = async (sql: string, args: unknown[]) => {
   asked.push({ sql, args });
+  if (/^\s*SELECT/i.test(sql)) return { rowCount: 1, rows: [{ status: statusOf[args[0] as string] ?? 'confirmed' }] };
   const [status, id] = args as [string, string];
-  if (pending.has(id)) { pending.delete(id); return { rowCount: 1, status }; }
-  return { rowCount: 0 };
+  if (pending.has(id)) { pending.delete(id); return { rowCount: 1, rows: [{ is_test: tests.has(id) }] }; }
+  return { rowCount: 0, rows: [] };
 };
 
 (async () => {
@@ -45,6 +49,27 @@ const fakeQuery: any = async (sql: string, args: unknown[]) => {
   check('another feature\'s button is left alone', await recordPress('subscribe:yes', 7615035273, fakeQuery), 'not-ours');
   check('button data with anything extra is refused', await recordPress(`tc:y:${ID};DROP`, 7615035273, fakeQuery), 'not-ours');
   check('...and nothing was written for either', asked.length, 0);
+
+  // AUDIT FIXES (16 Nov 2026): a late press says WHY; a TEST card is recognised.
+  pending = new Set();                       // the offer is no longer pending
+  statusOf[ID] = 'expired';
+  check('a press on an offer that EXPIRED unanswered → "expired", not "already answered"',
+        await recordPress(`tc:y:${ID}`, 7615035273, fakeQuery), 'expired');
+  statusOf[ID] = 'placed';
+  check('...while one already acted on is still "already answered"',
+        await recordPress(`tc:y:${ID}`, 7615035273, fakeQuery), 'already-answered');
+  pending = new Set([TEST_ID]);
+  check('Confirm on a TEST card → test-confirmed', await recordPress(`tc:y:${TEST_ID}`, 7615035273, fakeQuery), 'test-confirmed');
+  pending = new Set([TEST_ID]);
+  check('Reject on a TEST card → test-rejected', await recordPress(`tc:n:${TEST_ID}`, 7615035273, fakeQuery), 'test-rejected');
+
+  // THE LISTENER NEVER STOPS FOR GOOD AND NEVER DROPS A WAITING PRESS (read from the source).
+  const { readFileSync } = await import('fs');
+  const tn = readFileSync(new URL('./telegramNotification.ts', import.meta.url), 'utf8');
+  check('no "send-only mode" give-up left', /send-only mode/.test(tn), false);
+  check('waiting updates are never dropped', /drop_pending_updates:\s*true/.test(tn), false);
+  check('a button press counts as "listening" too', /on\('callback_query', listening\)/.test(tn), true);
+  check('TEETH — a network failure retries instead of stopping', /EFATAL[\s\S]{0,80}onPollingFailure/.test(tn), true);
 
   const saved = process.env.WATCHDOG_CHAT_ID;
   process.env.WATCHDOG_CHAT_ID = '';
