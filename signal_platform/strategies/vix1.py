@@ -39,7 +39,7 @@ from strategies.vix1_momentum import (LOOKBACK, momentum_grade,   # candle_count
                                       traded_on_memory)
 from strategies import vix1_building, vix1_countwatch, vix1_momentum_watch, vix1_preclose
 from strategies.vix1_signal import build_signal
-from strategies import vix1_spacing, vix1_log
+from strategies import vix1_marked, vix1_spacing, vix1_log
 from strategies.vix1_watch import check_invalidation, invalidation_signal, WATCH_M1
 from shared.pip import pip_size, price_digits
 from shared.mtf_utils import closed_only
@@ -179,6 +179,8 @@ class Vix1Strategy(BaseStrategy):
             if not delivery_ledger.is_delivered(akey):
                 anote = vix1_momentum_watch.note(sym, a_bull, abar, pip, self.name, a_how, a_stomach)
                 anote.dedup_key = akey    # committed only once the DM actually lands
+                # ✅ Tradeable / ⛔ Untradeable buttons on this card (his ask, 16 Nov 2026).
+                anote.mark_candle = (sym, abar.time, a_bull)
                 out.append(anote)
                 vix1_log.say_always(f"[vix1] {sym} MOMENTUM ANNOUNCEMENT — "
                                     f"{'BUY' if a_bull else 'SELL'} candle closed at {abar.time}, "
@@ -304,6 +306,16 @@ class Vix1Strategy(BaseStrategy):
         self._debut.note(sym, h1[-1].time)
         bias = detect_bias(h1, h4, sym, debut=self._debut,   # trend on H4, momentum on H1; logs when None
                            news=context.news)                # news: his void rule (vix1_void._big_enough)
+        # HIS ✅ TRADEABLE / ⛔ UNTRADEABLE PRESS (16 Nov 2026) — `strategies/vix1_marked`. With no mark
+        # on this pair it returns the strategy's own answer unchanged.
+        bias, his_mark, vetoed = vix1_marked.apply(h1, sym, bias)
+        if vetoed:
+            vix1_log.say_always(f"[vix1] {sym} setup NOT taken — {vetoed}")
+            return StrategyResult(signals=out)
+        if his_mark is not None:
+            vix1_log.say_always(f"[vix1] {sym} using the candle you marked TRADEABLE "
+                                f"({'BUY' if bias.bullish else 'SELL'}, {his_mark['bar_time']}) — "
+                                f"waiting for the 1M entry")
         if bias is None:
             # ── THE OTHER HALF OF THE STAND-DOWN (added 2026-09-08) ─────────────────────────────
             #
@@ -455,6 +467,12 @@ class Vix1Strategy(BaseStrategy):
             sig.size_from_memory = traded_on_memory(h1, len(h1) - 1, bullish, sym)
             # The spread the levels above were built with — `vix1_entry` uses exactly this value.
             sig.spread_used = max(0.0, context.spread or 0.0)
+            # Built from the candle he marked TRADEABLE: his DM only, placed whatever the switches say,
+            # no 7pm cut-off (`vix1_marked.stamp`). The mark is used up — one trade per marked candle.
+            if his_mark is not None:
+                vix1_marked.stamp(sig, his_mark)
+                from storage import candle_marks
+                candle_marks.mark_used(his_mark["id"])
             sig.dedup_key = key          # committed ONLY once the signal is real — never here
             out.append(sig)
             self._recent[sym] = (bullish, now, key)

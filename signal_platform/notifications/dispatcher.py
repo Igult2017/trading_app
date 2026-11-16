@@ -45,9 +45,14 @@ def _get_bot():
     return _bot
 
 
-async def _send_text(message: str, chat_id: str | None = None) -> bool:
+async def _send_text(message: str, chat_id: str | None = None, reply_markup=None,
+                     sent_ids: list | None = None) -> bool:
     """Default target is the public signal channel; pass chat_id to route elsewhere
-    (e.g. the admin DM for system telemetry). Returns True iff the message was delivered."""
+    (e.g. the admin DM for system telemetry). Returns True iff the message was delivered.
+
+    `reply_markup` (buttons) and `sent_ids` (the sent message's id is appended) were added 16 Nov 2026
+    for the Tradeable / Untradeable buttons (`notifications/mark_buttons`). Both default to nothing,
+    so every existing caller is unchanged."""
     bot = _get_bot()
     target = chat_id or settings.telegram_chat_id
     if not bot or not target:
@@ -57,11 +62,14 @@ async def _send_text(message: str, chat_id: str | None = None) -> bool:
 
     for attempt in range(1, _MAX_RETRIES + 1):
         try:
-            await bot.send_message(
+            msg = await bot.send_message(
                 chat_id=target,
                 text=message,
                 parse_mode="HTML",
+                reply_markup=reply_markup,
             )
+            if sent_ids is not None and getattr(msg, "message_id", None):
+                sent_ids.append(int(msg.message_id))
             log.info("[dispatcher] message sent")
             return True
         except Exception as exc:
@@ -109,7 +117,8 @@ def _fit_caption(text: str) -> str:
     return "\n".join(out) or text[:keep]
 
 
-async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None) -> bool:
+async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None, reply_markup=None,
+                      sent_ids: list | None = None) -> bool:
     """Returns whether the card actually went out — by photo or by the text fallback.
 
     Returned `None` unconditionally until 2026-07-27, so every caller treated a total send failure
@@ -124,17 +133,20 @@ async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None)
     caption = _fit_caption(caption)
     try:
         with open(chart_path, "rb") as f:
-            await bot.send_photo(
+            msg = await bot.send_photo(
                 chat_id=target,
                 photo=f,
                 caption=caption,
                 parse_mode="HTML",
+                reply_markup=reply_markup,
             )
+        if sent_ids is not None and getattr(msg, "message_id", None):
+            sent_ids.append(int(msg.message_id))
         log.info("[dispatcher] chart photo sent")
         return True
     except Exception as exc:
         log.warning(f"[dispatcher] photo send failed ({exc}) — falling back to text")
-        return await _send_text(caption, chat_id=chat_id)
+        return await _send_text(caption, chat_id=chat_id, reply_markup=reply_markup, sent_ids=sent_ids)
 
 
 def _channel_all(strategy_id: str | None) -> bool:
@@ -206,8 +218,19 @@ async def on_setup_alert(signal: Signal) -> None:
               else await _send_text(caption))
     else:
         # DM: either an unconfirmed heads-up, or SIGNALS_DM_ONLY holding a channel card back.
-        ok = (await _send_photo(chart, caption, chat_id=settings.watchdog_chat_id) if has_chart
-              else await _send_private(caption))
+        # ✅ Tradeable / ⛔ Untradeable buttons when the card asked for them (16 Nov 2026) — DM only.
+        from notifications import mark_buttons
+        markup, mark_id = mark_buttons.prepare(signal)
+        sent_ids: list = []
+        if has_chart:
+            ok = await _send_photo(chart, caption, chat_id=settings.watchdog_chat_id,
+                                   reply_markup=markup, sent_ids=sent_ids)
+        elif markup is not None and settings.watchdog_chat_id:
+            ok = await _send_text(caption, chat_id=settings.watchdog_chat_id, reply_markup=markup,
+                                  sent_ids=sent_ids)
+        else:
+            ok = await _send_private(caption)
+        mark_buttons.remember(mark_id, settings.watchdog_chat_id, sent_ids)
     if has_chart:
         try:
             os.unlink(chart)
@@ -262,7 +285,11 @@ async def on_signal_confirmed(signal: Signal) -> None:
     # while a still-in-refinement one stays held). _watch heads-ups always stay in the DM.
     base   = signal.strategy_id[:-len("_watch")] if is_watch else signal.strategy_id
     exempt = base in {s.strip() for s in settings.dm_only_exempt.split(",") if s.strip()}
-    if _channel_all(signal.strategy_id):
+    if getattr(signal, "manual", False):
+        # A TRADE FROM A CANDLE HE MARKED TRADEABLE (16 Nov 2026) — his DM ONLY, never the channel,
+        # whatever CHANNEL_ALL or the exemption list say. It was his manual call, not the strategy's.
+        target = settings.watchdog_chat_id
+    elif _channel_all(signal.strategy_id):
         # EVERYTHING PUBLIC, and this deliberately overrides the `is_watch` rule below. That rule
         # exists so an UNCONFIRMED heads-up never leaks to subscribers; he has now asked for BX's
         # to go public on purpose, so it is an instruction rather than a leak. Only strategies
@@ -332,7 +359,9 @@ async def _autotrade(signal) -> None:
     # THE TRADING MODE (16 Nov 2026) — the admin switch, `execution/trade_mode`. AUTO places; CONFIRM
     # goes the same way and the placer offers it to him in the DM instead of placing; OFF records it.
     from execution import trade_mode
-    if trade_mode.mode() == trade_mode.OFF:
+    # A TRADE FROM A CANDLE HE MARKED TRADEABLE is placed whatever the switches say (his ruling, 16 Nov
+    # 2026) — his press was the decision. Every other guard still runs in the placer.
+    if trade_mode.mode() == trade_mode.OFF and not getattr(signal, "manual", False):
         # ── OFF MEANS "PLACE NOTHING", NOT "SEE NOTHING" (2026-10-05) ───────────────────────────────
         #
         # THIS LINE USED TO BE A BARE `return`, and that quietly took the Autotrade screen with it.
@@ -375,8 +404,14 @@ async def _autotrade(signal) -> None:
         return
     # `notify=_send_private` is what puts the order in his DM — placed AND stood-down. Without it
     # a placement existed only in the container log, which the next deploy destroys.
+    # A TRADE FROM A CANDLE HE MARKED TRADEABLE: its placed / refused messages are replied UNDER the
+    # announcement card he pressed (16 Nov 2026), so the answer sits with the question.
+    notify = _send_private
+    if getattr(signal, "manual", False) and getattr(signal, "mark_id", ""):
+        from notifications import mark_buttons
+        notify = mark_buttons.replier(signal.mark_id, _send_private)
     await place_for_signal(signal, acct.creds, acct.account_type, acct.equity,
-                           notify=_send_private, risk_base=acct.risk_base)
+                           notify=notify, risk_base=acct.risk_base)
 
 
 async def on_scan_started(payload: dict) -> None:

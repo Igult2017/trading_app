@@ -883,5 +883,23 @@ CREATE INDEX IF NOT EXISTS trade_confirmations_status_idx ON trade_confirmations
 -- A TEST card from the admin page (16 Nov 2026): runs the whole chain, can never reach the placer.
 ALTER TABLE trade_confirmations ADD COLUMN IF NOT EXISTS is_test BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- HIS TRADEABLE / UNTRADEABLE PRESS on a momentum-candle announcement (16 Nov 2026). One row per
+-- announced candle. status: open -> tradeable | untradeable (his press, by the website server; he may
+-- change his mind) -> used (a trade was built from it) | expired (a newer candle, or 24 h).
+CREATE TABLE IF NOT EXISTS candle_marks (
+  id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  symbol      TEXT NOT NULL,
+  bar_time    BIGINT NOT NULL,
+  bullish     BOOLEAN NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'open',
+  chat_id     TEXT,
+  message_id  INTEGER,
+  signal_id   VARCHAR,
+  created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+  decided_at  TIMESTAMP,
+  used_at     TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS candle_marks_symbol_idx ON candle_marks (symbol, status);
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

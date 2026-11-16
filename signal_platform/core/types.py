@@ -259,6 +259,14 @@ class Signal:
     # instead of placing it; True means he pressed Confirm (or it is an order of his being put back
     # after news), so the placer places it — still through every guard. In memory only.
     confirmed:          bool = False
+    # HIS TRADEABLE / UNTRADEABLE BUTTONS (16 Nov 2026). `mark_candle` = (symbol, bar_time, bullish) on
+    # a momentum ANNOUNCEMENT asks the dispatcher for the two buttons (`notifications/mark_buttons`).
+    # `manual` + `mark_id` are set on a TRADE built from a candle he marked Tradeable
+    # (`strategies/vix1_marked`): it goes to his DM only, is placed whatever the switches say, and the
+    # 7pm cut-off does not apply — every other safety check does. In memory only.
+    mark_candle:        Optional[tuple] = None
+    manual:             bool = False
+    mark_id:            str = ""
     # Optional price BANDS to shade on the rendered chart card: [(low, high, colour, label)].
     # DELIBERATELY GENERIC. The renderer must not know what any strategy means by a band — one
     # strategy's supply zone and another's range are the same four numbers to it, and a renderer

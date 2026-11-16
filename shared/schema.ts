@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal, boolean, integer, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, boolean, integer, bigint, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1205,6 +1205,25 @@ export const tradeConfirmations = pgTable("trade_confirmations", {
   settledAt:  timestamp("settled_at"),
   isTest:     boolean("is_test").notNull().default(false),   // admin "Send a test card"
 }, (t) => [index("trade_confirmations_status_idx").on(t.status)]);
+
+/**
+ * HIS TRADEABLE / UNTRADEABLE PRESS on a momentum-candle announcement (16 Nov 2026). Written by the
+ * signal engine when the announcement is sent; his press is recorded by the website server
+ * (`server/services/tradeConfirmPress.ts`); read by `signal_platform/strategies/vix1_marked.py`.
+ */
+export const candleMarks = pgTable("candle_marks", {
+  id:        varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol:    text("symbol").notNull(),
+  barTime:   bigint("bar_time", { mode: "number" }).notNull(),   // the candle's open, epoch seconds
+  bullish:   boolean("bullish").notNull(),
+  status:    text("status").notNull().default("open"),
+  chatId:    text("chat_id"),
+  messageId: integer("message_id"),
+  signalId:  varchar("signal_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  decidedAt: timestamp("decided_at"),
+  usedAt:    timestamp("used_at"),
+}, (t) => [index("candle_marks_symbol_idx").on(t.symbol, t.status)]);
 
 export type SyncEvent = typeof syncEvents.$inferSelect;
 export type AutotradeOrder = typeof autotradeOrders.$inferSelect;

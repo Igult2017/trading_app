@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { buildDailySchedule, shouldStillFire } from './marketSessionAlerts';
 import { buildNewsSchedule, type NewsEventLike } from './newsAlerts';
 import { attachTradeConfirmPress } from './tradeConfirmPress';
+import { attachCandleMarkPress } from './candleMarkPress';
 
 // Session definitions and the whole "what fires when" decision live in marketSessionAlerts so the
 // weekend rule is testable on any day of the week. The local HIGH_VOLUME_SESSIONS const that used
@@ -138,6 +139,8 @@ export class TelegramNotificationService {
       this.setupCommands();
       // His Confirm / Reject presses on DM-confirmation cards (16 Nov 2026).
       attachTradeConfirmPress(this.bot);
+      // His Tradeable / Untradeable presses on momentum-candle announcements (16 Nov 2026).
+      attachCandleMarkPress(this.bot);
       console.log('[Telegram] Bot ready with polling enabled');
 
     } catch (error: any) {

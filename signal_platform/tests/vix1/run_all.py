@@ -92,6 +92,7 @@ TESTS = [
     "test_news_pull.py",            # 15 Nov: a waiting order is pulled before news and put back after
     "test_dm_confirmation.py",      # 16 Nov: the trading switch; DM Confirm / Reject
     "test_confirm_audit_fixes.py",  # 16 Nov: the end-to-end audit's fixes, incl. the TEST card
+    "test_candle_marks.py",         # 16 Nov: his Tradeable / Untradeable press on a momentum candle
     "test_autotrade_decision_log.py",  # every autotrade decision is written where a deploy cannot erase it
     # ADDED 2026-08-30. The watchdog is the point: a dead price stream looks exactly like a quiet
     # market, so it is tested by KILLING the session, not by reading the code.

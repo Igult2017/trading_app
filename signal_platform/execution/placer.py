@@ -129,7 +129,8 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
         #
         # Recorded through `decision_log.refused` so it appears on the Autotrade screen beside every
         # other refusal — a trade not taken has to be as visible as one that was.
-        if getattr(signal, "size_from_memory", False):
+        # (Not for a candle HE marked Tradeable: this is a SETUP check, and his press overrides those.)
+        if getattr(signal, "size_from_memory", False) and not getattr(signal, "manual", False):
             why = ("its momentum candle was too small for the size required now and only qualified "
                    "on the 24-hour memory of an earlier, smaller requirement")
             log.info(f"[execution] NOT placing {symbol} {side} — {why}")
@@ -170,7 +171,8 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
         # WHAT THE BROKER HAS RIGHT NOW, so the duplicate rule can tell a live order from a withdrawn
         # one (guards rule 7, fixed 2026-09-15).
         book = await _live_book()
-        why = guards.check(symbol, side, signal.strategy_id, account_type, equity, lots, book=book)
+        why = guards.check(symbol, side, signal.strategy_id, account_type, equity, lots, book=book,
+                           manual=bool(getattr(signal, "manual", False)))
         if why:
             log.info(f"[execution] NOT placing {symbol} {side} — {why}")
             await decision_log.refused(signal, why, lots)

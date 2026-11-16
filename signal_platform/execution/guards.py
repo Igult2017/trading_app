@@ -88,8 +88,12 @@ def _recent(hours: int = 24) -> list[tuple[datetime, str, str, str, int | None]]
 
 def check(symbol: str, direction: str, strategy: str,
           account_type: str, equity: float, lots: float,
-          book: tuple[list, set[int]] | None = None) -> str | None:
+          book: tuple[list, set[int]] | None = None, manual: bool = False) -> str | None:
     """None = place it. A string = refuse, and that string is the reason.
+
+    `manual` = a trade from a candle HE marked Tradeable (16 Nov 2026). It skips exactly two rules —
+    1 (the trading switch: his press was the decision) and 4c (the 7pm cut-off: *"It can be any time"*)
+    — and every other rule applies as for any order.
 
     `book` is what the broker has right now: open positions and the ids of resting orders, from ONE
     reply (`monitor.position_book.snapshot`). None means it could not be read. Only rule 7 uses it.
@@ -100,7 +104,7 @@ def check(symbol: str, direction: str, strategy: str,
     #    (in CONFIRM the placer offers the signal to him instead of placing, AFTER these rules pass).
     #    Unreadable reads as OFF.
     from execution import trade_mode
-    if trade_mode.mode() == trade_mode.OFF:
+    if trade_mode.mode() == trade_mode.OFF and not manual:
         return f"{trade_mode.describe(trade_mode.OFF)} — nothing is placed"
 
     # 2. DEMO ONLY — checked at RUNTIME against the account we are about to trade, not assumed from
@@ -150,7 +154,7 @@ def check(symbol: str, direction: str, strategy: str,
     #
     #     REFUSES ON A BAD VALUE, like every other guard in this file. A cut-off that cannot be
     #     read is not a licence to trade all night.
-    cutoff = (settings.autotrade_cutoff_utc or "").strip()
+    cutoff = "" if manual else (settings.autotrade_cutoff_utc or "").strip()
     if cutoff:
         try:
             hh, mm = (int(x) for x in cutoff.split(":", 1))
