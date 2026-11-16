@@ -232,7 +232,8 @@ goes quiet.
 
 ## B. VIX.1
 
-### B37 — The chaotic-move check is REPORTED on the DM but does not refuse trades yet. Built 17 Nov 2026 — HIS DECISION PENDING
+### B37 — ~~The chaotic-move check is REPORTED on the DM but does not refuse trades yet~~ SWITCHED ON 17 Nov 2026 at his word ("Just switch it on already") — both trading routes refuse
+- **Still true, not fixable by a look-back:** the first candle INTO a chaotic market after a clean move reads CLEAN.
 - **What:** `strategies/vix1_chaos.py` labels every momentum announcement CLEAN MOVE / CHAOTIC MOVE · WAIT FOR
   2ND/3RD. It gates nothing — the stomach rule's road (watch first, then switch on).
 - **Waiting on:** his "switch it on". Then it becomes one veto in `vix1_bias.detect_bias`'s list, and the teeth

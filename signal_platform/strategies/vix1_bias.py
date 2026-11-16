@@ -33,6 +33,7 @@ from strategies.vix1_momentum import momentum_run, size_note, veto_reason
 from strategies import vix1_log
 from shared.candle_math import atr
 from strategies import vix1_choch
+from strategies import vix1_chaos
 from strategies import vix1_chop
 from strategies import vix1_regime
 from strategies import vix1_retracement
@@ -257,6 +258,12 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
                 vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: the change-of-character momentum "
                                      f"candle closed before this instrument was first scanned — "
                                      f"backfill, not a live setup | {state}")
+                return None
+            # HIS CHAOTIC-MOVE CHECK (17 Nov 2026) — asked on THIS route too, because it returns before
+            # the main route's refusal list; a gate on one route only would let chaos through the other.
+            chaos = vix1_chaos.refusal(h1, bias.bullish, symbol)
+            if chaos:
+                vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {chaos} | {state}")
                 return None
             vix1_log.say(symbol, f"[vix1] {symbol} CHoCH ENTRY: {why} | {state}")
             return bias
@@ -534,6 +541,9 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         for veto in (None if regime.tradeable else
                      f"the market state is {regime.kind.upper()} - {regime.why}",
                      trend_reproven(mstate, at_mc, run_time=_rt),
+                     # HIS CHAOTIC-MOVE CHECK (17 Nov 2026): a momentum candle in a tug-of-war market
+                     # waits for the 2nd or 3rd. Read on the NEWEST closed candle — the one traded.
+                     vix1_chaos.refusal(h1, bullish, symbol),
                      (None if ignore_count else
                       vix1_retracement.entry_timing(at_mc, 1 if bullish else -1, break_time=_bt)),
                      market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK),

@@ -30,8 +30,10 @@ HOW THE NUMBERS WERE CHOSEN, 17 Nov 2026, on real GBP/USD H1 and the strategy's 
   * Over 7 years it reads 37% of momentum candles as CHAOTIC; after those, the next candle is a momentum
     candle 4.2% of the time and the one after 6.1%.
 
-⚠ REPORTED ON THE DM ONLY — IT GATES NOTHING. The stomach rule's road: watch it first, switch it on when he
-says so. `test_chaos.py` fails if any file but the DM announcement reads this module.
+⚠ IT DECIDES, SINCE 17 NOV 2026 — his words: "Just switch it on already. I am losing money."
+`refusal()` is asked on BOTH routes that emit a trade in `vix1_bias.detect_bias` (the change-of-character
+route and the main refusal list). The DM announcement still DESCRIBES every candle via `verdict()`.
+`test_chaos.py` fails if any other file reads this module.
 """
 from __future__ import annotations
 
@@ -109,7 +111,20 @@ def verdict(h1: list[Candle], i: int, bullish: bool, symbol: str) -> tuple[str, 
     if is_second_or_third(h1, i, bullish, symbol):
         return ("CHAOTIC · 2ND/3RD CANDLE",
                 f"CHAOTIC-MOVE CHECK — the market is a tug-of-war ({nums}), but this IS the 2nd or 3rd "
-                f"momentum candle, so his rule would let it trade. Watching only — this does not gate anything yet.")
+                f"momentum candle, so his rule lets it trade (the other rules still apply).")
     return ("CHAOTIC MOVE · WAIT FOR 2ND/3RD",
-            f"CHAOTIC-MOVE CHECK — tug-of-war market ({nums}). His rule: wait for the next or the one after to "
-            f"be a momentum candle too. Watching only — this does not gate anything yet.")
+            f"CHAOTIC-MOVE CHECK — tug-of-war market ({nums}). No signal will be taken from this candle; "
+            f"a trade comes only if the next candle or the one after is a momentum candle too.")
+
+
+def refusal(h1: list[Candle], bullish: bool, symbol: str) -> str | None:
+    """THE GATE (switched on 17 Nov 2026 — *"Just switch it on already. I am losing money."*).
+    Asked about the NEWEST closed candle — the one both trading routes in `vix1_bias.detect_bias` trade.
+    -> why it is refused, or None (clean move, too little history, or it IS the 2nd/3rd candle)."""
+    i = len(h1) - 1
+    if i < 1 or not is_chaotic(h1, i) or is_second_or_third(h1, i, bullish, symbol):
+        return None
+    ct, gb = clean_travel(h1, i), give_back(h1, i)
+    return (f"chaotic move — tug-of-war candles before this momentum candle (clean travel {ct:.0%} over "
+            f"{CLEAN_LOOK}; {gb[0]:.0%} of {gb[1]} big candles given back in {GIVE_LOOK}); waiting for the "
+            f"next or the one after to be a momentum candle too")

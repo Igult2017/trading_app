@@ -63,7 +63,11 @@ else:
     print("\n5. the verdict the DM card carries:")
     tag, line = ch.verdict(BARS, at("2026-11-16 09:00"), False, SYM)
     s.check("chaotic candle -> WAIT tag", tag, "CHAOTIC MOVE · WAIT FOR 2ND/3RD")
-    s.check("...and says it gates nothing yet", "does not gate anything yet" in line, True)
+    s.check("...and says no signal will be taken (it is ON)", "No signal will be taken from this candle" in line, True)
+    s.check("THE GATE refuses his chaotic candle (Mon 16 09:00 SELL)",
+            ch.refusal(BARS[:at("2026-11-16 09:00") + 1], False, SYM) is not None, True)
+    s.check("THE GATE lets his clean candle through (Fri 06 16:00 SELL)",
+            ch.refusal(BARS[:at("2026-11-06 16:00") + 1], False, SYM), None)
     s.check("clean candle -> CLEAN MOVE tag", ch.verdict(BARS, at("2026-11-06 16:00"), False, SYM)[0], "CLEAN MOVE")
     win = BARS[:at("2026-11-16 09:00") + 1]
     got = mw.check(win, SYM)
@@ -85,11 +89,19 @@ try:
 finally:
     ch.qualifies_for_trade = _real
 
-print("\n7. it gates NOTHING yet — only the DM announcement reads it:")
+print("\n7. it DECIDES (ON since 17 Nov) — on BOTH trading routes, and nowhere else:")
 root = Path(__file__).resolve().parents[2]
 users = sorted(f.relative_to(root).as_posix() for f in root.rglob("*.py")
                if not f.relative_to(root).as_posix().startswith("tests/") and f.name != "vix1_chaos.py"
                and "vix1_chaos" in f.read_text(encoding="utf-8", errors="replace"))
-s.teeth("only strategies/vix1_momentum_watch.py imports vix1_chaos", users == ["strategies/vix1_momentum_watch.py"])
+s.teeth("exactly two readers: the trade decision (vix1_bias) and the DM card (vix1_momentum_watch)",
+        users == ["strategies/vix1_bias.py", "strategies/vix1_momentum_watch.py"])
+bias_src = (root / "strategies/vix1_bias.py").read_text(encoding="utf-8")
+# the CALLS, matched as calls — `def refusal(` lives in another file, so a deleted call cannot hide here
+s.teeth("the change-of-character route asks it before returning its trade",
+        "chaos = vix1_chaos.refusal(h1, bias.bullish, symbol)" in bias_src)
+s.teeth("the main route asks it in its refusal list", "vix1_chaos.refusal(h1, bullish, symbol)," in bias_src)
+s.teeth("the DM card only DESCRIBES (verdict), never decides (refusal)",
+        "vix1_chaos.refusal(" not in (root / "strategies/vix1_momentum_watch.py").read_text(encoding="utf-8"))
 
 s.done()

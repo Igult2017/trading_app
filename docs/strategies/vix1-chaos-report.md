@@ -27,7 +27,11 @@ own `qualifies_for_trade`. Counts only: nothing simulated, no trade scored, so t
 46 checks pin his 14 real candles, the 2nd/3rd exemption, and that nothing trades on it yet. Deliberately
 loosening the two lines makes 7 of them fail.
 
-## Recommendation
+## Status
+**SWITCHED ON 17 Nov 2026** at his word — it now refuses chaotic-market momentum candles on both trading routes
+(see the `vix1.md` fix log, 2026-11-17 (b)). The recommendation below was the plan before that.
+
+## Recommendation (superseded by the switch-on)
 Watch it on the DM (every momentum announcement now says CLEAN MOVE or CHAOTIC MOVE · WAIT FOR 2ND/3RD). When the
 labels match what you see on the chart, say "switch it on" and it becomes one refusal in the strategy's existing
 list — a chaotic-market momentum candle is then only traded if the next or the one after is a momentum candle too.
