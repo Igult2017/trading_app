@@ -232,6 +232,22 @@ goes quiet.
 
 ## B. VIX.1
 
+### B36 — Autotrade could not withdraw ANY order: the broker's order prices were divided by 100,000. Found 16 Nov 2026 — FIXED 16 Nov 2026
+
+- **His report:** *"Can you check why autotrade is unable to withdraw orders?"*
+- **The live event:** GBP/JPY SELL order 377158463 (placed 10:04:45, stop 210.597). The setup died at 10:19:37;
+  the canceller refused twice (10:19:55, 10:20:25): *"NOT cancelling … you moved its stop to 0.00210597"*.
+- **Cause:** pending-order prices in the reconcile reply are real prices (`ProtoOAOrder.stopLoss` etc. are
+  protobuf `double`s); `data/ctrader_positions.py` divided them by 100,000 (stop + entry since 8 Nov; the
+  target since 15 Nov). Every order then looked hand-moved, so `canceller._levels_he_moved` protected it,
+  and the garbage was ADOPTED into the saved signal (canceller + `signal_monitor._adopt_moved_levels`).
+  The test encoded the same premise with fake integer prices.
+- **Fix:** read order prices as-is; the test now uses a REAL `ProtoOAReconcileRes` (his order: 210.597 reads
+  210.597). One-off repair in `docker-migrate.sql` puts back any adopted entry/stop below 1% of the placed
+  level (count in the deploy log, "B36 repair"). Outcomes already recorded against garbage levels are NOT
+  rewritten.
+- **Live proof pending:** the next dead setup's order is withdrawn (`[canceller] … cancelled resting order`).
+
 ### B35 — ~~The GBP/JPY void size is printed 10 times too small in VIX.1's refusal message~~ FIXED 2026-11-15
 
 **FIXED 15 Nov 2026**, in the same change as his void rule: `_is_a_void` now uses the pair's own pip

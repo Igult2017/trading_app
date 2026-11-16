@@ -901,5 +901,29 @@ CREATE TABLE IF NOT EXISTS candle_marks (
 );
 CREATE INDEX IF NOT EXISTS candle_marks_symbol_idx ON candle_marks (symbol, status);
 
+-- ── B36 REPAIR (16 Nov 2026): signals given a broker price divided by 100,000 ──────────────────────
+-- Since 8 Nov the order-reading code divided ORDER prices by 100,000 (they are real prices), so a stop of
+-- 210.597 read as 0.00210597, looked hand-moved, and was ADOPTED into the saved signal. This puts back,
+-- from what autotrade actually placed (`autotrade_orders`), ONLY a level below 1% of the placed level —
+-- a value no real price can have. Idempotent: once repaired, nothing matches. Outcomes the monitor may
+-- already have recorded are not rewritten.
+DO $$
+DECLARE n INTEGER;
+BEGIN
+  WITH placed AS (
+    SELECT DISTINCT ON (signal_id) signal_id, entry_price, stop_loss
+      FROM autotrade_orders WHERE signal_id IS NOT NULL ORDER BY signal_id, placed_at DESC)
+  UPDATE trading_signals s
+     SET entry_price = CASE WHEN s.entry_price < p.entry_price / 100 THEN p.entry_price ELSE s.entry_price END,
+         stop_loss   = CASE WHEN s.stop_loss   < p.stop_loss   / 100 THEN p.stop_loss   ELSE s.stop_loss   END,
+         levels_adopted_at = NULL
+    FROM placed p
+   WHERE p.signal_id = s.id
+     AND s.levels_adopted_at IS NOT NULL
+     AND (s.entry_price < p.entry_price / 100 OR s.stop_loss < p.stop_loss / 100);
+  GET DIAGNOSTICS n = ROW_COUNT;
+  RAISE NOTICE 'B36 repair: % signal(s) had a 1e5-misread entry/stop put back from the placed order', n;
+END $$;
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

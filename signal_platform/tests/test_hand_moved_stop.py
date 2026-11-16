@@ -146,10 +146,23 @@ class _Res:
         self.order = orders
 
 
-# Prices in that reply are scaled by a fixed 100,000, like trendbars (ctrader_positions' header).
-got = ctrader_positions._resting_stops(_Res([_Order(11, 130500), _Order(12, 0), _Order(13, 212893)]))
-check("the stop is divided by the fixed 100,000", got.get(11, {}).get("sl"), 1.305)
-check("...and a JPY-scale price too", got.get(13, {}).get("sl"), 2.12893)
+# ORDER PRICES ARE REAL PRICES (corrected 16 Nov 2026, `docs/OPEN.md` B36). This section used fake integers
+# (130500 -> 1.305) and asserted a division by 100,000 — the SAME wrong premise as the code, so it proved
+# the bug instead of catching it: his GBP/JPY stop 210.597 was read as 0.00210597, every order looked
+# hand-moved, and no order was withdrawn. Now built from the REAL message type the broker sends.
+from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAReconcileRes   # noqa: E402
+real = ProtoOAReconcileRes()
+o = real.order.add(orderId=377158463, orderType=ctrader_positions._ORDER_TYPE_STOP)
+o.stopPrice, o.stopLoss, o.takeProfit = 210.394, 210.597, 209.581
+o.tradeData.volume, o.tradeData.label = 8300000, "auto-vix1"
+real.order.add(orderId=12)                                   # an order with no levels at all
+got = ctrader_positions._resting_stops(real)
+check("his real GBP/JPY sell: the stop reads 210.597, as the broker sent it", got.get(377158463, {}).get("sl"),
+      210.597)
+check("...the entry reads 210.394", got.get(377158463, {}).get("entry"), 210.394)
+check("...and the target 209.581", ctrader_positions._resting_meta(real).get(377158463, {}).get("tp"), 209.581)
+teeth("NOT the 0.00210597 that made every order look hand-moved",
+      got.get(377158463, {}).get("sl") != 0.00210597)
 teeth("an order with NO level at all is ABSENT, not present as 0.0", 12 not in got)
 check("ids still come back unchanged",
       ctrader_positions._resting_ids(_Res([_Order(11, 1), _Order(12, 0)])), {11, 12})
@@ -258,9 +271,10 @@ class _Typed:
 
 
 parsed = ctrader_positions._resting_stops(_Res([
-    _Typed(1, ctrader_positions._ORDER_TYPE_STOP,  stop_price=131250, sl=130700),
-    _Typed(2, ctrader_positions._ORDER_TYPE_LIMIT, limit_price=130100),
-    _Typed(3, 99, stop_price=131250),              # an order type we do not model
+    # Real prices, as the broker sends them (B36, 16 Nov 2026) — not 1e5-scaled integers.
+    _Typed(1, ctrader_positions._ORDER_TYPE_STOP,  stop_price=1.31250, sl=1.30700),
+    _Typed(2, ctrader_positions._ORDER_TYPE_LIMIT, limit_price=1.30100),
+    _Typed(3, 99, stop_price=1.31250),             # an order type we do not model
 ]))
 check("a STOP entry is read off stopPrice (VIX.1 is always a stop)",
       parsed.get(1, {}).get("entry"), 1.3125)

@@ -14,10 +14,15 @@ ONE REQUEST, THE SAME LOCK. `ProtoOAReconcileReq` returns every open position an
 single reply, so this costs one round trip per poll and takes `ctrader_client._req_lock` exactly like
 the candle fetch — the shared socket is strictly request/response and nothing here changes that.
 
-PRICES ARE 1e5-SCALED, MONEY IS `moneyDigits`-SCALED, AND THEY ARE DIFFERENT SCALES ON THE SAME
-MESSAGE. `price`, `stopLoss` and `takeProfit` divide by a fixed 100,000 like trendbars; `swap` and
-`commission` divide by `10^moneyDigits` off the position itself. Mixing them is the classic cTrader
-foot-gun (`Q-K19` in the skill's ledger), so each is converted once, here, and never again.
+PRICES ARE REAL PRICES, MONEY IS `moneyDigits`-SCALED. On positions AND on pending orders, `price`,
+`stopPrice`, `limitPrice`, `stopLoss` and `takeProfit` are protobuf `double`s carrying the display price
+as-is — read them raw. ONLY trendbars and ticks are 1e5-scaled integers. `swap` and `commission` divide
+by `10^moneyDigits` off the position itself.
+
+⚠ CORRECTED 16 Nov 2026. This header said prices "divide by a fixed 100,000 like trendbars", and the
+pending-order readers below did exactly that — so a stop of 210.597 was read as 0.00210597, every
+autotrade order looked hand-moved, and the canceller refused to withdraw ANY order since 8 Nov
+(`docs/OPEN.md` B36). Proved from the installed definitions: `ProtoOAOrder.stopLoss` is type double.
 
 COMMISSION IS ONE SIDE ONLY. The `commission` field is what has been charged SO FAR — the opening
 half. Closing costs the same again, so the round-trip cost is 2x it. That matters because the whole
@@ -38,7 +43,6 @@ from data.ctrader_client import _load_symbols, _req_lock, _symbols
 
 log = logging.getLogger(__name__)
 
-_DIVISOR = 100_000.0
 _TYPE_RECONCILE_RES = ProtoOAReconcileRes().payloadType
 _TYPE_DEAL_LIST_RES = ProtoOADealListRes().payloadType
 
@@ -76,9 +80,10 @@ _ORDER_TYPE_STOP = 2
 def _resting_stops(res) -> dict[int, dict[str, float]]:
     """order id -> {"entry": trigger price, "sl": stop loss}, for every pending order.
 
-    Each price is scaled by the same fixed 100,000 as everything else in this reply (see the module
-    header). A level the order does not carry is ABSENT rather than present-as-zero: zero is a
-    price, and "he has no stop" must never be read as "his stop is at 0".
+    Each price is the REAL price, read as-is — order prices are protobuf doubles, not the 1e5-scaled
+    integers trendbars use (see the module header; dividing them was B36). A level the order does not
+    carry is ABSENT rather than present-as-zero: zero is a price, and "he has no stop" must never be
+    read as "his stop is at 0".
 
     ⚠ BOTH LEVELS, because he moves both. His ask was the stop (*"so that i can adjust SL
     manually"*), and then: *"Does it also detect when i moved the entry price to a different entry
@@ -90,13 +95,13 @@ def _resting_stops(res) -> dict[int, dict[str, float]]:
         levels: dict[str, float] = {}
         sl = getattr(o, "stopLoss", 0) or 0
         if sl:
-            levels["sl"] = float(sl) / 100_000
+            levels["sl"] = float(sl)
         otype = getattr(o, "orderType", None)
         raw_entry = (getattr(o, "stopPrice", 0) if otype == _ORDER_TYPE_STOP
                      else getattr(o, "limitPrice", 0) if otype == _ORDER_TYPE_LIMIT
                      else 0) or 0
         if raw_entry:
-            levels["entry"] = float(raw_entry) / 100_000
+            levels["entry"] = float(raw_entry)
         if levels:
             out[int(o.orderId)] = levels
     return out
@@ -121,7 +126,7 @@ def _resting_meta(res) -> dict[int, dict]:
             meta["volume"] = int(vol)
         tp = getattr(o, "takeProfit", 0) or 0
         if tp:
-            meta["tp"] = float(tp) / 100_000
+            meta["tp"] = float(tp)          # a real price, like every order price (B36)
         exp = getattr(o, "expirationTimestamp", 0) or 0
         if exp:
             meta["expiry_ms"] = int(exp)
