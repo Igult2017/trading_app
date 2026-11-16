@@ -1767,7 +1767,7 @@ export default function JournalForm({ sessionId, startingBalance }: { sessionId?
               achievedRRAutoRef.current = false;
             }
             const methodLabel = res.method === "gemini" || res.method === "nvidia" ? "Powered by AI" : "Powered by OCR";
-            const geminiWarn  = res.geminiWarning ? ` ⚠ ${res.geminiWarning}` : "";
+            const geminiWarn  = [res.note, res.geminiWarning].filter(Boolean).map((w: string) => ` ⚠ ${w}`).join("");
             setS2(prev => ({ ...prev, ocrConfidence: methodLabel, ocrValidation: geminiWarn }));
           } else if (res?.error) {
             setS2(prev => ({ ...prev, ocrConfidence: "", ocrValidation: `Analysis failed: ${res.error}` }));
