@@ -136,13 +136,16 @@ def _comes_back_without(*patches):
             setattr(m, a, old)
 
 
-# ⚠ 2026-11-17: A THIRD RULE REFUSES IT — his chaotic-move check (`vix1_chaos`) — so it stands aside too.
-from strategies import vix1_chaos  # noqa: E402
+# ⚠ 2026-11-17: A THIRD RULE REFUSES IT — his chaotic-move check (`vix1_chaos`) — and a FOURTH, his
+# pullback-end rule (`vix1_pullback_end`): it ends a pullback but is not a 2.5x candle on its own. Proven by
+# standing only that one aside. All stand aside so the sabotage still isolates the chop gate.
+from strategies import vix1_chaos, vix1_pullback_end  # noqa: E402
 s.teeth("the gate is what stops it — with the rule removed the trade comes back",
         _comes_back_without(
             (vix1_chop, "not_tradeable", lambda *a, **k: None),
             (vix1_open_rule, "verdict", lambda *a, **k: (True, 1.0, "past-stomach")),
-            (vix1_chaos, "refusal", lambda *a, **k: None)))
+            (vix1_chaos, "refusal", lambda *a, **k: None),
+            (vix1_pullback_end, "refusal", lambda *a, **k: None)))
 
 print()
 print("NO TUNED NUMBERS IN IT — his whole objection")
