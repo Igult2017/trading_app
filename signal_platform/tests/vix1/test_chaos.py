@@ -63,7 +63,7 @@ else:
     print("\n5. the verdict the DM card carries:")
     tag, line = ch.verdict(BARS, at("2026-11-16 09:00"), False, SYM)
     s.check("chaotic candle -> WAIT tag", tag, "CHAOTIC MOVE · WAIT FOR 2ND/3RD")
-    s.check("...and says no signal will be taken (it is ON)", "No signal will be taken from this candle" in line, True)
+    s.check("...and says what would let a trade happen", "No trade unless one of the next 2 candles is momentum too" in line, True)
     s.check("THE GATE refuses his chaotic candle (Mon 16 09:00 SELL)",
             ch.refusal(BARS[:at("2026-11-16 09:00") + 1], False, SYM) is not None, True)
     s.check("THE GATE lets his clean candle through (Fri 06 16:00 SELL)",
@@ -75,14 +75,16 @@ else:
     note = mw.note(SYM, got[1], got[0], 0.0001, "VIX.1", got[2], got[3], got[4])
     # 17 Nov: *"in the DM, i cant tell whether it is passed or not"* — so the card leads with PASSED/FAILED.
     s.check("...the card's FIRST detail says FAILED, plainly", note.technical_reasons[0].startswith(
-        "❌ CHAOTIC MARKET TEST: FAILED"), True)
+        "❌ Chaotic market"), True)
     s.check("...the stomach rule gets its own PASSED/FAILED line second",
-            note.technical_reasons[1].split(" — ")[0] in ("✅ STOMACH RULE: PASSED", "❌ STOMACH RULE: FAILED"), True)
+            note.technical_reasons[1][:1] in ("✅", "❌") and "Stomach rule" in note.technical_reasons[1], True)
+    s.check("...line 2 is the verdicts at a glance", note.label.startswith("SELL · ❌ CHAOTIC MARKET · "), True)
+    s.check("...less wordy: every detail is one short line", max(len(r) for r in note.technical_reasons) <= 120, True)
     s.check("...and the card stays within the five details shown", len(note.technical_reasons) <= 5, True)
     from notifications.telegram_formatter import format_setup_alert  # noqa: E402
     text = format_setup_alert(note)
     s.check("...the message no longer says '✅ QUALIFIED' (it read as 'passed every test')", "QUALIFIED" in text, False)
-    s.check("...it says it proposes no trade", "This message proposes no trade" in text, True)
+    s.check("...it says it is not a trade signal", "Not a trade signal" in text, True)
 
 print("\n5b. HIS EUR/USD candle of 17 Nov, 08:00 EAT — the DM he could not read:")
 EUR = load("EURUSD_H1_nov17_chaos.csv", "H1")
@@ -95,7 +97,7 @@ else:
             (True, 0.01))
     got = mw.check(EUR, "EUR/USD")
     n = mw.note("EUR/USD", got[1], got[0], 0.0001, "VIX.1", got[2], got[3], got[4])
-    s.check("his card now opens with FAILED", n.technical_reasons[0].startswith("❌ CHAOTIC MARKET TEST: FAILED"), True)
+    s.check("his card now opens with FAILED", n.technical_reasons[0].startswith("❌ Chaotic market"), True)
 
 print("\n6. the 2nd/3rd-candle exemption (hand-built):")
 from core.types import Candle  # noqa: E402

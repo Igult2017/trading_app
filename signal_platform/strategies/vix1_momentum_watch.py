@@ -107,22 +107,18 @@ def dedup_key(symbol: str, bar: Candle) -> str:
 
 
 def _glance(name: str, line: str) -> str:
-    """'CHAOTIC MARKET ❌ FAILED' — the one-glance form of a test's full line, read off that line's own icon."""
-    verdict = ("✅ PASSED" if line.startswith("✅") else "❌ FAILED" if line.startswith("❌") else "➖ NOT JUDGED")
-    return f"{name} {verdict}"
+    """'❌ CHAOTIC MARKET' — the one-glance form of a test's line, read off that line's own icon."""
+    return f"{line[:1] if line[:1] in '✅❌' else '➖'} {name}"
 
 
 def _stomach_line(stomach: tuple[str, str]) -> str:
-    """His stomach rule's sentence, led by a plain ✅ PASSED / ❌ FAILED (its own "STOMACH RULE — APPROVED:"
-    opening is replaced, not repeated)."""
-    tag, sentence = stomach
-    head = ("✅ STOMACH RULE: PASSED" if tag.endswith("APPROVED")
-            else "❌ STOMACH RULE: FAILED" if tag.endswith("DISQUALIFIED") else "➖ STOMACH RULE: NOT JUDGED")
-    rest = sentence
-    for opening in ("STOMACH RULE — APPROVED: ", "STOMACH RULE — DISQUALIFIED: ", "STOMACH RULE — not judged — "):
-        if rest.startswith(opening):
-            rest = rest[len(opening):]
-    return f"{head} — {rest}"
+    """His stomach rule in one short line (the full sentence is in the rule itself and the log)."""
+    tag, _ = stomach
+    if tag.endswith("APPROVED"):
+        return "✅ Stomach rule passed."
+    if tag.endswith("DISQUALIFIED"):
+        return "❌ Stomach rule — opened in the far half of the candle before it."
+    return "➖ Stomach rule not judged (no body before it)."
 
 
 def note(symbol: str, bullish: bool, bar: Candle, pip: float, strategy_name: str,
@@ -171,21 +167,19 @@ def note(symbol: str, bullish: bool, bar: Candle, pip: float, strategy_name: str
         # said "✅ QUALIFIED", which only meant "it is a momentum candle" but read as "it passed".
         # LINE 2 KEEPS THE VERDICTS — his 9 Nov ask that the second line state the stomach verdict — but as a
         # plain glance, ✅ PASSED / ❌ FAILED per test, not the old run-on tags.
-        label             = (f"{side} · ANNOUNCEMENT ONLY"
+        # LESS WORDY (17 Nov, *"make the card less wordy but more clearer"*): the title already says
+        # ANNOUNCEMENT ONLY, so line 2 is just the verdicts; the long disclaimer and the italic summary are gone
+        # because the status line says it in four words.
+        label             = (f"{side}"
                              + (f" · {_glance('CHAOTIC MARKET', chaos[1])}" if chaos else "")
                              + (f" · {_glance('STOMACH', _stomach_line(stomach))}" if stomach and stomach[0] else "")),
-        status_note       = "ℹ️ This message proposes no trade — the trade tests are below.",
+        status_note       = "ℹ️ Not a trade signal.",
         chart_marks       = [(bar.time, "MOMENTUM")],
         technical_reasons = [r for r in [
             chaos and chaos[1],
             stomach and _stomach_line(stomach),
-            f"A {side} momentum candle has CLOSED on the 1H — {body:.1f} pip body, grade {grade}.",
-            admitted_note and f"How it qualified: {admitted_note}",
-            # ONE bullet, not two: the formatter shows only five details
-            # (`telegram_formatter.py:52`) and the chaotic-move verdict needed the room.
-            "THIS IS AN ANNOUNCEMENT, NOT A SIGNAL — it says nothing about the trend, the range, the "
-            "pullback or the candle count, and no entry, stop or target is attached. If a trade does "
-            "come from this candle it arrives as its own separate signal.",
+            f"{body:.1f}-pip body, grade {grade}.",
+            admitted_note and "ℹ️ Qualified on the 24-hour memory.",
         ] if r],
-        market_context    = f"VIX.1 — {symbol} 1H {side} momentum candle closed (announcement only)",
+        market_context    = "",
     )

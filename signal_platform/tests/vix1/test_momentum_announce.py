@@ -114,8 +114,8 @@ else:
     s.check("confidence is zero", n.confidence, 0.0)
     s.check("the headline says ANNOUNCEMENT ONLY", n.headline, titles.MOMENTUM_ANNOUNCEMENT)
     s.check("the headline is NOT the setup-building one", n.headline != titles.MOMENTUM_CLOSED, True)
-    s.check("the card says in words that it is not a signal",
-            any("NOT A SIGNAL" in r.upper() for r in n.technical_reasons), True)
+    s.check("the card says in words that it is not a signal (its status line, 17 Nov)",
+            "NOT A TRADE SIGNAL" in n.status_note.upper(), True)
     s.check("the candle is marked on the chart", n.chart_marks, [(bar.time, "MOMENTUM")])
 
     # ── 5. ONE PER CANDLE ───────────────────────────────────────────────────────────────────

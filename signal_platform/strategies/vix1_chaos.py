@@ -105,21 +105,17 @@ def verdict(h1: list[Candle], i: int, bullish: bool, symbol: str) -> tuple[str, 
     """(short tag for line 2 of the DM card, full sentence for its details)."""
     ct, gb = clean_travel(h1, i), give_back(h1, i)
     if ct is None or gb is None:
-        return ("CHAOS CHECK: NOT JUDGED",
-                "➖ CHAOTIC MARKET TEST: NOT JUDGED — too little history before this candle.")
-    # EACH SENTENCE OPENS WITH ✅ PASSED / ❌ FAILED — his ask, 17 Nov: *"make it clear so that i can easily
-    # understand if a signal has passed it or not"*. The card shows this as its FIRST detail.
-    nums = (f"clean travel {ct:.0%} over the last {CLEAN_LOOK} candles; "
-            f"{gb[0]:.0%} of {gb[1]} big candles given back in the last {GIVE_LOOK}")
+        return "CHAOS CHECK: NOT JUDGED", "➖ Chaotic market — not judged (too little history)."
+    # ONE SHORT LINE, ✅ / ❌ FIRST — his asks, 17 Nov: *"make it clear so that i can easily understand if a
+    # signal has passed it or not"*, then *"make the card less wordy but more clearer"*. The full numbers are
+    # in `refusal()`, which the server log records.
     if not is_chaotic(h1, i):
-        return "CLEAN MOVE", f"✅ CHAOTIC MARKET TEST: PASSED — a clean move before this candle ({nums})."
+        return "CLEAN MOVE", "✅ Clean move before it."
     if is_second_or_third(h1, i, bullish, symbol):
-        return ("CHAOTIC · 2ND/3RD CANDLE",
-                f"✅ CHAOTIC MARKET TEST: PASSED — a tug-of-war market ({nums}), but this IS the 2nd or 3rd "
-                f"momentum candle, so his rule lets it trade (the other rules still apply).")
+        return "CHAOTIC · 2ND/3RD CANDLE", "✅ Chaotic market, but this is the 2nd/3rd momentum candle."
     return ("CHAOTIC MOVE · WAIT FOR 2ND/3RD",
-            f"❌ CHAOTIC MARKET TEST: FAILED — tug-of-war before this candle ({nums}). No signal will be taken "
-            f"from this candle; a trade comes only if the next candle or the one after is a momentum candle too.")
+            f"❌ Chaotic market — tug-of-war before it (clean travel {ct:.0%}). "
+            f"No trade unless one of the next 2 candles is momentum too.")
 
 
 def refusal(h1: list[Candle], bullish: bool, symbol: str) -> str | None:
