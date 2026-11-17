@@ -1492,6 +1492,21 @@ real fill, and it has never run. **Nothing here says the strategy is worth armin
 
 ## C. The web app
 
+### C21 — The settings vault is built and deployed but SWITCHED OFF: waiting on his private GitHub repo + token. Built 17 Nov 2026 — PENDING (his: "Record it as a pending issue")
+- **What it is:** an encrypted copy of every server setting + the settings tables (Autotrade switch, cTrader login,
+  broker accounts, admin role, copy setup, Telegram links), saved by the app every 6 hours to a PRIVATE GitHub repo,
+  so a move to new hosting only needs the restore script (`docs/MOVING.md`, `server/lib/settingsVault.ts`).
+- **Done:** code deployed (`41a5b710`), 16 tests pass; his key pair made — PRIVATE key at
+  `C:\Users\FSD\trading-app-vault-key.txt` (he must copy it into his password manager), PUBLIC key set in Coolify as
+  `VAULT_AGE_RECIPIENT` (both copies, read back).
+- **Waiting on him:** (1) a new PRIVATE GitHub repo `trading-app-vault`, empty; (2) a fine-grained token — that repo
+  only, "Contents: Read and write"; (3) his GitHub username. Then: `VAULT_GITHUB_REPO` + `VAULT_GITHUB_TOKEN` into
+  Coolify (both copies, read back) → confirm `settings.age` appears → `restore.mjs --check` with his key shows every
+  live setting identical.
+- **Until then:** the app saves nothing (log: `[settings-vault] off — … not all set`). A server loss today would still
+  lose the settings.
+- **Later step, not started:** a full move rehearsal onto a throwaway server copy.
+
 ### C18 — 2 CRITICAL library weaknesses kept on purpose: the Telegram library (found 15 Nov) — HIS DECISION: DOCUMENT, DO NOT FIX
 **What:** `npm audit` flags `request` (can be tricked into fetching addresses it should not — SSRF)
 and `form-data` (weak random boundary). Both reach the app ONLY through `node-telegram-bot-api` 0.66,
