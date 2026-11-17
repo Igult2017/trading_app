@@ -1840,6 +1840,18 @@ sabotage-verified.
 
 ## D. cTrader & copy trading
 
+### D74 — ~~Every filled trade caused a ~30 s live-price (FIX) outage~~ FIXED 17 Nov 2026 — live proof on the next filled trade
+- **His report:** *"Why does FIX data flow begin experiencing outage immediately autotrader places a trade?"*
+- **Reproduced (live log, 17 Nov UTC):** GBP/JPY SELL placed 09:03:49, FILLED 09:04:41 → the trade watcher opened its
+  OWN second FIX connection with the same login (`trade_watcher.py`, then line 172) → broker refused it 09:04:54
+  (*"closed the connection without replying"*) → ~30 s on polled prices → retry got in 09:05:25 (`subscribed to
+  ['GBP/JPY']`). The entry watcher's 5-pair connection stayed healthy throughout (09:13 audit 59/59).
+- **Fix:** the trade watcher BORROWS the entry watcher's connection (`fix_quotes.shared_stream`) and never opens or
+  closes one; no covering connection → polled prices, never a second logon. `tests/vix1/test_fix_one_session.py`
+  (13 checks; teeth: only `entry_watcher.py` may open a FIX connection).
+- **Live proof pending:** the next filled trade must show NO `logon not accepted` and NO single-pair `price stream
+  open` line. (Deploy-time refusals are a different, expected moment: old and new app copies overlap ~1 min.)
+
 ### D73 — `execution/placer.py` is 272 lines, over the 200 limit. Found 15 Nov 2026 — ✅ CLOSED 16 Nov 2026 (his ruling)
 
 - **His ruling:** *"You can make it 500 if necessary."* So this file's limit is 500 lines, and at 272

@@ -163,6 +163,7 @@ TESTS = [
     "test_chaos.py",               # 17 Nov: his CHAOTIC-MOVE check on his two GBP/USD pictures — ON, trend route only
     "test_pullback_end_strict.py", # 17 Nov: the first candle ending a pullback — his 2.5x rule, no margin/memory
     "test_tp_extend.py",           # 17 Nov: target 2R, moved to 4R when a momentum candle closes the trade's way
+    "test_fix_one_session.py",     # 17 Nov: ONE FIX connection — the trade watcher borrows it, never logs on twice
     #                           read it, who may opt out, and that it really refuses
                                     # gating nothing until he approves it. Real 15 Jul bars.
 ]

@@ -29,7 +29,6 @@ to the Open API quote and says so out loud.
 import asyncio
 import logging
 
-from config.settings import settings
 from monitor import position_book
 from notifications import safe_notify as notify
 # THE LIMITS LIVE WITH THE FEED, NOT HERE. Two copies of the same number is how the
@@ -159,30 +158,31 @@ class TradeWatcher:
         self._tick.set()
 
     async def _ensure_stream(self, symbols: list[str]) -> bool:
-        from data.fix_quotes import FixQuoteStream
-        # THE FIX ACCOUNT ID, NOT `ctrader_account_id`. FIX knows this account by its cTrader login
-        # (5296567); the Open API knows it by its ctidTraderAccountId (47535363). Sending the wrong
-        # one is refused with RET_NO_SUCH_LOGIN, and it fails SILENTLY — the watcher just falls back
-        # forever. Caught in live testing 2026-08-30.
-        if not settings.ctrader_fix_password or not settings.ctrader_fix_account_id:
+        """BORROW the one live FIX connection — NEVER open a second (17 Nov 2026).
+
+        This used to build its OWN connection the moment a trade filled, with the same broker login the entry
+        watcher was already logged in with. The broker refused the duplicate ("closed the connection without
+        replying"), so every new trade ran ~30 s on polled prices until a retry got in — his report: *"FIX data flow
+        begin experiencing outage immediately autotrader places a trade"*. The entry watcher already streams every
+        traded pair, so that connection is borrowed (`fix_quotes.shared_stream`) and never closed from here. No
+        connection covering these pairs → False → the polled-price path, exactly as before; never a second logon.
+        """
+        from data.fix_quotes import shared_stream
+        st = shared_stream(symbols)
+        if st is None:
+            self._stream = None
             return False
-        if self._stream is not None and self._stream.connected:
-            return True
-        await self._drop_stream()
-        self._stream = FixQuoteStream(str(settings.ctrader_fix_account_id),
-                                      settings.ctrader_fix_password,
-                                      host=settings.ctrader_fix_host,
-                                      port=settings.ctrader_fix_quote_port)
-        # WAKE THE LOOP ON EVERY TICK. Registered BEFORE connecting so the very first price counts —
-        # the entry watcher does the same, for the same reason. `QuoteBook` keeps a LIST of sinks and
-        # guards each one, so this cannot displace the bar builder or be killed by it.
-        self._stream.on_bid_tick(self._on_tick)
-        return await self._stream.connect(symbols)
+        if st is not self._stream:
+            # WAKE THE LOOP ON EVERY TICK — once per borrowed connection (a reconnect by the entry watcher hands
+            # over a NEW object). `QuoteBook` keeps a LIST of sinks and guards each, so this cannot displace the
+            # bar builder or be killed by it.
+            st.on_bid_tick(self._on_tick)
+            self._stream = st
+        return True
 
     async def _drop_stream(self) -> None:
-        if self._stream is not None:
-            await self._stream.close()
-            self._stream = None
+        """Forget the borrowed connection. It belongs to the entry watcher, so it is NEVER closed from here."""
+        self._stream = None
 
     async def _price_for(self, p, streamed: bool) -> float | None:
         """The price this position's stop would trigger on: the BID for a buy, the ASK for a sell."""

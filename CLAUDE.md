@@ -157,6 +157,29 @@ Describe, judge and fix each strategy on **its own terms and its own playbook**.
 genuinely shared platform infrastructure (candle feed, monitor, dispatcher), name the INFRASTRUCTURE,
 never the other strategy that also uses it. Comparison is how one strategy's rules leak into another.
 
+### TEST KITS — MONEY IS ON THE LINE. A KIT IS PROVEN BEFORE IT MEASURES ANYTHING.
+His rule, 2026-11-17: *"Test must never be wrong, if anything rules must be very strict. For every strategy test know
+money is on the line. so i would rather you spend more time on ensuring a test kit is flawless than running the actual
+test."* Applies to every strategy measurement, study, count or backtest kit (scripts under `trading_app_data/tools/`,
+scratch kits, `tests/`). What prompted it: my gold zone-retap kit credited a bounce from the same candle that touched
+the zone, counted one move as two visits, and counted stacked zones as separate evidence — and its numbers were reported.
+
+Every kit, BEFORE its real run:
+1. **Proves itself on hand-built cases** with known answers — including the edge cases (same-candle ambiguity,
+   re-entry, weekend gap, too little history) — and **fails when deliberately broken**.
+2. **No look-ahead:** anything used at time t comes only from candles CLOSED before t; outcomes are judged only on
+   candles after the event.
+3. **Inside one candle the order of high and low is unknown → assume the outcome that costs money** (the stop first;
+   never credit a bounce or a target from the candle that triggered the event).
+4. **One movement = one event.** A new event starts only after the previous one is fully decided; overlapping levels
+   are merged or counted once.
+5. **The strategy's own functions and HIS parameters only** (quoted from code/doc) — never a re-implementation.
+6. **Every definition in plain words BEFORE the run** (what counts as respected / broken / ranging / a win), and in the report.
+7. **Data checked first:** date range, gaps, duplicates, corrupt bars (>10% jumps), time zone, which file.
+8. **Spot-checked by hand:** at least 5 random events printed candle by candle and checked before any total is trusted.
+9. **Sample size in every row;** a group under 30 is flagged and no conclusion is drawn from it.
+10. **Unsure = not run** — ask. Results from a kit that broke any of these are WITHDRAWN, said plainly.
+
 ### NEVER RUN A BACKTEST WITHOUT EXPLICIT APPROVAL
 User, 2026-07-27: *"Never backtest without my approval."* Ask first, every time — **including when an
 approved plan lists one under verification. Plan approval is not backtest approval.**

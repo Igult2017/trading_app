@@ -167,6 +167,28 @@ def live_streams() -> int:
     """How many streams are registered and connected — for the health line, and for tests."""
     return sum(1 for st in tuple(_STREAMS) if getattr(getattr(st, "book", None), "connected", False))
 
+def shared_stream(symbols) -> "FixQuoteStream | None":
+    """THE ONE LIVE CONNECTION that already streams every pair in `symbols`, or None.
+
+    ONE FIX SESSION PER LOGIN (17 Nov 2026). The trade watcher used to open its OWN second connection the moment a
+    trade filled, with the same broker login the entry watcher was already using. The broker refused it ("closed the
+    connection without replying" — what a server does when the session is already taken), so the open trade had no
+    live price for ~30 s until a retry got in. That second connection was never needed: the entry watcher already
+    streams every traded pair. Anything that wants live prices for a trade BORROWS the existing connection through
+    here and must never close it; when none covers the pairs, the caller uses polled prices — never a second logon.
+    """
+    want = set(symbols or ())
+    best = None
+    for st in tuple(_STREAMS):
+        try:
+            if st.book.connected and want <= set(getattr(st, "subscribed", ())):
+                if best is None or len(st.subscribed) > len(best.subscribed):
+                    best = st
+        except Exception:
+            continue
+    return best
+
+
 HEARTBEAT_S = 30
 
 # ── PROVING THE SESSION IS ALIVE WHEN THE PRICE IS NOT MOVING ───────────────────────────────
@@ -197,6 +219,7 @@ class FixQuoteStream:
         self.book = QuoteBook()
         self._coverage_up: list = []
         self._coverage_down: list = []
+        self.subscribed: tuple = ()          # the pairs the broker was actually asked for (set at connect)
 
     # ── what callers register ──────────────────────────────────────────────────
 
@@ -260,6 +283,7 @@ class FixQuoteStream:
                 return False
 
             body, known = subscribe_body(symbols)
+            self.subscribed = tuple(known)
             self._writer.write(self._msg("V", body))
             await self._writer.drain()
             self.book.connected = True

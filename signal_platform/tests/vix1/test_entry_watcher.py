@@ -157,11 +157,14 @@ s.check("a real one parses as UTC", _sending_time("20260830-16:01:02"), 17881056
 import monitor.entry_watcher as EW
 import monitor.trade_watcher as TW
 
-for _mod, _name in ((EW, "entry_watcher"), (TW, "trade_watcher")):
-    _src = ast.parse(open(_mod.__file__, encoding="utf-8").read())
-    _attrs = {n.attr for n in ast.walk(_src) if isinstance(n, ast.Attribute)}
-    s.check(f"{_name} uses the FIX account id", "ctrader_fix_account_id" in _attrs, True)
-    s.check(f"...and NOT the Open API one for FIX", "ctrader_account_id" in _attrs, False)
+_src = ast.parse(open(EW.__file__, encoding="utf-8").read())
+_attrs = {n.attr for n in ast.walk(_src) if isinstance(n, ast.Attribute)}
+s.check("entry_watcher uses the FIX account id", "ctrader_fix_account_id" in _attrs, True)
+s.check("...and NOT the Open API one for FIX", "ctrader_account_id" in _attrs, False)
+# 17 Nov 2026: the trade watcher no longer logs on at all — it BORROWS the entry watcher's connection
+# (`fix_quotes.shared_stream`). Its own logon with the same login was refused by the broker on every new trade.
+_tw = open(TW.__file__, encoding="utf-8").read()
+s.check("trade_watcher opens NO FIX connection of its own", "FixQuoteStream(" in _tw, False)
 
 # Both must be present before it will even try — a missing one means "off", never a guess.
 async def _no_creds():
