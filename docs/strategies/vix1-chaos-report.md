@@ -1,5 +1,10 @@
 # VIX.1 — Chaotic-move check: test report and recommendation (17 Nov 2026)
 
+> ⚠ **SUPERSEDED the same day.** The two-test recognition below (bodies-only clean travel < 30% AND give-back) was
+> replaced by ONE whole-candle test (wicks included, chaotic under 7.75%) at his word: *"test one is enough… look at
+> the whole candle anatomy"*. Current rule and numbers: `vix1.md` fix log 2026-11-17 (g), `strategies/vix1_chaos.py`.
+> The premise measured here (in a chaotic move the 2nd/3rd candle is rarely a momentum candle) still stands.
+
 ## What was asked
 *"Whenever a momentum candle has qualified, it runs one last test which looks back to see the candles that
 dominated that move. If they are not aligned like in image 2 … we wait for the second momentum candle to take a

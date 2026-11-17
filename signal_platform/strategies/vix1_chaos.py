@@ -11,24 +11,26 @@ HIS RULE, 17 Nov 2026, in his words:
     "The test is about how to stop trading in such markets because they aint profitable."
 His picture 1 (GBP/USD 11-17 Nov 2026) is the market to avoid; picture 2 (5-10 Nov) is the one to keep.
 
-WHAT IS MEASURED — both read off the candles BEFORE the momentum candle, never the candle itself:
-  1. CLEAN TRAVEL over the last 12 candles: how far price got, divided by how far all the candle bodies
-     travelled added together. Bodies that stack one after another (his picture 2) get far; bodies that
-     cancel out — big then small, up then down — get almost nowhere.
-  2. GIVE-BACK over the last 24 candles: of the BIG candles (body over twice the stretch's median body),
-     the share that was half given back within the next 3 candles — his "one volume candle that we can't
-     predict will be followed by another one".
-CHAOTIC = clean travel under 30% AND at least a third of the big candles given back.
+WHAT IS MEASURED — ONE test since 17 Nov 2026, read off the 12 candles BEFORE the momentum candle, never itself:
+  HOW FAR PRICE GOT ÷ HOW FAR PRICE ACTUALLY TRAVELLED inside those candles, WICKS INCLUDED. His words, same day:
+  *"test one is enough… Let it look at the whole candle anatomy to get the story in a move"* — *"wicks tell a
+  story of the fight between buyers and sellers."* Inside one candle price went open -> one extreme -> the other
+  -> close; the order is unknown, so the SHORTER of the two routes is counted (never credits a fight that may not
+  have happened). Candles that stack one after another get far; up-down candles and long wicks travel a lot and
+  get nowhere. CHAOTIC = under CHAOS_MAX (7.75%).
+  (Until 17 Nov this read bodies only (< 30%), AND a second test — "give-back": the share of big candles half
+  undone within 3 candles — had to agree. He dropped the second test after today's GBP/JPY 11:00 EAT SELL got
+  through on it alone.)
 
-HOW THE NUMBERS WERE CHOSEN, 17 Nov 2026, on real GBP/USD H1 and the strategy's own `qualifies_for_trade`
-(counts only — nothing simulated, nothing scored, not a backtest):
-  * His 14 momentum candles: 13 right. All 6 in picture 2 read CLEAN. 7 of 8 in picture 1 read CHAOTIC; the
-    miss is Wed 11 Nov 16:00 (UTC+3), the drop INTO the chaos straight after a clean fall — the 12 candles
-    before it really were clean, so no look-back can see the chaos coming.
-  * In his chaotic move the next candle was a momentum candle 0 of 8 times, the one after 0 of 8. In the 7
-    years' moves that most resemble it, 4.1-4.7% and 3.5-7.7%. So waiting = almost always no trade there.
-  * Over 7 years it reads 37% of momentum candles as CHAOTIC; after those, the next candle is a momentum
-    candle 4.2% of the time and the one after 6.1%.
+HOW THE LINE WAS CHOSEN, 17 Nov 2026 — his own marked candles, real broker H1, counts only (not a backtest):
+  * picture 2 (keep): 1.8, 22.3, 27.5, 15.8, 16.3, 8.1%     picture 1 (avoid): 0.2, 1.8, 3.1, 4.0, 4.0, 6.8, 7.4%
+    EUR/USD 17 Nov 08:00 EAT 0.2%; GBP/JPY 17 Nov 11:00 EAT 4.8% (by hand: 16.3 pips got / 339.9 travelled).
+  * 7.75% is halfway between his least-clean chaotic candle (7.4) and his least-clean keep candle (8.1). ⚠ That
+    gap is NARROW. Thu 5 Nov 21:00 (first of picture 2) reads chaotic — its 12 candles swing +8.6/-26.2/+9.8/
+    -17.6 pips; accepted with "test one is enough". Wed 11 Nov 16:00, the drop INTO the chaos, is still missed
+    (16.0%): the 12 candles before it really were a clean fall, so no look-back sees it.
+  * Over 7 years it holds back 44-48% of momentum candles (GBP/USD, EUR/USD, GBP/JPY); after those, the next
+    candle is a momentum candle ~5% of the time and the one after ~6-7%.
 
 ⚠ IT DECIDES, SINCE 17 NOV 2026 — his words: "Just switch it on already. I am losing money."
 `refusal()` is asked in `vix1_bias.detect_bias`'s MAIN (trend) refusal list only. The change-of-character
@@ -39,59 +41,33 @@ stall. The DM announcement still DESCRIBES every candle via `verdict()`.
 """
 from __future__ import annotations
 
-import statistics as st
-
 from core.types import Candle
 from strategies.vix1_momentum import qualifies_for_trade
 
-CLEAN_LOOK = 12          # candles read for clean travel
-CLEAN_MAX = 0.30         # under this share = the bodies cancelled out
-GIVE_LOOK = 24           # candles read for give-back
-BIG_MULT = 2.0           # a BIG candle: body over 2x the stretch's median body
-GIVE_WITHIN = 3          # ... half given back within this many candles
-GIVE_MIN = 1 / 3         # at least this share of the big candles given back
-MIN_BIG = 2              # fewer big candles than this = nothing to judge give-back by
+CLEAN_LOOK = 12          # candles read
+CHAOS_MAX = 0.0775       # under this share of the distance travelled = a tug-of-war
 WAIT_CANDLES = 2         # the trade may come from the 2nd or 3rd candle: look this many back
 
 
-def _body(c: Candle) -> float:
-    return abs(c.close - c.open)
+def _travelled(c: Candle) -> float:
+    """The least distance price can have covered inside `c`: open -> one extreme -> the other -> close."""
+    return (c.high - c.low) + min(abs(c.open - c.low) + abs(c.high - c.close),
+                                  abs(c.high - c.open) + abs(c.close - c.low))
 
 
 def clean_travel(h1: list[Candle], i: int) -> float | None:
-    """Over the CLEAN_LOOK candles before `i`: |net move| / sum of bodies. None if too little history."""
+    """Over the CLEAN_LOOK candles before `i`: |net move| / distance travelled, wicks included.
+    None if too little history."""
     if i < CLEAN_LOOK:
         return None
     seg = h1[i - CLEAN_LOOK:i]
-    bodies = sum(_body(c) for c in seg)
-    return abs(seg[-1].close - seg[0].open) / bodies if bodies > 0 else None
-
-
-def give_back(h1: list[Candle], i: int) -> tuple[float, int] | None:
-    """Over the GIVE_LOOK candles before `i`: (share of big candles half given back, how many big)."""
-    if i < GIVE_LOOK:
-        return None
-    a = i - GIVE_LOOK
-    med = st.median(_body(c) for c in h1[a:i])
-    if med <= 0:
-        return None
-    # a big candle needs GIVE_WITHIN candles after it, all strictly before `i` (never the candle judged)
-    big = [k for k in range(a, i - GIVE_WITHIN) if _body(h1[k]) > BIG_MULT * med]
-    if not big:
-        return 0.0, 0
-    gave = 0
-    for k in big:
-        c = h1[k]
-        half = (c.open + c.close) / 2
-        up = c.close > c.open
-        if any((x.close < half) if up else (x.close > half) for x in h1[k + 1:k + 1 + GIVE_WITHIN]):
-            gave += 1
-    return gave / len(big), len(big)
+    went = sum(_travelled(c) for c in seg)
+    return abs(seg[-1].close - seg[0].open) / went if went > 0 else None
 
 
 def is_chaotic(h1: list[Candle], i: int) -> bool:
-    ct, gb = clean_travel(h1, i), give_back(h1, i)
-    return ct is not None and gb is not None and ct < CLEAN_MAX and gb[1] >= MIN_BIG and gb[0] >= GIVE_MIN
+    ct = clean_travel(h1, i)
+    return ct is not None and ct < CHAOS_MAX
 
 
 def is_second_or_third(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
@@ -103,8 +79,8 @@ def is_second_or_third(h1: list[Candle], i: int, bullish: bool, symbol: str) -> 
 
 def verdict(h1: list[Candle], i: int, bullish: bool, symbol: str) -> tuple[str, str]:
     """(short tag for line 2 of the DM card, full sentence for its details)."""
-    ct, gb = clean_travel(h1, i), give_back(h1, i)
-    if ct is None or gb is None:
+    ct = clean_travel(h1, i)
+    if ct is None:
         return "CHAOS CHECK: NOT JUDGED", "➖ Chaotic market — not judged (too little history)."
     # ONE SHORT LINE, ✅ / ❌ FIRST — his asks, 17 Nov: *"make it clear so that i can easily understand if a
     # signal has passed it or not"*, then *"make the card less wordy but more clearer"*. The full numbers are
@@ -114,7 +90,7 @@ def verdict(h1: list[Candle], i: int, bullish: bool, symbol: str) -> tuple[str, 
     if is_second_or_third(h1, i, bullish, symbol):
         return "CHAOTIC · 2ND/3RD CANDLE", "✅ Chaotic market, but this is the 2nd/3rd momentum candle."
     return ("CHAOTIC MOVE · WAIT FOR 2ND/3RD",
-            f"❌ Chaotic market — tug-of-war before it (clean travel {ct:.0%}). "
+            f"❌ Chaotic market — tug-of-war before it ({ct:.1%} progress). "
             f"No trade unless one of the next 2 candles is momentum too.")
 
 
@@ -125,7 +101,7 @@ def refusal(h1: list[Candle], bullish: bool, symbol: str) -> str | None:
     i = len(h1) - 1
     if i < 1 or not is_chaotic(h1, i) or is_second_or_third(h1, i, bullish, symbol):
         return None
-    ct, gb = clean_travel(h1, i), give_back(h1, i)
-    return (f"chaotic move — tug-of-war candles before this momentum candle (clean travel {ct:.0%} over "
-            f"{CLEAN_LOOK}; {gb[0]:.0%} of {gb[1]} big candles given back in {GIVE_LOOK}); waiting for the "
-            f"next or the one after to be a momentum candle too")
+    ct = clean_travel(h1, i)
+    return (f"chaotic move — tug-of-war candles before this momentum candle (price got {ct:.1%} of the distance "
+            f"it travelled over {CLEAN_LOOK} candles, wicks included; chaotic under {CHAOS_MAX:.2%}); waiting for "
+            f"the next or the one after to be a momentum candle too")

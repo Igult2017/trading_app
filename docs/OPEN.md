@@ -251,13 +251,13 @@ goes quiet.
   Adding "a momentous move does not give back its big candles (under 1/3)" keeps all 7 blocked. Not built.
 
 ### B37 — ~~The chaotic-move check is REPORTED on the DM but does not refuse trades yet~~ SWITCHED ON 17 Nov 2026 at his word ("Just switch it on already") — TREND route only; change-of-character trades exempt (his option A, "Lets do A and see how it goes")
-- **Still true, not fixable by a look-back:** the first candle INTO a chaotic market after a clean move reads CLEAN.
-- **What:** `strategies/vix1_chaos.py` labels every momentum announcement CLEAN MOVE / CHAOTIC MOVE · WAIT FOR
-  2ND/3RD. It gates nothing — the stomach rule's road (watch first, then switch on).
-- **Waiting on:** his "switch it on". Then it becomes one veto in `vix1_bias.detect_bias`'s list, and the teeth
-  in `tests/vix1/test_chaos.py` §7 are changed to allow that one reader.
+- **17 Nov, later: ONE test, whole candle (wicks included), chaotic under 7.75%** — his *"test one is enough"*, after
+  the GBP/JPY 11:00 EAT SELL got through on the old second test. Fix log `vix1.md` 2026-11-17 (g).
+- **Watch:** the line sits in a NARROW gap on his examples (7.4% chaotic vs 8.1% keep). If a clean move he would
+  trade is refused, the number to look at is `CHAOS_MAX` in `strategies/vix1_chaos.py`.
 - **Known limit, not fixable by a look-back:** the first candle INTO a chaotic market after a clean move (his
-  Wed 11 Nov 16:00) reads CLEAN. Report: `docs/strategies/vix1-chaos-report.md`.
+  Wed 11 Nov 16:00) reads CLEAN. Report: `docs/strategies/vix1-chaos-report.md` (its two-test numbers are
+  superseded by the 17 Nov (g) entry).
 
 ### B36 — Autotrade could not withdraw ANY order: the broker's order prices were divided by 100,000. Found 16 Nov 2026 — FIXED 16 Nov 2026
 

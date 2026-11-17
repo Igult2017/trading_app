@@ -29,24 +29,48 @@ def at(local: str) -> int:
 
 
 # His 14 momentum candles: (time UTC+3, BUY?, picture, what the check must say)
-GOOD = [("2026-11-05 21:00", False), ("2026-11-06 10:00", False), ("2026-11-06 16:00", False),
+GOOD = [("2026-11-06 10:00", False), ("2026-11-06 16:00", False),
         ("2026-11-09 19:00", True), ("2026-11-09 22:00", True), ("2026-11-10 12:00", False)]
+# Thu 5 Nov 21:00, first of picture 2: since 17 Nov (one whole-candle test — his "test one is enough") it reads
+# CHAOTIC (1.8%). The 12 candles before it swing +8.6/-26.2/+9.8/-17.6 pips. Accepted; another rule refuses it anyway.
+EDGE = ("2026-11-05 21:00", False)
 CHAOS = [("2026-11-12 05:00", False), ("2026-11-12 17:00", False), ("2026-11-12 20:00", False),
          ("2026-11-13 17:00", True), ("2026-11-16 09:00", False), ("2026-11-16 11:00", True),
          ("2026-11-16 17:00", False)]
 MISS = ("2026-11-11 16:00", False)   # the drop INTO the chaos after a clean fall — no look-back sees it
 
+print("0. the whole-candle measure, on hand-built candles (known answers):")
+from core.types import Candle  # noqa: E402
+
+
+def _c(o, h, lo, c):
+    return Candle(time=0, open=o, high=h, low=lo, close=c, volume=0, timeframe="H1")
+
+
+_end = [_c(0, 0, 0, 0)]                                   # the candle judged — never read
+stacked = [_c(1 + k * .1, 1 + k * .1 + .1, 1 + k * .1, 1 + k * .1 + .1) for k in range(12)] + _end
+s.check("12 wickless candles stacked one after another -> 100%", round(ch.clean_travel(stacked, 12), 6), 1.0)
+wicky = [_c(1 + k * .1, 1 + k * .1 + .2, 1 + k * .1 - .1, 1 + k * .1 + .1) for k in range(12)] + _end
+s.check("the same move, every candle with wicks both sides -> 20% (wicks are travel)",
+        round(ch.clean_travel(wicky, 12), 6), 0.2)
+saw = [_c(1, 1.1, 1, 1.1) if k % 2 == 0 else _c(1.1, 1.1, 1, 1) for k in range(12)] + _end
+s.check("up, down, up, down -> 0% -> chaotic", (ch.clean_travel(saw, 12), ch.is_chaotic(saw, 12)), (0.0, True))
+s.check("inside one candle the SHORTER route is counted (open 1.0, high 1.3, low 0.9, close 1.2 -> 0.6)",
+        round(ch._travelled(_c(1.0, 1.3, 0.9, 1.2)), 6), 0.6)
+s.check("too little history -> not judged", ch.clean_travel(stacked[:5], 4), None)
+
 if not BARS:
     print("   SKIP — GBPUSD_H1_nov17_chaos.csv not present")
 else:
-    print("1. they really are momentum candles (the strategy's own qualifies_for_trade):")
-    for when, bull in GOOD + CHAOS + [MISS]:
+    print("\n1. they really are momentum candles (the strategy's own qualifies_for_trade):")
+    for when, bull in GOOD + [EDGE] + CHAOS + [MISS]:
         i = at(when)
         s.check(f"{when} {'BUY' if bull else 'SELL'} qualifies", qualifies_for_trade(BARS[:i + 1], i, bull, SYM), True)
 
-    print("\n2. picture 2 (the market to keep) reads CLEAN — every candle:")
+    print("\n2. picture 2 (the market to keep) reads CLEAN — 5 of 6 (5 Nov 21:00 accepted as chaotic):")
     for when, bull in GOOD:
         s.check(f"{when} clean", ch.is_chaotic(BARS, at(when)), False)
+    s.check(f"{EDGE[0]} — reads chaotic (1.8%), accepted 17 Nov", ch.is_chaotic(BARS, at(EDGE[0])), True)
 
     print("\n3. picture 1 (the market to avoid) reads CHAOTIC — 7 of 8:")
     for when, bull in CHAOS:
@@ -93,14 +117,38 @@ if not EUR:
 else:
     e = len(EUR) - 1
     s.check("the candle is the 08:00 EAT BUY (05:00 UTC)", EUR[e].time, 1794891600)
-    s.check("the real check: chaotic (clean travel 1%)", (ch.is_chaotic(EUR, e), round(ch.clean_travel(EUR, e), 2)),
-            (True, 0.01))
+    s.check("the real check: chaotic (got 0.2% of its travel)",
+            (ch.is_chaotic(EUR, e), round(ch.clean_travel(EUR, e), 3)), (True, 0.002))
     got = mw.check(EUR, "EUR/USD")
     n = mw.note("EUR/USD", got[1], got[0], 0.0001, "VIX.1", got[2], got[3], got[4])
     s.check("his card now opens with FAILED", n.technical_reasons[0].startswith("❌ Chaotic market"), True)
 
+print("\n5c. GBP/JPY 17 Nov, 11:00 EAT SELL — the trade that ended at breakeven; the old two-test rule let it in:")
+GJ = load("GBPJPY_H1_nov17_chaos.csv", "H1")
+if not GJ:
+    print("   SKIP — GBPJPY_H1_nov17_chaos.csv not present")
+else:
+    g = len(GJ) - 1
+    s.check("the candle is the 11:00 EAT SELL (08:00 UTC)", (GJ[g].time, GJ[g].close < GJ[g].open), (1794902400, True))
+    s.check("it qualifies as a momentum candle", qualifies_for_trade(GJ, g, False, "GBP/JPY"), True)
+    s.check("by hand: 16.3 pips got / 339.9 pips travelled = 4.8% -> chaotic",
+            (round(ch.clean_travel(GJ, g), 3), ch.is_chaotic(GJ, g)), (0.048, True))
+    s.check("THE GATE refuses it", ch.refusal(GJ, False, "GBP/JPY") is not None, True)
+    from strategies.vix1_bias import detect_bias  # noqa: E402
+    s.check("...and so does the real trade decision", detect_bias(GJ, [], "GBP/JPY"), None)
+    _gate = ch.refusal
+    try:
+        ch.refusal = lambda *a, **k: None
+        b = detect_bias(GJ, [], "GBP/JPY")
+    finally:
+        ch.refusal = _gate
+    s.check("...and it is THIS check that refuses it: switched off, the trend route trades the SELL",
+            None if b is None else (b.origin, b.bullish), ("trend", False))
+    # TEETH: the bodies-only measure that let it in must not come back
+    body_only = abs(GJ[g - 1].close - GJ[g - 12].open) / sum(abs(c.close - c.open) for c in GJ[g - 12:g])
+    s.teeth("the old bodies-only reading (24%) would NOT have called it chaotic", body_only >= ch.CHAOS_MAX)
+
 print("\n6. the 2nd/3rd-candle exemption (hand-built):")
-from core.types import Candle  # noqa: E402
 _real = ch.qualifies_for_trade
 try:
     ch.qualifies_for_trade = lambda h1, j, bull, sym: j == 7
