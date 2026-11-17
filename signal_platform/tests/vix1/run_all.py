@@ -160,7 +160,8 @@ TESTS = [
     "test_open_rule.py",            # his 2026-11-09 STOMACH RULE — REPORTED on the DM,
     "test_open_rule_wiring.py",   # WHERE it is wired: who may
     "test_market_state_gate.py",   # the market state DECIDES; gold out; 7pm EAT stop
-    "test_chaos.py",               # 17 Nov: his CHAOTIC-MOVE check on his two GBP/USD pictures — DM only
+    "test_chaos.py",               # 17 Nov: his CHAOTIC-MOVE check on his two GBP/USD pictures — ON, trend route only
+    "test_pullback_end_strict.py", # 17 Nov: the first candle ending a pullback — his 2.5x rule, no margin/memory
     #                           read it, who may opt out, and that it really refuses
                                     # gating nothing until he approves it. Real 15 Jul bars.
 ]

@@ -232,6 +232,19 @@ goes quiet.
 
 ## B. VIX.1
 
+### B38 — Chaotic-move check: exempt a pullback that follows a MOMENTOUS move. Found 17 Nov 2026 — HIS: "we will solve it later"
+- **His rule:** *"Another time when the chaotic market function should not block trades is after a pullback when
+  the move before a pullback was a momentous move. Pullbacks are known to be thin sometimes."*
+- **Measured on his pictures** (pullback = `since_pullback`; "momentous" = the 12 candles before the pullback are
+  clean, not chaotic, with a momentum candle the trade way):
+  - "momentous" = any momentum candle in the move → reopens 2 of his 7 chaotic candles (Thu 12 20:00, Mon 16 17:00);
+  - clean ≥ 30% → reopens 2 (Thu 12 05:00, Mon 16 17:00); 194 of 1,430 refusals over 7 years (14%);
+  - clean ≥ 50% → reopens 1: **Thu 12 05:00 SELL** (move before it 58% clean, the 28.4-pip Wed 11 16:00 drop);
+    52 of 1,430 (4%).
+- **Open question he raised:** that move was half directional (Wed 11 13:00-17:00) and half already tug-of-war
+  (from 18:00: a 12.6-pip up candle, then tiny mixed candles); 2 of its 3 big candles were half given back (67%).
+  Adding "a momentous move does not give back its big candles (under 1/3)" keeps all 7 blocked. Not built.
+
 ### B37 — ~~The chaotic-move check is REPORTED on the DM but does not refuse trades yet~~ SWITCHED ON 17 Nov 2026 at his word ("Just switch it on already") — TREND route only; change-of-character trades exempt (his option A, "Lets do A and see how it goes")
 - **Still true, not fixable by a look-back:** the first candle INTO a chaotic market after a clean move reads CLEAN.
 - **What:** `strategies/vix1_chaos.py` labels every momentum announcement CLEAN MOVE / CHAOTIC MOVE · WAIT FOR

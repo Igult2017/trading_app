@@ -34,6 +34,7 @@ from strategies import vix1_log
 from shared.candle_math import atr
 from strategies import vix1_choch
 from strategies import vix1_chaos
+from strategies import vix1_pullback_end
 from strategies import vix1_chop
 from strategies import vix1_regime
 from strategies import vix1_retracement
@@ -264,6 +265,11 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
             # volume"*; a change of character is the END of a trend, and the candles before a turn always
             # stall. Asked here it refused his own marked trade (EUR/USD 28 Jul 17:00 BUY — clean travel
             # 1%). `test_chaos.py` fails if this route starts asking it.
+            # HIS PULLBACK-END RULE (17 Nov 2026) IS asked here — a pullback can end on this route too.
+            strict = vix1_pullback_end.refusal(h1, bias.bullish, symbol)
+            if strict:
+                vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {strict} | {state}")
+                return None
             vix1_log.say(symbol, f"[vix1] {symbol} CHoCH ENTRY: {why} | {state}")
             return bias
         vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: no established 1HR trend "
@@ -543,6 +549,9 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
                      # HIS CHAOTIC-MOVE CHECK (17 Nov 2026): a momentum candle in a tug-of-war market
                      # waits for the 2nd or 3rd. Read on the NEWEST closed candle — the one traded.
                      vix1_chaos.refusal(h1, bullish, symbol),
+                     # HIS PULLBACK-END RULE (17 Nov 2026): the first candle ending a pullback must pass
+                     # his original 2.5x rule — no 0.2 margin, no 24-hour memory.
+                     vix1_pullback_end.refusal(h1, bullish, symbol),
                      (None if ignore_count else
                       vix1_retracement.entry_timing(at_mc, 1 if bullish else -1, break_time=_bt)),
                      market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK),
