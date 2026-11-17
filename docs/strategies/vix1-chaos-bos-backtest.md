@@ -1,5 +1,9 @@
 # VIX.1 — Does the chaotic-move check's blocking of break-of-structure trades save money? (17 Nov 2026)
 
+> ⚠ **AFFECTED BY A KIT FAULT, found later the same day:** the walker scored a trade still open after 6 hours as 0R
+> (breakeven) instead of where price stood. Fixed in `vix1_replay_year.py`. This file also measured the OLD two-test
+> check. Its numbers are not re-run; the current answer is `vix1-chaos-combined-backtest.md`.
+
 **A BACKTEST, run at his request** — *"Can you measure if it blocks Break of structure saves us money or gives
 losses"*. That request was the approval, for this question only.
 

@@ -260,7 +260,10 @@ goes quiet.
 - ~~5 Aug 14:00 trades again at 8.23%~~ CLOSED by the second test (story `B.rrBSr.rBSr`, nobody in control); pinned
   refused in `test_tradeable.py`.
 - **Watch:** combined it holds back 188 of 300 random trending momentum candles (63%; whole-candle alone 38%).
-  Whether that is better for money is UNKNOWN — needs a backtest, which needs his yes.
+- **BACKTESTED 17 Nov at his request — IT COSTS MONEY ON THIS DATA:** GBP/USD + EUR/USD, Jun 2024 – Jul 2026, his 2R
+  target: the trades it holds back would have made **+15.15R** (136 fills, 34 won / 34 lost); the trend trades it
+  lets through lost **−7.92R** (70 fills, 13 / 25). **HIS DECISION:** report-only on the DM, or keep it while more
+  data is checked. `docs/strategies/vix1-chaos-combined-backtest.md`.
 - **Known limit, not fixable by a look-back:** the first candle INTO a chaotic market after a clean move (his
   Wed 11 Nov 16:00) reads CLEAN. Report: `docs/strategies/vix1-chaos-report.md` (its two-test numbers are
   superseded by the 17 Nov (g) entry).
