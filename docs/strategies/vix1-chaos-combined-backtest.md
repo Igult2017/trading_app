@@ -68,3 +68,25 @@ The larger finding is that VIX.1 lost on both pairs over these two years in this
 - The news rules, sessions, the 7pm cut-off and one-trade-at-a-time across pairs are not applied.
 - The spread is a constant (GBP/USD 1.25, EUR/USD 1.2 pips), not the spread at the time.
 - GBP/JPY and gold not tested (no long one-minute history here).
+
+## INTERIM — his own markets, 2-17 Nov 2026, in HIS hours (added 17 Nov, after *"VIX loses in that chaotic state and i have practical example"*)
+The 2-year run above ended 17 Jul 2026, so it never contained his examples. 1-minute candles to 17 Nov were pulled
+read-only; hours rebuilt from them match the broker's own hourly candles on all 441 overlapping hours (3 pairs). The
+kit gained GBP/JPY (commission charged in yen) and his window (London open → 16:00 UTC), both proven with teeth
+(30 kit checks pass). **It reproduces his real GBP/JPY trade:** SELL order 209.739 at 12:03 Kenya time, breakeven.
+
+| pair | momentum candle (Kenya time) | the check | outcome |
+|---|---|---|---|
+| GBP/USD SELL | Fri 06 Nov 16:00 | let through | breakeven |
+| GBP/USD SELL | Tue 10 Nov 16:00 | change of character (exempt) | **2R win** |
+| GBP/USD SELL | Wed 11 Nov 16:00 | let through | breakeven |
+| GBP/USD SELL | Thu 12 Nov 17:00 | held back | breakeven |
+| GBP/USD SELL | Mon 16 Nov 17:00 | held back | breakeven |
+| EUR/USD SELL | Wed 11 Nov 16:00 | held back | breakeven |
+| GBP/JPY BUY | Wed 04 Nov 11:00 | held back | +1R lock |
+| GBP/JPY SELL | Mon 16 Nov 12:00 | let through | order withdrawn, never filled |
+| GBP/JPY SELL | Tue 17 Nov 11:00 | held back | breakeven (his real trade) |
+
+In his chaotic week (11-17 Nov) VIX.1 would have taken 4 trades and every one ended at breakeven: no loss, no win.
+His other picture-1 candles were refused by other rules or fell outside his hours. **Open:** the losses he has in
+mind are not in this period — the exact trades (pair + time) are needed to examine them.
