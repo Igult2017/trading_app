@@ -255,6 +255,24 @@ def update_status(signal_id: str, status: SignalStatus,
             setattr(row, timestamp_field, when or datetime.now(timezone.utc))
 
 
+def set_target_for_stub(stub: str, take_profit: float) -> bool:
+    """Record a target moved on the live trade (VIX.1's 2R -> 4R, `execution/tp_extend.py`) on the signal whose
+    id starts with `stub` — the 8 characters an order label carries (`execution/orders.order_label`). Without it
+    the signal record would report a 2R target hit while the real trade is still running to 4R."""
+    if not stub or len(stub) < 8:
+        return False
+    try:
+        with get_session() as s:
+            rows = s.query(SignalModel).filter(SignalModel.id.like(f"{stub}%")).all()
+            if len(rows) != 1:
+                return False                 # none, or ambiguous — never write to the wrong signal
+            rows[0].take_profit = take_profit
+            return True
+    except Exception as exc:
+        log.warning(f"[signal_repo] could not set target {take_profit} for {stub}: {type(exc).__name__}: {exc}")
+        return False
+
+
 def adopt_levels(signal_id: str, entry: float | None = None, stop: float | None = None) -> bool:
     """Record an entry and/or a stop HE set by hand at the broker. True if anything was written.
 

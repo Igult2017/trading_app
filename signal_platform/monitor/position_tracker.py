@@ -380,6 +380,19 @@ async def _one_position(p, send, r_seen: dict) -> None:
     if r is None:
         return          # starting stop not known yet, or no stop: the ladder does nothing
     r_seen[int(p.position_id)] = r
+    # HIS 2R -> 4R TARGET (17 Nov 2026, `execution/tp_extend.py`). Before the ladder, and CONTAINED: a fault
+    # here must never cost this position its stop move. The account is loaded only for a position that
+    # could be extended (the demo check is then made against the real account inside `maybe_extend`).
+    try:
+        from execution import tp_extend
+        if tp_extend.why_not(p, "demo") is None:
+            from execution.account import load_account
+            acct = await load_account()
+            if acct is not None:
+                await tp_extend.maybe_extend(p, send, acct.creds, acct.account_type)
+    except Exception as exc:
+        log.error(f"[position_tracker] {p.symbol} #{p.position_id}: target extension failed: "
+                  f"{type(exc).__name__}: {exc} — the stop ladder continues", exc_info=True)
     for tag, new_sl, message in _lines(p, r, price, guard):
         k = _key(p.position_id, tag)
         if delivery_ledger.is_delivered(k):

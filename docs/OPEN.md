@@ -232,6 +232,11 @@ goes quiet.
 
 ## B. VIX.1
 
+### B39 — ~~Live orders targeted 4R; his rule is 2R, and 4R only "when the trade is willing to run"~~ BUILT 17 Nov 2026 (his option A)
+- 2R on the order; moved to 4R when a momentum candle closes the trade's way after the fill (`execution/tp_extend.py`).
+- **Still to watch live:** the first extension on a real trade (DM "the target is moved from 2R to 4R"). The
+  extension itself is not backtested.
+
 ### B38 — Chaotic-move check: exempt a pullback that follows a MOMENTOUS move. Found 17 Nov 2026 — HIS: "we will solve it later"
 - **His rule:** *"Another time when the chaotic market function should not block trades is after a pullback when
   the move before a pullback was a momentous move. Pullbacks are known to be thin sometimes."*

@@ -82,7 +82,8 @@ if got:
     # that change, which is exactly what these two assertions pin: if the target moves and his
     # 1.11734 moves with it, something other than the target has been altered.
     from strategies.vix1 import _TP_R
-    s.check("HIS TRADE: the target multiple is 4R, not 2R", _TP_R, 4.0)
+    # 17 Nov 2026: 2R on the order, 4R only once the trade runs (his option A, `execution/tp_extend.py`).
+    s.check("HIS TRADE: the target multiple on the order is 2R (4R only when the trade runs)", _TP_R, 2.0)
     s.check("HIS TRADE: ...and the entry is unchanged by that", round(e["entry"], 5), 1.11734)
     s.check("HIS TRADE: ...as is the stop", e["sl"] < 1.11705, True)
     # THIS USED TO ASSERT THE 4R TARGET WAS REACHED (entry + 4R <= 1.12000) AND IT NO LONGER IS,

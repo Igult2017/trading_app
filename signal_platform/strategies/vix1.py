@@ -47,10 +47,12 @@ from news.news_candle import is_news_candle, in_news_window   # shared platform 
 
 log = logging.getLogger(__name__)
 
-# THE TARGET, in R. His, 2026-08-21: "take profit at 4R". Named rather than inlined so the ladder in
-# monitor/position_tracker and this number cannot drift apart — the last ladder rung locks 3R
-# precisely because the exit sits here at 4R.
-_TP_R        = 4.0
+# THE TARGET, in R. 2R ON THE ORDER, 4R ONLY WHEN THE TRADE RUNS — his rule, 17 Nov 2026: *"I target 2R
+# not 4R, i only target 4R when the trade is willing to run"*, and his option A: the target starts at 2R and
+# is moved out to `_TP_R_RUN` the moment a new momentum candle closes in the trade's direction before 2R is
+# reached (`execution/tp_extend.py`). It was a flat 4R from 21 Aug ("take profit at 4R").
+_TP_R        = 2.0
+_TP_R_RUN    = 4.0
 _STATE_TTL   = 48 * 3600   # forget a fired setup after 48h
 _CORR_WINDOW = 4  * 3600   # a same-direction signal on the other USD pair within 4h = correlated
 
@@ -432,16 +434,11 @@ class Vix1Strategy(BaseStrategy):
             # more than 1R to the original target is structurally guaranteed. `late` is now always
             # False and its keys are kept only so this card and the DB row need no schema change.
             late = False
-            # THE TARGET IS 4R, NOT 2R — changed 2026-08-21 on his instruction. *"When the trade has
-            # the momentum to keep going we take up to where the momentum starts dying down so 2R is
-            # NOT A RULE but only applies where there is no momentum"*, and *"take profit at 4R"*,
-            # said twice.
-            #
-            # THE LADDER AND A 2R EXIT CANNOT BOTH EXIST. He wants the stop ratcheted at 2R, 3R and
-            # 4R (monitor/position_tracker.LADDER); a take profit resting at 2R would close every
-            # trade before the first rung was ever reached. So 4R goes on the order, the broker does
-            # the exit, and 2R becomes the FLOOR — the outcome when momentum dies, which is the 1M
-            # structure exit `vix1_manage` already owns, not a price sitting on the order.
+            # THE TARGET IS 2R ON THE ORDER (17 Nov 2026), moved out to 4R only when the trade shows it
+            # is willing to run — a new momentum candle closing its way (`execution/tp_extend.py`). His
+            # own words of 21 Aug already said so: *"2R is NOT A RULE but only applies where there is no
+            # momentum"*. The ladder's breakeven (0.4R) and +1R lock (1.5R) work below 2R; its trail
+            # (from 2.2R) now runs only on a trade whose target was extended.
             tp = entry + _TP_R * risk if bullish else entry - _TP_R * risk
             rr = _TP_R
             # One entry per setup, so it is SAVED (AssetPage + DM + TP/SL monitoring) and holds the
