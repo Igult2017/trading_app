@@ -174,8 +174,15 @@ s.check("   2026-08-03 18:00 no longer trades — his 16 Sep pullback rule refus
 # ⚠ 2026-11-17 — BOTH NOW CLOSED, BY HIS CHAOTIC-MOVE CHECK (`vix1_chaos`). This is his chop definition
 # above in another form — "prints 1 red volume candle then prints a bullish candle … no specific group of
 # candles": the candles before each are tug-of-war. Proven: with that check forced off, both trade again.
-for w in ("2026-08-05 14:00", "2026-08-05 17:00"):
-    s.check(f"   {w} no longer trades — his chaotic-move check (17 Nov) refuses it", fires(w), False)
+#
+# ⚠ 2026-11-17 (later) — 14:00 IS OPEN AGAIN. The check now reads the whole candle, wicks included (his "test one
+# is enough"); 14:00 scores 8.23%, just over the 7.75% line, while his KEEP candle GBP/USD 10 Nov 12:00 scores
+# 8.1% — no single line separates the two. Asserted as TRADING so the next change that closes it goes red here.
+# 17:00 scores 4.56% and stays refused. docs/OPEN.md B37.
+s.check("   2026-08-05 14:00 trades again — whole-candle 8.23%, over the 7.75% line (open, B37)",
+        fires("2026-08-05 14:00"), True)
+s.check("   2026-08-05 17:00 no longer trades — his chaotic-move check refuses it (4.56%)",
+        fires("2026-08-05 17:00"), False)
 
 
 
