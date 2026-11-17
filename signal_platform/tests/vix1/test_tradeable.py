@@ -170,9 +170,12 @@ s.check("   2026-08-03 18:00 no longer trades — his 16 Sep pullback rule refus
 # SO THESE TWO ARE OPEN GAPS AGAIN, the same way 2026-08-03 18:00 once was: still D42, the chop
 # definition, still unbuilt. Asserted as TRADING so a later change that closes them cannot pass
 # unnoticed — this file going red is exactly the job it was given.
+#
+# ⚠ 2026-11-17 — BOTH NOW CLOSED, BY HIS CHAOTIC-MOVE CHECK (`vix1_chaos`). This is his chop definition
+# above in another form — "prints 1 red volume candle then prints a bullish candle … no specific group of
+# candles": the candles before each are tug-of-war. Proven: with that check forced off, both trade again.
 for w in ("2026-08-05 14:00", "2026-08-05 17:00"):
-    s.check(f"   {w} trades — OPEN GAP (D42): his body-line rule narrowed the box and let it out",
-            fires(w), True)
+    s.check(f"   {w} no longer trades — his chaotic-move check (17 Nov) refuses it", fires(w), False)
 
 
 

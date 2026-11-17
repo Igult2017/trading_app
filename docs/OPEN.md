@@ -232,7 +232,7 @@ goes quiet.
 
 ## B. VIX.1
 
-### B37 — ~~The chaotic-move check is REPORTED on the DM but does not refuse trades yet~~ SWITCHED ON 17 Nov 2026 at his word ("Just switch it on already") — both trading routes refuse
+### B37 — ~~The chaotic-move check is REPORTED on the DM but does not refuse trades yet~~ SWITCHED ON 17 Nov 2026 at his word ("Just switch it on already") — TREND route only; change-of-character trades exempt (his option A, "Lets do A and see how it goes")
 - **Still true, not fixable by a look-back:** the first candle INTO a chaotic market after a clean move reads CLEAN.
 - **What:** `strategies/vix1_chaos.py` labels every momentum announcement CLEAN MOVE / CHAOTIC MOVE · WAIT FOR
   2ND/3RD. It gates nothing — the stomach rule's road (watch first, then switch on).
@@ -5331,6 +5331,12 @@ two entries DO name the same trade the older survives.
    supposedly caused, and a "70% false" rate — were both wrong and both had to be retracted.
 3. **Inventing evidence.** A "zone he sent on 16 Jul" never existed and reached three documents
    before he caught it (A4).
+
+### D42 update — 2026-11-17: ALL THREE NOW CLOSED — the two 05 Aug candles by his chaotic-move check
+- EUR/USD 2026-08-05 14:00 and 17:00 are refused by `vix1_chaos` (switched on 17 Nov, trend route only). It is
+  his chop definition in another form: tug-of-war candles before the momentum candle. Proven by forcing the
+  check off — both trade again. 2026-08-03 18:00 stays closed by his 16 Sep pullback rule. `test_tradeable.py`
+  now asserts all three refused. D42 as a PROJECT (his wider chop definition) is not declared finished.
 
 ### D42 update — 2026-11-10: TWO OF THE THREE ARE OPEN AGAIN, and his own body-line rule is why
 

@@ -31,8 +31,10 @@ HOW THE NUMBERS WERE CHOSEN, 17 Nov 2026, on real GBP/USD H1 and the strategy's 
     candle 4.2% of the time and the one after 6.1%.
 
 ⚠ IT DECIDES, SINCE 17 NOV 2026 — his words: "Just switch it on already. I am losing money."
-`refusal()` is asked on BOTH routes that emit a trade in `vix1_bias.detect_bias` (the change-of-character
-route and the main refusal list). The DM announcement still DESCRIBES every candle via `verdict()`.
+`refusal()` is asked in `vix1_bias.detect_bias`'s MAIN (trend) refusal list only. The change-of-character
+route is EXEMPT — his option A, same day: *"Lets do A and see how it goes."* Asked there it refused his own
+marked trade (EUR/USD 28 Jul 17:00 BUY); a turn is the end of a trend, and the candles before a turn always
+stall. The DM announcement still DESCRIBES every candle via `verdict()`.
 `test_chaos.py` fails if any other file reads this module.
 """
 from __future__ import annotations
@@ -119,7 +121,7 @@ def verdict(h1: list[Candle], i: int, bullish: bool, symbol: str) -> tuple[str, 
 
 def refusal(h1: list[Candle], bullish: bool, symbol: str) -> str | None:
     """THE GATE (switched on 17 Nov 2026 — *"Just switch it on already. I am losing money."*).
-    Asked about the NEWEST closed candle — the one both trading routes in `vix1_bias.detect_bias` trade.
+    Asked about the NEWEST closed candle — the one the trend route in `vix1_bias.detect_bias` trades.
     -> why it is refused, or None (clean move, too little history, or it IS the 2nd/3rd candle)."""
     i = len(h1) - 1
     if i < 1 or not is_chaotic(h1, i) or is_second_or_third(h1, i, bullish, symbol):

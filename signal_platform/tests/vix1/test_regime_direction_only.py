@@ -122,11 +122,23 @@ s.check("...his three 03 Sep hours still carry a BUY — 11:00, 12:00 and 16:00 
 # 12.4-pip candle with nothing closed after it. A void is a BAND of price left by a move, so a
 # candle can never be its own void, and both sells are back. This assertion is now the regression
 # test for that: if 06:00 disappears again, the void module has gone back to measuring candles.
-_sells = [(d, bull) for d, bull in fired if not bull]
-s.check("...plus two SELLs on 02 Sep, which his 16 Sep rule adds", len(_sells), 2)
+#
+# ⚠ 2026-11-17 — HIS CHAOTIC-MOVE CHECK NOW REFUSES BOTH SELLS. Neither was a trade he marked: they are
+# the side effect recorded above. The void regression is kept by asking with that check stood aside.
+from strategies import vix1_chaos  # noqa: E402
+_real_chaos = vix1_chaos.refusal
+vix1_chaos.refusal = lambda *a, **k: None
+try:
+    _sells_nochaos = [(d, bull) for d, bull in fired_with(True) if not bull]
+finally:
+    vix1_chaos.refusal = _real_chaos
+s.check("...with the chaotic-move check stood aside, two SELLs on 02 Sep, which his 16 Sep rule adds",
+        len(_sells_nochaos), 2)
 s.check("...and 06:00 is one of them — a candle can never be its own void",
-        sorted(d.strftime("%H:%M") for d, bull in _sells), ["00:00", "06:00"])
-s.check("five hours in this window carry a bias (three buys, two sells)", len(fired), 5)
+        sorted(d.strftime("%H:%M") for d, bull in _sells_nochaos), ["00:00", "06:00"])
+_sells = [(d, bull) for d, bull in fired if not bull]
+s.check("...and with it ON (17 Nov), both are refused — tug-of-war candles before them", len(_sells), 0)
+s.check("three hours in this window carry a bias — his three 03 Sep buys", len(fired), 3)
 
 # ⚠ WHAT THE DEFAULT DOES CHANGED ON 2026-09-29, and only for the 16:00 bar.
 #
@@ -142,9 +154,9 @@ s.check("five hours in this window carry a bias (three buys, two sells)", len(fi
 fired_default = fired_with(False)
 s.check("by DEFAULT only the 16:00 BUY trades — the other two still have no pullback behind them",
         [d.strftime("%H:%M") for d, bull in fired_default if bull], ["16:00"])
-s.check("...plus the two 02 Sep sells, which need no shortcut", len(fired_default), 3)
+s.check("...and nothing else (the two 02 Sep sells are refused by the chaotic-move check)", len(fired_default), 1)
 s.teeth("the shortcut switch still decides the other two BUYs",
-        len(fired) == 5 and len(fired_default) == 3)
+        len(fired) == 3 and len(fired_default) == 1)
 
 
 # ── THE CONTROL: a market where the sides DISAGREE is still refused ────────

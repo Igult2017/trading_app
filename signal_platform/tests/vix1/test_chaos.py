@@ -98,8 +98,8 @@ s.teeth("exactly two readers: the trade decision (vix1_bias) and the DM card (vi
         users == ["strategies/vix1_bias.py", "strategies/vix1_momentum_watch.py"])
 bias_src = (root / "strategies/vix1_bias.py").read_text(encoding="utf-8")
 # the CALLS, matched as calls — `def refusal(` lives in another file, so a deleted call cannot hide here
-s.teeth("the change-of-character route asks it before returning its trade",
-        "chaos = vix1_chaos.refusal(h1, bias.bullish, symbol)" in bias_src)
+s.teeth("the change-of-character route does NOT ask it (his option A — it refused his 28 Jul trade)",
+        bias_src.count("vix1_chaos.refusal(") == 1)
 s.teeth("the main route asks it in its refusal list", "vix1_chaos.refusal(h1, bullish, symbol)," in bias_src)
 s.teeth("the DM card only DESCRIBES (verdict), never decides (refusal)",
         "vix1_chaos.refusal(" not in (root / "strategies/vix1_momentum_watch.py").read_text(encoding="utf-8"))

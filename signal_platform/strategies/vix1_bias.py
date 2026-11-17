@@ -259,12 +259,11 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
                                      f"candle closed before this instrument was first scanned — "
                                      f"backfill, not a live setup | {state}")
                 return None
-            # HIS CHAOTIC-MOVE CHECK (17 Nov 2026) — asked on THIS route too, because it returns before
-            # the main route's refusal list; a gate on one route only would let chaos through the other.
-            chaos = vix1_chaos.refusal(h1, bias.bullish, symbol)
-            if chaos:
-                vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {chaos} | {state}")
-                return None
+            # ⚠ THE CHAOTIC-MOVE CHECK IS DELIBERATELY NOT ASKED ON THIS ROUTE — his ruling, 17 Nov 2026:
+            # *"Lets do A and see how it goes."* His rule is about *"a market that is trending with no
+            # volume"*; a change of character is the END of a trend, and the candles before a turn always
+            # stall. Asked here it refused his own marked trade (EUR/USD 28 Jul 17:00 BUY — clean travel
+            # 1%). `test_chaos.py` fails if this route starts asking it.
             vix1_log.say(symbol, f"[vix1] {symbol} CHoCH ENTRY: {why} | {state}")
             return bias
         vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: no established 1HR trend "
