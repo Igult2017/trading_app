@@ -106,6 +106,25 @@ def dedup_key(symbol: str, bar: Candle) -> str:
     return f"vix1_mom_announce_{symbol}_{bar.time}"
 
 
+def _glance(name: str, line: str) -> str:
+    """'CHAOTIC MARKET ❌ FAILED' — the one-glance form of a test's full line, read off that line's own icon."""
+    verdict = ("✅ PASSED" if line.startswith("✅") else "❌ FAILED" if line.startswith("❌") else "➖ NOT JUDGED")
+    return f"{name} {verdict}"
+
+
+def _stomach_line(stomach: tuple[str, str]) -> str:
+    """His stomach rule's sentence, led by a plain ✅ PASSED / ❌ FAILED (its own "STOMACH RULE — APPROVED:"
+    opening is replaced, not repeated)."""
+    tag, sentence = stomach
+    head = ("✅ STOMACH RULE: PASSED" if tag.endswith("APPROVED")
+            else "❌ STOMACH RULE: FAILED" if tag.endswith("DISQUALIFIED") else "➖ STOMACH RULE: NOT JUDGED")
+    rest = sentence
+    for opening in ("STOMACH RULE — APPROVED: ", "STOMACH RULE — DISQUALIFIED: ", "STOMACH RULE — not judged — "):
+        if rest.startswith(opening):
+            rest = rest[len(opening):]
+    return f"{head} — {rest}"
+
+
 def note(symbol: str, bullish: bool, bar: Candle, pip: float, strategy_name: str,
          admitted_note: str | None = None,
          stomach: tuple[str, str] | None = None,
@@ -147,15 +166,21 @@ def note(symbol: str, bullish: bool, bar: Candle, pip: float, strategy_name: str
         primary_timeframe = TF.H1,
         confidence        = 0.0,
         headline          = titles.MOMENTUM_ANNOUNCEMENT,
+        # PASSED / FAILED, FIRST AND ONE TEST PER LINE (17 Nov 2026). His report: *"in the DM, i cant tell
+        # whether it is passed or not"* — the verdicts sat at the end of a crowded line 2, and the status line
+        # said "✅ QUALIFIED", which only meant "it is a momentum candle" but read as "it passed".
+        # LINE 2 KEEPS THE VERDICTS — his 9 Nov ask that the second line state the stomach verdict — but as a
+        # plain glance, ✅ PASSED / ❌ FAILED per test, not the old run-on tags.
         label             = (f"{side} · ANNOUNCEMENT ONLY"
-                             + (f" · {stomach[0]}" if stomach else "")
-                             + (f" · {chaos[0]}" if chaos else "")),
+                             + (f" · {_glance('CHAOTIC MARKET', chaos[1])}" if chaos else "")
+                             + (f" · {_glance('STOMACH', _stomach_line(stomach))}" if stomach and stomach[0] else "")),
+        status_note       = "ℹ️ This message proposes no trade — the trade tests are below.",
         chart_marks       = [(bar.time, "MOMENTUM")],
         technical_reasons = [r for r in [
+            chaos and chaos[1],
+            stomach and _stomach_line(stomach),
             f"A {side} momentum candle has CLOSED on the 1H — {body:.1f} pip body, grade {grade}.",
             admitted_note and f"How it qualified: {admitted_note}",
-            stomach and stomach[1],
-            chaos and chaos[1],
             # ONE bullet, not two: the formatter shows only five details
             # (`telegram_formatter.py:52`) and the chaotic-move verdict needed the room.
             "THIS IS AN ANNOUNCEMENT, NOT A SIGNAL — it says nothing about the trend, the range, the "

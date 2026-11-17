@@ -73,8 +73,29 @@ else:
     got = mw.check(win, SYM)
     s.check("the DM announcement carries it as its fifth item", got is not None and got[4][0], "CHAOTIC MOVE · WAIT FOR 2ND/3RD")
     note = mw.note(SYM, got[1], got[0], 0.0001, "VIX.1", got[2], got[3], got[4])
-    s.check("...on line 2 of the card", "CHAOTIC MOVE · WAIT FOR 2ND/3RD" in note.label, True)
+    # 17 Nov: *"in the DM, i cant tell whether it is passed or not"* — so the card leads with PASSED/FAILED.
+    s.check("...the card's FIRST detail says FAILED, plainly", note.technical_reasons[0].startswith(
+        "❌ CHAOTIC MARKET TEST: FAILED"), True)
+    s.check("...the stomach rule gets its own PASSED/FAILED line second",
+            note.technical_reasons[1].split(" — ")[0] in ("✅ STOMACH RULE: PASSED", "❌ STOMACH RULE: FAILED"), True)
     s.check("...and the card stays within the five details shown", len(note.technical_reasons) <= 5, True)
+    from notifications.telegram_formatter import format_setup_alert  # noqa: E402
+    text = format_setup_alert(note)
+    s.check("...the message no longer says '✅ QUALIFIED' (it read as 'passed every test')", "QUALIFIED" in text, False)
+    s.check("...it says it proposes no trade", "This message proposes no trade" in text, True)
+
+print("\n5b. HIS EUR/USD candle of 17 Nov, 08:00 EAT — the DM he could not read:")
+EUR = load("EURUSD_H1_nov17_chaos.csv", "H1")
+if not EUR:
+    print("   SKIP — EURUSD_H1_nov17_chaos.csv not present")
+else:
+    e = len(EUR) - 1
+    s.check("the candle is the 08:00 EAT BUY (05:00 UTC)", EUR[e].time, 1794891600)
+    s.check("the real check: chaotic (clean travel 1%)", (ch.is_chaotic(EUR, e), round(ch.clean_travel(EUR, e), 2)),
+            (True, 0.01))
+    got = mw.check(EUR, "EUR/USD")
+    n = mw.note("EUR/USD", got[1], got[0], 0.0001, "VIX.1", got[2], got[3], got[4])
+    s.check("his card now opens with FAILED", n.technical_reasons[0].startswith("❌ CHAOTIC MARKET TEST: FAILED"), True)
 
 print("\n6. the 2nd/3rd-candle exemption (hand-built):")
 from core.types import Candle  # noqa: E402

@@ -105,18 +105,21 @@ def verdict(h1: list[Candle], i: int, bullish: bool, symbol: str) -> tuple[str, 
     """(short tag for line 2 of the DM card, full sentence for its details)."""
     ct, gb = clean_travel(h1, i), give_back(h1, i)
     if ct is None or gb is None:
-        return "CHAOS CHECK: NOT JUDGED", "CHAOTIC-MOVE CHECK — not judged: too little history before this candle."
+        return ("CHAOS CHECK: NOT JUDGED",
+                "➖ CHAOTIC MARKET TEST: NOT JUDGED — too little history before this candle.")
+    # EACH SENTENCE OPENS WITH ✅ PASSED / ❌ FAILED — his ask, 17 Nov: *"make it clear so that i can easily
+    # understand if a signal has passed it or not"*. The card shows this as its FIRST detail.
     nums = (f"clean travel {ct:.0%} over the last {CLEAN_LOOK} candles; "
             f"{gb[0]:.0%} of {gb[1]} big candles given back in the last {GIVE_LOOK}")
     if not is_chaotic(h1, i):
-        return "CLEAN MOVE", f"CHAOTIC-MOVE CHECK — CLEAN MOVE ({nums})."
+        return "CLEAN MOVE", f"✅ CHAOTIC MARKET TEST: PASSED — a clean move before this candle ({nums})."
     if is_second_or_third(h1, i, bullish, symbol):
         return ("CHAOTIC · 2ND/3RD CANDLE",
-                f"CHAOTIC-MOVE CHECK — the market is a tug-of-war ({nums}), but this IS the 2nd or 3rd "
+                f"✅ CHAOTIC MARKET TEST: PASSED — a tug-of-war market ({nums}), but this IS the 2nd or 3rd "
                 f"momentum candle, so his rule lets it trade (the other rules still apply).")
     return ("CHAOTIC MOVE · WAIT FOR 2ND/3RD",
-            f"CHAOTIC-MOVE CHECK — tug-of-war market ({nums}). No signal will be taken from this candle; "
-            f"a trade comes only if the next candle or the one after is a momentum candle too.")
+            f"❌ CHAOTIC MARKET TEST: FAILED — tug-of-war before this candle ({nums}). No signal will be taken "
+            f"from this candle; a trade comes only if the next candle or the one after is a momentum candle too.")
 
 
 def refusal(h1: list[Candle], bullish: bool, symbol: str) -> str | None:

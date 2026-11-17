@@ -117,8 +117,11 @@ print("\n4. the verdict is stated in the label, in one glance:")
 check("an approved candle says so", rule.tag(CARRIES_ON, 1, True), "STOMACH RULE: APPROVED")
 check("a refused candle says so", rule.tag(BIG_PREV, 1, True), "STOMACH RULE: DISQUALIFIED")
 check("nothing to judge says that too", rule.tag(NO_BODY, 1, True), "STOMACH RULE: NOT JUDGED")
-teeth("the card actually puts the tag in the label",
-      "stomach[0]" in watch and "label" in watch.split("stomach[0]")[0][-220:])
+# 17 Nov 2026: line 2 now carries the verdict as a plain glance ("STOMACH ✅ PASSED"), built from the rule's own line —
+# still on the second line, as he asked on 9 Nov, and clearer (*"i cant tell whether it is passed or not"*).
+teeth("the card actually puts the stomach verdict in the label",
+      "_glance('STOMACH', _stomach_line(stomach))" in watch
+      and "label" in watch.split("_glance('STOMACH'")[0][-260:])
 
 # ⚠ THE CARD MUST NOT TELL HIM IT GATES NOTHING. It said exactly that for a day, correctly, and the
 # words outlived the design by one commit. A refusal now stops a signal, so the card says so.

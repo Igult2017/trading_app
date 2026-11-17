@@ -234,6 +234,9 @@ class Signal:
                                    # saved, handed to the notifier and never sent. That exact case
                                    # happened on 2026-07-27 and was undiagnosable without this link.
     label:              str = ""   # short code shown prominently on the card (e.g. "451HRZ")
+    # Replaces the card's "✅ QUALIFIED" status line when set — the momentum ANNOUNCEMENT uses it, because there
+    # "qualified" only meant "it is a momentum candle" and read as "it passed every test" (17 Nov 2026).
+    status_note:        str = ""
     # True when the momentum candle this signal was built on passed the SIZE test only because of
     # the 24-hour memory — i.e. it was too small for the requirement in force NOW, and cleared an
     # EARLIER one remembered from before the requirement changed.

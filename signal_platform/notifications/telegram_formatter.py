@@ -24,7 +24,8 @@ def format_setup_alert(signal: Signal) -> str:
     setup-type text (e.g. no 'D1 200 EMA' / 'ADX' / 'H1 pullback' — those belong only to whichever
     strategy actually uses them, via its own technical_reasons)."""
     side  = "BUY" if signal.direction == Direction.BUY else "SELL"
-    status = ("✅ <b>QUALIFIED</b>" if signal.qualified
+    status = (_h(signal.status_note) if getattr(signal, "status_note", "")
+              else "✅ <b>QUALIFIED</b>" if signal.qualified
               else "❌ <b>NOT QUALIFIED</b> — reported for review only")
 
     # THE TITLE COMES FROM THE SIGNAL'S OWN `headline` (notifications/titles). This used to be a
