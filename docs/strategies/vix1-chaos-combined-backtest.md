@@ -1,61 +1,70 @@
 # VIX.1 — Would the trades the combined chaotic-move check holds back have lost money? (17 Nov 2026)
 
-**A BACKTEST, run at his request:** *"can you backtest this and find out if they would lose money if traded:
-together the two tests hold back 63% of trending momentum candles"*. That request was the approval.
+**A BACKTEST, run at his request:** *"can you backtest this and find out if they would lose money if traded"*.
+Then his challenge: *"The ones it let through, did they lose flat or broke even. And the ones that were blocked but
+won, are you sure they won because i doubt. I told you to focus on the reliability and accuracy of your test kit."*
 
-## What was tested and how
-- GBP/USD and EUR/USD, 1 Jun 2024 → 17 Jul 2026 (the span with one-minute candles).
-- The strategy's REAL code: `detect_bias` (the trade decision) with the chaotic-move check stood aside so every
-  trade it holds back still happens; then the REAL check (`vix1_chaos.refusal`, both halves, as deployed 17 Nov) is
-  asked about each one and which half held it back; `m1_signals` (the 1-minute entry, his 0.552 stop); his 2R
-  target (4R beside it); the REAL protection ladder (stop to entry at 0.4R, +1R locked at 1.5R).
-- Each trade walked minute by minute for up to 6 hours: if one minute could have hit both stop and target, the
-  stop counts; a stop touched before the entry = cancelled, not a loss; a trade still open after 6 hours is closed
-  at the last minute's price (a SELL pays the spread).
-- Kit: `trading_app_data/tools/vix1_chaos_bos_ab.py` split into three groups (scratch copy), walker in
-  `vix1_replay_year.py`. Results in R (1R = the amount risked).
+> ⚠ **The first version of this report (+15.15R held back / −7.92R let through) is WITHDRAWN.** Its kit did not
+> trade the way the live system does — see "What the old kit got wrong". Everything below is from the rebuilt kit.
+
+## What the old kit got wrong (each checked against the live code)
+1. It stopped watching a trade after 6 hours — the live system has no time limit.
+2. A SELL's stop and target were judged on the bid; a SELL really closes by buying at the ask (bid + spread). This
+   made SELL wins too easy and SELL stops too late.
+3. A BUY filled one spread late (the broker fills a BUY stop on the ask).
+4. The target was a fixed 2R; live it moves to 4R when a new momentum candle closes the trade's way.
+5. A waiting order lived 6 hours; live it lives 24 hours and is withdrawn if the 1-hour trend flips.
+6. It looked for the entry from the momentum candle's close even when the trade decision came on a LATER candle —
+   it could see the future.
+7. Breakeven was the entry price; live it is the entry plus the round-trip commission ($3 a side per lot, read off
+   his real fill), and the commission was never charged. The trailing stop above 2.2R was missing.
+
+## The rebuilt kit — `trading_app_data/tools/vix1_live_replay.py`
+Every decision is the live code; the kit only supplies the clock and the prices: `detect_bias` at each 1-hour
+close on closed candles; the entry through `m1_signals` only after the decision exists; the waiting order through
+`vix1_watch.check_invalidation`; the stop ladder through `position_tracker._lines` + `breakeven.why_not` (the live
+stop-moving code); the 4R move through `tp_extend.momentum_after_fill`. Inside one minute the stop is taken first;
+nothing is credited from the minute the order filled. Results are after commission, in R (1R = the amount risked).
 
 ## Why it can be trusted
-- **A kit fault was found and fixed before these numbers:** the first run scored a trade still open after 6 hours
-  as 0R (breakeven) — the hand check caught GBP/USD 7 Jan 2026, sitting near −0.95R at the time. 22 trades ended
-  that way. The first run's numbers were withdrawn. The walker now closes such a trade where price stood; proven on
-  hand-built candles (still open at −0.95R, +0.06R, a SELL paying the spread, target, stop, breakeven, +1R lock), and
-  putting the old 0 back fails the check.
-- 10 trades checked by hand against the minute candles (5 before the fix, 5 after, including two still-open ones
-  and one trade the check lets through): every result matches.
+- **Proven on hand-built candles first** (`test_vix1_live_replay.py`, 20 checks, all pass): a SELL touching its
+  target on the bid but not the ask is NOT a win; a SELL stopped only through the spread IS a loss; a BUY fills on the
+  ask; the fill minute credits nothing; fill and stop in one minute = loss; breakeven nets 0R after costs; +1R lock;
+  trend-flip withdrawal on closed candles only; 24-hour expiry; stop touched before entry = cancelled; the 4R move;
+  no look-ahead. Each piece has a TEETH check — broken on purpose, its case changes.
+- **Data checked first:** GBP/USD and EUR/USD 1-minute candles 22 May 2024 → 17 Jul 2026, 800,000 each: no
+  duplicates, none out of order, no >10% jumps, no broken candles; the only gaps are the Christmas / New Year closes.
+- **5 random trades checked by hand** against the minute candles (including EUR/USD trades it let through): all match.
+- **EVERY held-back trade that made money (30) re-checked by separate code** from the raw candles — the starting stop
+  never touched on the price that fires it, the exit price really reached, the fill real: **30 of 30 OK.** Each is
+  charted in `VIX1 held-back winners - every one checked.pdf` (his Desktop).
 
-## Findings — at his 2R target
-| group | filled | wins / losses | **2R total** | 4R total |
-|---|---|---|---|---|
-| GBP/USD — held back ONLY by the new who-is-in-control half | 26 ⚠ | 10 / 4 | **+9.90R** | +11.51R |
-| GBP/USD — held back by the 7.75% half | 45 | 11 / 12 | **+5.03R** | +9.23R |
-| EUR/USD — held back ONLY by the new half | 24 ⚠ | 4 / 5 | **+1.00R** | +2.00R |
-| EUR/USD — held back by the 7.75% half | 41 | 9 / 13 | **−0.78R** | +0.22R |
-| **both pairs — ALL HELD BACK** | **136** | **34 / 34** | **+15.15R** | +22.96R |
-| GBP/USD — trend trades it LETS THROUGH | 35 | 11 / 11 | +1.42R | −0.58R |
-| EUR/USD — trend trades it LETS THROUGH | 35 | 2 / 14 | −9.34R | −8.34R |
-| **both pairs — LET THROUGH** | **70** | **13 / 25** | **−7.92R** | −8.92R |
+## Findings — 1 Jun 2024 → 17 Jul 2026, GBP/USD + EUR/USD
+| group | filled | full loss | breakeven | +1R lock | trailed | 2R | **total** |
+|---|---|---|---|---|---|---|---|
+| **LET THROUGH** (traded today) | 73 | **30** | **35** | 4 | 1 | 3 | **−19.55R** |
+| held back by the 7.75% half | 91 | 27 | 46 | 8 | 6 | 4 | +1.10R |
+| held back ONLY by the new half | 51 | 11 | 28 | 8 | 0 | 4 | +3.96R |
+| **ALL HELD BACK** | **142** | **38** | **74** | **16** | **6** | **8** | **+5.06R** |
+| change of character (exempt, not judged) | 70 | 29 | 30 | 4 | 3 | 4 | −12.40R |
 
-⚠ = under 30 trades: no conclusion is drawn from that row alone. Fills that are neither a win nor a loss ended at
-breakeven. Change-of-character trades are not touched by the check (exempt) and are not in this table.
+By pair: GBP/USD let through −1.77R, held back +12.66R; EUR/USD let through −17.78R (17 full losses, 20 breakevens,
+**no win at all**), held back −7.61R. Per pair the new-half groups are under 30 trades (26, 25) — not judged alone.
+No trade reached 4R (33 were moved to it). 60 orders were withdrawn before filling.
 
-1. **No — held back, they would NOT have lost money. They would have made +15.15R over the two years.** Holding them
-   back cost that.
-2. **The trades the check lets through did worse: −7.92R.** In this backtest it keeps the weaker trades, not the
-   stronger ones.
-3. **Most of it is GBP/USD** (+14.93R held back). On EUR/USD the held-back trades are roughly flat (+0.22R) while the
-   let-through ones lose (−9.34R).
-4. This reverses the earlier backtest (`vix1-chaos-bos-backtest.md`, blocked trades −5R). That one measured the OLD
-   two-test check and scored still-open trades as 0R, so its numbers are not comparable.
+1. **The trades it lets through mostly LOSE, not break even:** 30 full losses, 35 breakevens, 8 small wins — −19.55R.
+2. **The held-back winners are real** — all 30 checked. But they sit among 38 full losses; the held-back trades as a
+   whole come to **+5.06R**, not the +15R first reported.
+3. So the check does not save money here: what it holds back made +5.06R; what it keeps lost −19.55R.
+4. Inconsistent between pairs: on GBP/USD what it holds back did better (+12.66R vs −1.77R); on EUR/USD both lose.
 
 ## Recommendation
-On this evidence the chaotic-move check, as deployed, is costing money: it holds back trades that earned +15R and
-keeps trades that lost −7.9R. **Recommend he decides between switching it back to report-only on the DM (it still
-tells him on every momentum candle) or keeping it while it is checked on more data.** It is his rule and his money,
-so nothing has been changed.
+On this evidence the chaotic-move check does not pick the losers: the trades it lets through are the worse group.
+**Recommend switching it to report-only on the DM** (it keeps telling him on every momentum candle) — his decision.
+The larger finding is that VIX.1 lost on both pairs over these two years in this replay whatever the check does
+(all trades −26.89R; with the check as live −31.95R); that, not the check, is where the money goes.
 
 ## Still unknown
-- The news, session and one-trade-at-a-time rules were not applied; some of these trades would not have been taken.
-- The spread is a constant (GBP/USD 1.25, EUR/USD 1.2 pips) and a SELL's stop is checked on the bid, not the ask,
-  which flatters SELLs slightly — in every group alike.
-- GBP/JPY and gold were not tested (no one-minute history long enough here). Two years, two pairs.
+- The news rules, sessions, the 7pm cut-off and one-trade-at-a-time across pairs are not applied.
+- The spread is a constant (GBP/USD 1.25, EUR/USD 1.2 pips), not the spread at the time.
+- GBP/JPY and gold not tested (no long one-minute history here).
