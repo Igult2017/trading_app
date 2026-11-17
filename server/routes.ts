@@ -1326,6 +1326,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // SETTINGS VAULT RESTORE (17 Nov 2026) — `scripts/vault/restore.mjs` sends the decrypted settings TABLES here after a
+  // move. Admin only. Body: { tables: { <table>: [rows] } }; only the fixed vault tables are written (`VAULT_TABLES`).
+  app.post("/api/admin/vault/restore-tables", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { restoreTables } = await import("./lib/settingsVault");
+      const tables = (req.body && typeof req.body.tables === "object") ? req.body.tables : null;
+      if (!tables) return res.status(400).json({ error: "body must be { tables: { <table>: [rows] } }" });
+      return res.json({ ok: true, restored: await restoreTables(tables) });
+    } catch (err: any) {
+      return res.status(500).json({ ok: false, error: `${err?.name ?? "Error"}: ${String(err?.message).slice(0, 200)}` });
+    }
+  });
+
   // "Send a test card" — the live end-to-end check of DM confirmation (16 Nov 2026). Places nothing.
   app.post("/api/admin/trade-mode/test-card", requireAdmin, async (req: Request, res: Response) => {
     try {

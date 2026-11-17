@@ -31,3 +31,6 @@ scratch/
 # every task and the autocommit hook was committing each version. scheduled_tasks.lock is a lock.
 .claude/PLAN.md
 .claude/scheduled_tasks.lock
+
+# settings vault PRIVATE key — must never be committed (17 Nov 2026)
+*trading-app-vault-key*

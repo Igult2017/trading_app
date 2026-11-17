@@ -21,6 +21,7 @@ import { startMissedCloseWatch } from "../services/missedCloseWatch";
 import { startHealthWatchdog } from "../services/healthWatchdog";
 import { startCTraderRealtime } from "../services/ctraderRealtime";
 import { startPublishScheduler } from "../services/publishScheduler";
+import { startSettingsVault } from "./settingsVault";
 import { log } from "../static";
 
 // In PM2 cluster mode each worker gets NODE_APP_INSTANCE = '0', '1', '2'…
@@ -57,6 +58,7 @@ export function startBackgroundServices(): void {
   startHealthWatchdog();        // coded health alerts (token / scanner / engine)
   startCTraderRealtime();       // instant cTrader trade recording
   startPublishScheduler();      // scheduled blog posts go live when their time arrives
+  startSettingsVault();         // encrypted copy of every setting to his private GitHub repo (off until VAULT_* set)
 
   mirrorSignalPlatformStatus();
 }

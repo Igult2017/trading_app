@@ -68,6 +68,7 @@
     "@tanstack/react-table": "^8.21.3",
     "@types/compression": "^1.8.1",
     "@types/node-telegram-bot-api": "^0.64.11",
+    "age-encryption": "^0.3.0",
     "axios": "^1.17.0",
     "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.1",
