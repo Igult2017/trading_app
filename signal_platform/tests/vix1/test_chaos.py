@@ -59,6 +59,36 @@ s.check("inside one candle the SHORTER route is counted (open 1.0, high 1.3, low
         round(ch._travelled(_c(1.0, 1.3, 0.9, 1.2)), 6), 0.6)
 s.check("too little history -> not judged", ch.clean_travel(stacked[:5], 4), None)
 
+print("\n0b. the push/pull reader — what each candle says (usual body = 1.0; hand-built, known answers):")
+for name, c, want in [("wickless, body 2 up -> buyers took control", _c(10, 12, 10, 12), "B"),
+                      ("wickless, body 2 down -> sellers took control", _c(12, 12, 10, 10), "S"),
+                      ("doji -> a fight pushed back", _c(10, 11, 9, 10.05), "r"),
+                      ("upper wick exactly 2x body -> pushed back", _c(10, 16, 10, 12), "r"),
+                      ("upper wick 1.85x body -> not a rejection; body 35% of candle -> nobody", _c(10, 15.7, 10, 12), "."),
+                      ("body under the usual -> nobody", _c(10, 10.5, 10, 10.5), "."),
+                      ("body 60% of candle but under the usual -> nobody", _c(10, 10.95, 10, 10.6), "."),
+                      ("big body, only 40% of candle -> nobody", _c(10, 13.5, 8.5, 12), ".")]:
+    s.check(name, ch._read(c, 1.0), want)
+
+
+def _bars(letters):
+    """24 'usual' candles (body 1) then 12 candles spelling `letters`, then the judged candle."""
+    look = {"B": _c(10, 12, 10, 12), "S": _c(12, 12, 10, 10), "r": _c(10, 11, 9, 10.05), ".": _c(10, 10.5, 10, 10.5)}
+    return [_c(10, 11, 10, 11)] * 24 + [look[ch_] for ch_ in letters] + _end
+
+
+for letters, want, why in [("BBBB.r.r.r..", True, "buyers 4x, nobody else, but nobody pushed in the last 5"),
+                           ("B.B.B...B...", False, "buyers 4x, one push in the last 5 -> one side in control"),
+                           ("BSBSBSBS.S..", True, "4 against 5 -> nobody in control"),
+                           ("BB.....S..B.", False, "3 against 1, a push in the last 5 -> buyers in control"),
+                           ("BB..S..r..rr", True, "2 against 1 -> under 3 pushes"),
+                           ("SSS.SBBB..S.", True, "5 against 3 -> under twice the other side"),
+                           ("SSS.SBB...S.", False, "5 against 2 -> over twice, a push in the last 5 -> sellers in control")]:
+    b = _bars(letters)
+    s.check(f"[{letters}] {why}", (ch.story(b, 36), ch.push_and_pull(b, 36)), (letters, want))
+s.check("too little history (under 24 candles) -> not judged", (ch.story(stacked, 12), ch.push_and_pull(stacked, 12)),
+        (None, False))
+
 if not BARS:
     print("   SKIP — GBPUSD_H1_nov17_chaos.csv not present")
 else:
@@ -87,7 +117,8 @@ else:
     print("\n5. the verdict the DM card carries:")
     tag, line = ch.verdict(BARS, at("2026-11-16 09:00"), False, SYM)
     s.check("chaotic candle -> WAIT tag", tag, "CHAOTIC MOVE · WAIT FOR 2ND/3RD")
-    s.check("...and says what would let a trade happen", "No trade unless one of the next 2 candles is momentum too" in line, True)
+    s.check("...and says what would let a trade happen", "Trade only on the next 2 candles' momentum" in line, True)
+    s.check("...and WHICH test objected (both, here)", ("progress" in line, "nobody in control" in line), (True, True))
     s.check("THE GATE refuses his chaotic candle (Mon 16 09:00 SELL)",
             ch.refusal(BARS[:at("2026-11-16 09:00") + 1], False, SYM) is not None, True)
     s.check("THE GATE lets his clean candle through (Fri 06 16:00 SELL)",
@@ -147,6 +178,32 @@ else:
     # TEETH: the bodies-only measure that let it in must not come back
     body_only = abs(GJ[g - 1].close - GJ[g - 12].open) / sum(abs(c.close - c.open) for c in GJ[g - 12:g])
     s.teeth("the old bodies-only reading (24%) would NOT have called it chaotic", body_only >= ch.CHAOS_MAX)
+
+print("\n5d. COMBINED (his 'Combine and deploy', 17 Nov) — his D42 chop example EUR/USD 5 Aug (UTC), and each half alone:")
+AUG = load("EURUSD_H1_live_sep04.csv", "H1")
+if not AUG:
+    print("   SKIP — EURUSD_H1_live_sep04.csv not present")
+else:
+    def aug(h):
+        t = int(datetime.datetime(2026, 8, 5, h, tzinfo=datetime.timezone.utc).timestamp())
+        return next(k for k, c in enumerate(AUG) if c.time == t)
+    a14, a17 = aug(14), aug(17)
+    s.check("5 Aug 14:00 — whole-candle says clean (8.23%), push/pull says nobody in control",
+            (round(ch.clean_travel(AUG, a14), 4), ch.story(AUG, a14), ch.push_and_pull(AUG, a14)),
+            (0.0823, "B.rrBSr.rBSr", True))
+    s.check("...so the combined check calls it chaotic (the gap B37 left open is closed)", ch.is_chaotic(AUG, a14), True)
+    s.check("5 Aug 17:00 — both say chaotic", (ch.clean_travel(AUG, a17) < ch.CHAOS_MAX, ch.push_and_pull(AUG, a17)),
+            (True, True))
+    _pp, _max = ch.push_and_pull, ch.CHAOS_MAX
+    try:
+        ch.push_and_pull = lambda *a, **k: False
+        s.teeth("push/pull half switched off -> 5 Aug 14:00 reads clean again", ch.is_chaotic(AUG, a14) is False)
+        if GJ:
+            s.teeth("...and the whole-candle half still refuses GBP/JPY 17 Nov on its own", ch.is_chaotic(GJ, len(GJ) - 1))
+        ch.push_and_pull, ch.CHAOS_MAX = _pp, 0.0
+        s.teeth("whole-candle half switched off -> push/pull still calls 5 Aug 14:00 chaotic", ch.is_chaotic(AUG, a14))
+    finally:
+        ch.push_and_pull, ch.CHAOS_MAX = _pp, _max
 
 print("\n6. the 2nd/3rd-candle exemption (hand-built):")
 _real = ch.qualifies_for_trade

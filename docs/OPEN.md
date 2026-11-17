@@ -255,9 +255,12 @@ goes quiet.
   the GBP/JPY 11:00 EAT SELL got through on the old second test. Fix log `vix1.md` 2026-11-17 (g).
 - **Watch:** the line sits in a NARROW gap on his examples (7.4% chaotic vs 8.1% keep). If a clean move he would
   trade is refused, the number to look at is `CHAOS_MAX` in `strategies/vix1_chaos.py`.
-- **OPEN — needs his call:** his D42 chop example EUR/USD **5 Aug 14:00** scores **8.23%** and trades again, while his
-  KEEP candle GBP/USD **10 Nov 12:00** scores **8.1%** — lower. No single line refuses the first and keeps the
-  second. 5 Aug 17:00 (4.56%) stays refused. Pinned as trading in `test_tradeable.py`.
+- **17 Nov, latest: TWO tests combined — wait if EITHER says push-and-pull** (his "Combine and deploy"). The second
+  reads who took control candle by candle (`push_and_pull`). Fix log `vix1.md` 2026-11-17 (h).
+- ~~5 Aug 14:00 trades again at 8.23%~~ CLOSED by the second test (story `B.rrBSr.rBSr`, nobody in control); pinned
+  refused in `test_tradeable.py`.
+- **Watch:** combined it holds back 188 of 300 random trending momentum candles (63%; whole-candle alone 38%).
+  Whether that is better for money is UNKNOWN — needs a backtest, which needs his yes.
 - **Known limit, not fixable by a look-back:** the first candle INTO a chaotic market after a clean move (his
   Wed 11 Nov 16:00) reads CLEAN. Report: `docs/strategies/vix1-chaos-report.md` (its two-test numbers are
   superseded by the 17 Nov (g) entry).
