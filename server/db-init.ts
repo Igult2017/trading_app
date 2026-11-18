@@ -632,10 +632,14 @@ export async function initializeDatabase() {
 
     // ── Indexes & constraints added after table creation ─────────────────────
     const indexStatements = [
-      // Deduplication constraint: prevents the same master signal from being
-      // inserted twice (ON CONFLICT DO NOTHING in insert_master_trade relies on this)
-      `CREATE UNIQUE INDEX IF NOT EXISTS idx_copy_trades_master_dedup
-         ON copy_trades_master (master_id, external_id)`,
+      // NO "ONE ROW PER (master, external_id)" RULE (removed 18 Nov 2026, docs/OPEN.md D75). It was made for an old
+      // insert_master_trade(... ON CONFLICT DO NOTHING) that no longer exists. The copy dispatcher records SEVERAL
+      // events under one order/position number by design — PLACED then each AMENDED; OPEN, REDUCE, CLOSE — and guards
+      // real duplicates itself (copy_platform/dispatcher.py). With the rule in place the 2nd event crashed the save
+      // (10x on 18 Nov), and a master's CLOSE would never have reached its followers.
+      `DROP INDEX IF EXISTS idx_copy_trades_master_dedup`,
+      `CREATE INDEX IF NOT EXISTS idx_copy_trades_master_lookup
+         ON copy_trades_master (master_id, external_id, event_type)`,
     ];
 
     for (const stmt of indexStatements) {

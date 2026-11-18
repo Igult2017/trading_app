@@ -273,12 +273,18 @@ goes quiet.
 - Fix (planned, not done — he said stop): units = volume / 100; cost converted into the pair's quote currency (USD/JPY from
   `execution/placer._usd_jpy_for`); test re-pinned with a real broker size.
 
-### D75 — Copy trading: a master's order event is saved twice → duplicate-key crash. Found 18 Nov 2026 — OPEN
+### D75 — ~~Copy trading: a master's order event is saved twice → duplicate-key crash~~ FIXED 18 Nov 2026 (root cause: a stale one-row rule)
 
 - **Seen:** 10 crashes in the live log, 18 Nov 09:21 UTC on — `copy_platform/dispatcher.py:217` `_save_master_trade`,
-  `UniqueViolation … idx_copy_trades_master_dedup` for (master 83a14f84…, external 377939771); the master has no followers,
-  so nothing was mis-copied. Cause not yet traced (likely the same order event arriving twice and both inserting).
-- **Not touched:** found while diagnosing VIX.1; the copy gateway work is deferred by his call.
+  `UniqueViolation … idx_copy_trades_master_dedup` (master 83a14f84…, order 377939771, an AMENDED).
+- **Root cause:** `server/db-init.ts` created a UNIQUE index on copy_trades_master (master_id, external_id) — one row per
+  order/position number — for an old `insert_master_trade(... ON CONFLICT DO NOTHING)` that no longer exists. The
+  dispatcher records SEVERAL events per number by design (PLACED then each AMENDED; OPEN, REDUCE, CLOSE) and guards real
+  duplicates itself, so the 2nd event on any number crashed. A master's CLOSE would have crashed the same way and never
+  reached its followers (masters had no followers on 18 Nov, so nothing was mis-copied).
+- **Fix:** db-init.ts drops the unique index and creates a plain look-up index (master_id, external_id, event_type).
+  `copy_platform/tests/test_master_event_history.py` (8): the old rule fails PLACED→AMENDED and OPEN→CLOSE on a real
+  table through the real save; the new state keeps every event and the duplicate-CLOSE guard still holds.
 
 ### B37 — The chaotic-move check — ~~refuses break-of-structure trades~~ REMOVED FROM EVERY TRADE DECISION 18 Nov 2026 by his order; DM label only
 - **17 Nov, later: ONE test, whole candle (wicks included), chaotic under 7.75%** — his *"test one is enough"*, after
