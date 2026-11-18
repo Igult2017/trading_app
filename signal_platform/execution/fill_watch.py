@@ -71,8 +71,8 @@ async def check_fills(positions, send) -> None:
             # never raises, and a False still retries below.
             from notifications import safe_notify as _notify
             from notifications import trade_buttons      # ❌ CANCEL / ✏️ ADJUST SL on this message (18 Nov 2026)
-            if (await trade_buttons.send(msg, symbol=match.symbol, bullish=match.bullish, order_id=order_id,
-                                         position_id=match.position_id)
+            if (await trade_buttons.send(msg, symbol=getattr(match, "symbol", ""), bullish=getattr(match, "bullish", True),
+                                         order_id=order_id, position_id=getattr(match, "position_id", None))
                     or await _notify.tell(send, msg)):
                 delivery_ledger.mark_delivered(key)
             else:

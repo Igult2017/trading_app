@@ -440,6 +440,7 @@ async def _one_position(p, send, r_seen: dict) -> None:
 
 _waiting_task = None
 _confirm_task = None
+_action_task = None          # his Cancel trade / Adjust SL presses (18 Nov 2026)
 
 
 def _start_waiting_order_work(send) -> None:
@@ -449,7 +450,7 @@ def _start_waiting_order_work(send) -> None:
     SEPARATE SINCE THE AUDIT (16 Nov 2026). The Confirm pickup shared this pass, so a Confirm waited
     behind a news-calendar re-fetch (up to 10 s) and any order amendment (a broker round trip) — long
     enough for the price to reach the entry and his Confirm to be refused as too late."""
-    global _waiting_task, _confirm_task
+    global _waiting_task, _confirm_task, _action_task
     loop = asyncio.get_running_loop()
     if _waiting_task is None or _waiting_task.done():
         async def _pass():
@@ -458,12 +459,12 @@ def _start_waiting_order_work(send) -> None:
             await resting_watch.check(send)
         _waiting_task = loop.create_task(_pass())
     if _confirm_task is None or _confirm_task.done():
-        from execution import confirmations, trade_actions
-
-        async def _presses():
-            await confirmations.check(send)
-            await trade_actions.check()           # his ❌ Cancel trade / ✏️ Adjust SL presses (18 Nov 2026)
-        _confirm_task = loop.create_task(_presses())
+        from execution import confirmations
+        _confirm_task = loop.create_task(confirmations.check(send))
+    # His ❌ Cancel trade / ✏️ Adjust SL presses (18 Nov 2026) — their OWN task, so neither press waits on the other.
+    if _action_task is None or _action_task.done():
+        from execution import trade_actions
+        _action_task = loop.create_task(trade_actions.check())
 
 
 # HEALTH (16 Nov 2026, `docs/OPEN.md` C10) — how many passes really ran, and the longest gap between

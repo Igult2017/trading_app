@@ -132,7 +132,7 @@ ACCT["type"] = "demo"
 import inspect  # noqa: E402
 from execution import fill_watch, placer  # noqa: E402
 from monitor import position_tracker  # noqa: E402
-s.teeth("the tracker really runs it", "await trade_actions.check()" in inspect.getsource(position_tracker))
+s.teeth("the tracker really runs it, as its own task", "_action_task = loop.create_task(trade_actions.check())" in inspect.getsource(position_tracker))
 s.teeth("the order-placed message carries the buttons, plain text if they fail",
         "if not await trade_buttons.send(msg" in inspect.getsource(placer))
 s.teeth("the filled message carries the buttons too", "await trade_buttons.send(msg" in inspect.getsource(fill_watch))
