@@ -5414,6 +5414,12 @@ Real gold 12–17 Nov: no 4H supply zone near price came from a move of 4 consec
 1H one had been closed through. `MIN_RUN = 4` is MY reading of *"travelled many candles not 1 or three candles"* —
 his to confirm or change (e.g. count candles in the leg rather than consecutive closes).
 
+### F5 — Bitcoin's spread is large against a 1M-sized stop; no cap is applied. Found 18 Nov 2026 — HIS DECISION
+BTC spread on 18 Nov: **$33.82** (bid 62,691.74 / ask 62,725.56); gold: $0.11. OVP skips the platform's 0.05% cap
+(it would refuse every BTC signal). The spread is in a sell's stop, but on a buy it is paid on entry, and against a
+stop of ~$100 it is a third of the risk. **Options:** (a) no cap (now); (b) refuse when spread > a share of the
+trade's own risk, e.g. 20%; (c) a fixed BTC cap in dollars.
+
 ## E. Parked — do not start these
 
 | | | |

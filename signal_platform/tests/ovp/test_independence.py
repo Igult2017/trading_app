@@ -51,6 +51,17 @@ sat = datetime(2026, 11, 21, 12, tzinfo=timezone.utc)
 check("Saturday: only Bitcoin is scanned", get_open_instruments(sat), ["BTC/USD"])
 check("Tuesday: everything is scanned", get_open_instruments(datetime(2026, 11, 17, 12, tzinfo=timezone.utc)), INSTRUMENTS)
 check("only Bitcoin is round-the-clock", ALWAYS_OPEN, {"BTC/USD"})
+from core.dependency_resolver import resolve  # noqa: E402
+check("OVP is handed the LIVE bid/ask (else the stop-order check reads a closed, minutes-old close)",
+      resolve(OVPStrategy()).needs_spread, True)
+import inspect  # noqa: E402
+from orchestrator import strategy_runner  # noqa: E402
+from strategies.vix1 import Vix1Strategy  # noqa: E402
+check("...without the 0.05% spread cap (BTC's $33.82 spread on 18 Nov = 0.054% would refuse every BTC signal)",
+      OVPStrategy.spread_cap, False)
+check("VIX.1 keeps the cap exactly as before", getattr(Vix1Strategy, "spread_cap", True), True)
+check("the runner really asks the strategy before capping",
+      'getattr(strategy, "spread_cap", True) and context.spread is not None' in inspect.getsource(strategy_runner), True)
 
 # THE REAL ROUTE — a confirmed OVP signal through `dispatcher.on_signal_confirmed`, Telegram and the DB faked at the edge.
 import asyncio  # noqa: E402

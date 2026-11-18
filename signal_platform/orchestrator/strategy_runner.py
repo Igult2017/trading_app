@@ -406,7 +406,9 @@ async def run_strategy(
             if not sl_validator.check(signal, pri_candles):
                 await _refuse("SL too tight vs ATR")
                 continue
-        if strategy.requires_spread and context.spread is not None:
+        # A strategy may want the live quote WITHOUT the spread cap: `spread_cap = False` (OVP, 18 Nov 2026 — Bitcoin's
+        # normal $34 spread is 0.054% of price, over the 0.05% cap, so every BTC signal would have been refused).
+        if strategy.requires_spread and getattr(strategy, "spread_cap", True) and context.spread is not None:
             if not spread_filter.check(signal, context.spread):
                 await _refuse(f"spread filter (spread={context.spread})")
                 continue

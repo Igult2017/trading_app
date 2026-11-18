@@ -36,6 +36,13 @@ class OVPStrategy(BaseStrategy):
     # 500 4H / 1H bars give the "big gap" test its 100 earlier gaps with room to spare; 300 5M bars cover the
     # support/resistance search (200) plus its pivots; 30 days for the daily range.
     candle_counts       = {TF.H4: 500, TF.H1: 500, TF.M5: 300, TF.M1: 30, TF.D1: 30}
+    # THE LIVE BID/ASK. The platform fills `context.quote` / `context.spread` ONLY for a strategy that asks
+    # (`strategy_runner`: `quote_for(...) if deps.needs_spread`). Without it OVP judged "would this stop order fill
+    # at once?" on a closed 1M close up to ~2 minutes old and put no spread on a sell's stop — found live, 18 Nov.
+    requires_spread     = True
+    # ...but NOT the platform's 0.05%-of-price spread cap (`risk/spread_filter`) — not his rule, and Bitcoin's normal
+    # spread ($33.82 = 0.054% on 18 Nov) would refuse every BTC signal. The spread is already in a sell's stop.
+    spread_cap          = False
 
     allowed_sessions    = [Session.LONDON, Session.NEW_YORK, Session.ASIAN]
     allowed_trends      = [Trend.ANY]
