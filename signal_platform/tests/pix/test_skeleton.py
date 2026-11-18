@@ -123,7 +123,7 @@ check("market already through the entry → no order", S.entry_1m(m1, True, 100.
 GO = lambda m5, m1, bull, tap: (True, ["order flow: GO (stub)"])
 zone = B.Zone("demand", 101.0, 100.0, 101.0, 100.0, 100.5, 40, 41)
 S.direction, S.daily_atr = (lambda h4, h1: (1, "4H")), (lambda d1: 50.0)
-S.candidates = lambda h4, h1, m5, want, price, reach: [(B.BigZone("4H", zone, 1, zone, 2, 0.9), None)] if want == "demand" else []
+S.candidates = lambda h4, h1, m5, want, price, reach, **k: [(B.BigZone("4H", zone, 1, zone, 2, 0.9), None)] if want == "demand" else []
 plan, _ = S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [], flow=GO)
 check("...but with the ASK (101.9 + half the 0.3 spread = 102.05) already past the 102.0 entry → no order",
       S.zone_plan([], [], m5(above + [tap, out]), m1, 101.9, 0.3, [], flow=GO)[0], None)
@@ -136,7 +136,7 @@ check("ORDER FLOW SAYS NO → no plan, and the reason is given",
       (None, "order flow said no: 5M ABSORPTION"))
 szone = B.Zone("supply", 101.0, 100.0, 100.0, 101.0, 100.5, 40, 41)
 S.direction = lambda h4, h1: (-1, "4H")
-S.candidates = lambda h4, h1, m5, want, price, reach: [(B.BigZone("4H", szone, 1, szone, 2, 0.5), None)] if want == "supply" else []
+S.candidates = lambda h4, h1, m5, want, price, reach, **k: [(B.BigZone("4H", szone, 1, szone, 2, 0.5), None)] if want == "supply" else []
 m1s = [Candle(now - 120, 99.6, 99.7, 99.0, 99.2, 1, "M1"), Candle(now, 99.2, 99.3, 99.1, 99.2, 1, "M1")]
 sm5 = m5([(97, 97.5, 96.5, 97)] * 5 + [(98, 100.6, 97.8, 100.4), (100.4, 100.5, 98.5, 99.2)])
 splan, _ = S.zone_plan([], [], sm5, m1s, 99.2, 0.3, [], flow=GO)
@@ -196,16 +196,16 @@ B.big_zones = real_big
 S.direction = lambda h4, h1: (1, "4H")
 recent = m5(above + [tap, out])
 fresh = B.BigZone("5M", zone, 1, zone, recent[-1].time, 0.9)          # price "travelled" only on the last candle
-S.candidates = lambda *a: [(fresh, None)]
+S.candidates = lambda *a, **k: [(fresh, None)]
 check("a 5M zone is not 'tapped' by candles from before price travelled away from it",
       S.zone_plan([], [], recent, m1, 101.7, 0.3, [], flow=GO)[0], None)
 old = B.BigZone("5M", zone, 1, zone, recent[0].time - 600, 0.9)
-S.candidates = lambda *a: [(old, None)]
+S.candidates = lambda *a, **k: [(old, None)]
 p5 = S.zone_plan([], [], recent, m1, 101.7, 0.3, [], flow=GO)[0]
 check("...the same zone, travelled away long before the tap → planned", p5 is not None, True)
 real_tfs = dict(B.TF_S)
 B.TF_S.update({"5M": -10 ** 12})
-S.candidates = lambda *a: [(fresh, None)]
+S.candidates = lambda *a, **k: [(fresh, None)]
 teeth("the travelled-before-the-tap guard (guard removed)",
       S.zone_plan([], [], recent, m1, 101.7, 0.3, [], flow=GO)[0] is not None)
 B.TF_S.clear(); B.TF_S.update(real_tfs)

@@ -35,21 +35,26 @@ tick_listeners.register(pix_goldflow.on_tick)
 
 
 async def flow_data(symbol: str):
-    """{"M5": (source, flows), "M1": (source, flows)} — Bitcoin from Binance, gold from our own tick count."""
+    """{"M5": (source, candle flows, footprints), "M1": (...)} — the adapter per market; the tools never see a symbol.
+    Crypto: Binance (candle buy/sell + per-price trades). Broker-streamed markets (gold): our live tick count, an
+    ESTIMATE. Any other market (e.g. a stock, once a feed is wired): nothing → UNKNOWN → no signal."""
     if symbol.startswith("BTC"):
-        return {"M5": await pix_btcflow.flows("M5", 60), "M1": await pix_btcflow.flows("M1", 90)}
+        await pix_btcflow.refresh_prints()
+        m5, m1 = await pix_btcflow.flows("M5", 60), await pix_btcflow.flows("M1", 90)
+        return {"M5": (*m5, pix_btcflow.prints("M5")), "M1": (*m1, pix_btcflow.prints("M1"))}
     if symbol.startswith("XAU"):
-        return {"M5": pix_goldflow.flows("M5"), "M1": pix_goldflow.flows("M1")}
-    return {"M5": ("", {}), "M1": ("", {})}
+        return {"M5": (*pix_goldflow.flows("M5"), pix_goldflow.prints("M5")),
+                "M1": (*pix_goldflow.flows("M1"), pix_goldflow.prints("M1"))}
+    return {"M5": ("", {}, {}), "M1": ("", {}, {})}
 
 
 def make_check(data):
-    """The order-flow check the skeleton calls at a respected tap: 5M AND 1M must both say GO."""
+    """The order-flow check the skeleton calls at a respected tap: 5M AND 1M must both say GO (footprint included)."""
     def check(m5, m1, bull, tap):
         reasons = []
         for tf, candles in (("M5", m5), ("M1", m1)):
-            source, fl = data[tf]
-            v = verdict(candles, fl, bull, tap, tf.replace("M", "") + "M")
+            source, fl, fp = data[tf]
+            v = verdict(candles, fl, bull, tap, tf.replace("M", "") + "M", prints=fp)
             tag = f" ({source})" if source else ""
             if not v.go:
                 return False, reasons + [r + tag for r in v.reasons]

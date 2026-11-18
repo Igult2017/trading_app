@@ -173,12 +173,13 @@ GF.reset()
 print("\nBOTH TIMEFRAMES MUST AGREE (pix.make_check)")
 from strategies.pix import make_check  # noqa: E402
 m1c = [Candle(c.time, c.open, c.high, c.low, c.close, 1, "M1") for c in market()]
-ok = make_check({"M5": ("Binance futures", DIV), "M1": ("Binance futures", DIV)})(market(), m1c, True, TAP)
+FLAT_FP = {t: {100.0: (1.0, 1.0)} for t in DIV}          # a footprint with no stacked imbalance anywhere
+ok = make_check({"M5": ("Binance futures", DIV, FLAT_FP), "M1": ("Binance futures", DIV, FLAT_FP)})(market(), m1c, True, TAP)
 check("5M GO and 1M GO → go, every reason names its source", (ok[0], all("(Binance futures)" in r for r in ok[1])),
       (True, True))
-bad = make_check({"M5": ("Binance futures", DIV), "M1": ("Binance futures", ABS)})(market(), m1c, True, TAP)
+bad = make_check({"M5": ("Binance futures", DIV, FLAT_FP), "M1": ("Binance futures", ABS, FLAT_FP)})(market(), m1c, True, TAP)
 check("5M GO but 1M ABSORPTION → no", (bad[0], "1M ABSORPTION" in bad[1][-1]), (False, True))
-none = make_check({"M5": ("", {}), "M1": ("", {})})(market(), m1c, True, TAP)
+none = make_check({"M5": ("", {}, {}), "M1": ("", {}, {})})(market(), m1c, True, TAP)
 check("no figures at all (source down / gold warming up) → no", none[0], False)
 
 print(f"\n{'ALL PASS' if not BAD else f'{len(BAD)} of {N[0]} FAILED: {BAD}'} ({N[0]} checks)")

@@ -12,6 +12,9 @@
 | `strategies/pix_flow.py` | order-flow verdict per timeframe: absorption, initiation, CVD divergence / convergence; GO / REFUSE / UNKNOWN |
 | `strategies/pix_btcflow.py` | Bitcoin buy / sell per 5M / 1M candle from Binance (futures, then the spot mirror) |
 | `strategies/pix_goldflow.py` | gold buy / sell ESTIMATE: up / down price ticks counted live from our stream |
+| `strategies/pix_profile.py` | volume profile: POC, VAH, VAL, the POC's role, which levels touch a zone |
+| `strategies/pix_footprint.py` | footprint: buy / sell per price inside a candle, diagonal imbalances, stacks |
+| `strategies/pix_entry.py` | the 5M respect test and the 1M stop-order price |
 | `strategies/pix_zones.py` | marks every zone: the candle before a 3-candle gap, wick / engulfed / institutional (`find_fvgs`, `find_zones`, `break_index`) |
 
 Allowed imports (enforced by `tests/pix/test_independence.py`): PIX's own modules, the standard library, and plumbing —

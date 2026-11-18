@@ -21,15 +21,17 @@ from dataclasses import dataclass
 from core.types import Candle
 from strategies.pix_candles import closed_only
 from strategies.pix_swings import find_swings
+from strategies.pix_entry import TAP_WINDOW_M5, entry_1m, respected_5m
 from strategies.pix_bigzones import TF_S, candidates, daily_atr, NEAR_ATR_MULT
+from strategies.pix_profile import describe, from_candles, poc_role, touching
 from strategies.pix_trend import direction
 
-TAP_WINDOW_M5 = 12     # the tap must be within the last hour of 5M candles
 TARGET_R      = 3.0
 RANGE_MIN_R   = 2.0    # a support / resistance trade needs at least 2R of room to the opposite level
 SR_PIVOT      = 3      # a 5M swing high/low = the highest/lowest of 3 candles each side (its first respect)
 SR_LOOKBACK   = 200    # 5M candles searched for those levels (~16 hours)
 SR_TOL_ATR    = 0.25   # a level is a band ± a quarter of the 5M average range
+PROFILE_M5    = 288    # the volume profile's window: 288 5M candles = the last day (24 1H candles)
 
 
 @dataclass
@@ -46,43 +48,6 @@ class Plan:
     level_at:  int       # time of the zone's gap candle / the S/R pivot
     tap_at:    int       # time of the 5M candle that tapped it
     why:       list[str]
-
-
-def respected_5m(m5: list[Candle], top: float, bottom: float, bull: bool) -> int | None:
-    """Time of the tap if the LAST closed 5M candle is the FIRST close back out of the band the trade's way.
-
-    The tap is the most recent candle within `TAP_WINDOW_M5` that reached into the band; from it on nothing may
-    close beyond the far edge, and nothing before the last candle may already have closed back out (that respect
-    was earlier — this one is stale)."""
-    c = closed_only(m5)[-TAP_WINDOW_M5:]
-    if not c:
-        return None
-    taps = [k for k, x in enumerate(c) if (x.low <= top if bull else x.high >= bottom)]
-    if not taps:
-        return None
-    # THE VISIT starts at the FIRST of the run of candles that reached into the band. Starting at the latest touch
-    # let a candle that closed THROUGH the zone be forgotten the moment the next candle dipped in and closed back out.
-    t = taps[-1]
-    while t - 1 >= 0 and (t - 1) in taps:
-        t -= 1
-    seg = c[t:]
-    if any((x.close < bottom if bull else x.close > top) for x in seg):
-        return None
-    if any((x.close > top if bull else x.close < bottom) for x in seg[:-1]):
-        return None
-    last = seg[-1]
-    return c[t].time if (last.close > top if bull else last.close < bottom) else None
-
-
-def entry_1m(m1: list[Candle], bull: bool, sl: float, price: float) -> float | None:
-    """Stop-order price off the last CLOSED 1M candle, or None if it would not be a valid stop order now."""
-    c = closed_only(m1)
-    if not c:
-        return None
-    e = c[-1].high if bull else c[-1].low
-    if (bull and (e <= sl or price >= e)) or (not bull and (e >= sl or price <= e)):
-        return None                    # stop on the wrong side, or the market is already through the entry
-    return e
 
 
 def _atr(c: list[Candle], n: int = 14) -> float:
@@ -117,7 +82,9 @@ def zone_plan(h4, h1, m5, m1, price: float, spread: float, d1, flow=None) -> tup
     if atr is None:
         return None, "not enough daily candles to measure 'near the money'"
     want = "demand" if bull else "supply"
-    zones = candidates(h4, h1, m5, want, price, atr * NEAR_ATR_MULT)
+    day = closed_only(m5)[-PROFILE_M5:]                             # the volume profile over the last day
+    prof = from_candles(day)
+    zones = candidates(h4, h1, m5, want, price, atr * NEAR_ATR_MULT, profile=prof)
     if not zones:
         return None, f"{src} {'up' if bull else 'down'}trend — no real {want} zone (5M, 1H or 4H) within a day's range"
     refused: list[str] = []
@@ -145,6 +112,9 @@ def zone_plan(h4, h1, m5, m1, price: float, spread: float, d1, flow=None) -> tup
                f"to the {bz.reached.direction} zone {round(bz.reached.bottom, 5)}–{round(bz.reached.top, 5)} "
                f"before coming back",
                "5M: tapped and closed back out of the zone",
+               describe(prof, poc_role(day, prof.poc) if prof else "")
+               + (f" — {'/'.join(touching(prof, z.bottom, z.top))} AT THIS ZONE (confluence)"
+                  if touching(prof, z.bottom, z.top) else ""),
                *flow_why,
                f"1M stop order at the last closed candle's {'high' if bull else 'low'}; stop beyond the zone; 3R"]
         return Plan("buy" if bull else "sell", "zone", bz.tf, z.top, z.bottom, e, sl, tp, TARGET_R,

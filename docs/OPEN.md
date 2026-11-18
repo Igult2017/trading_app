@@ -5403,7 +5403,8 @@ VIX.1 does not use this reader. A stricter "latest high and low must agree" was 
 not part of this fix.
 
 ### F2 — ~~Order flow on 5M / 1M is not built~~ BUILT 18 Nov 2026 (`docs/strategies/pix.md` rule 5b); what is left:
-My numbers he may change: `INIT_MIN 0.10`, `ABSORB_MIN 0.25`, `APPROACH 12`. Gold's flow is a price-tick ESTIMATE and
+My numbers he may change: `INIT_MIN 0.10`, `ABSORB_MIN 0.25`, `APPROACH 12`, `VOL_AVG_N 20`; footprint 3× / 3 in a row;
+volume profile 70% / one day / 3 crossings = ranging; POC/VA = confluence (ranking), not a gate. No STOCK feed wired. Gold's flow is a price-tick ESTIMATE and
 UNKNOWN for ~1h after each restart. The per-price footprint is not built (his decisions read the candle delta).
 Still to come, his order: his management (BE at
 1R, lock +1R at 2R, +2R at 2.5R, out at 3R) and autotrade on account 5347047 after he has seen the signals → 1H volume

@@ -21,6 +21,7 @@ import time
 SYMBOL = "XAU/USD"
 KEEP_S = 8 * 3600
 _minutes: dict[int, list[int]] = {}        # minute open (s) → [up ticks, down ticks]
+_levels: dict[int, dict[float, list[int]]] = {}   # minute → price → [up ticks, down ticks] — the FOOTPRINT estimate
 _partial: set[int] = set()                 # minutes where counting (re)started part-way — never used
 _state = {"last": None, "first_minute": None, "last_epoch": None}
 
@@ -40,11 +41,13 @@ def on_tick(symbol: str, bid: float, epoch: float) -> None:
     if last is None or bid == last:
         _minutes.setdefault(m, [0, 0])
         return
-    row = _minutes.setdefault(m, [0, 0])
-    row[0 if bid > last else 1] += 1
+    side = 0 if bid > last else 1
+    _minutes.setdefault(m, [0, 0])[side] += 1
+    _levels.setdefault(m, {}).setdefault(bid, [0, 0])[side] += 1      # counted AT the price it moved to
     if len(_minutes) > KEEP_S // 60 + 60:
         for k in sorted(_minutes)[:60]:
             del _minutes[k]
+            _levels.pop(k, None)
 
 
 def flows(tf: str, now: float | None = None) -> tuple[str, dict[int, tuple[float, float]]]:
@@ -66,8 +69,25 @@ def flows(tf: str, now: float | None = None) -> tuple[str, dict[int, tuple[float
     return "", {}
 
 
+def prints(tf: str, now: float | None = None) -> dict[int, dict[float, tuple[float, float]]]:
+    """The footprint ESTIMATE: {candle open time: {price: (up ticks, down ticks)}} for the same candles `flows` covers."""
+    _, fl = flows(tf, now)
+    out: dict[int, dict[float, tuple[float, float]]] = {}
+    for t in fl:
+        mins = [t] if tf == "M1" else [t + 60 * k for k in range(5)]
+        cell: dict[float, list[float]] = {}
+        for m in mins:
+            for p, (u, d) in _levels.get(m, {}).items():
+                c = cell.setdefault(p, [0.0, 0.0])
+                c[0] += u
+                c[1] += d
+        out[t] = {p: (v[0], v[1]) for p, v in cell.items()}
+    return out
+
+
 def reset() -> None:
     """Tests and a fresh connection: forget everything counted."""
     _minutes.clear()
+    _levels.clear()
     _partial.clear()
     _state.update(last=None, first_minute=None, last_epoch=None)
