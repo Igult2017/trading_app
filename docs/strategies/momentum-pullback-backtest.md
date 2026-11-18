@@ -38,3 +38,18 @@ test it next (same trades, breakeven at 0.4R / later / none), which needs his ap
 
 ## Still unknown
 GBP/JPY (download running). Constant spread; no news rules; CVD is an estimate from tick volume.
+
+## Breakeven test (his approval, 18 Nov: *"Try those 2. No breakeven and 1R"*) — all three strategies
+Same trades, same fills; only the stop management changes; target fixed 2R; one at a time re-applied. Proven on
+hand-built paths (7 cases); every no-breakeven pullback trade (76) re-checked independently: 76 agree.
+
+| strategy (2 years, GBP/USD + EUR/USD) | breakeven 0.4R | breakeven 1R | no breakeven |
+|---|---|---|---|
+| VIX.1 as live (live ladder: 0.4R + lock at 1.5R) | −15.65R (70) | −17.34R (70) | −18.75R (67) |
+| Volume after quiet, 1st candle | −15.39R (80) | −21.58R (77) | −21.00R (75) |
+| Volume after quiet, 2nd candle | −2.54R (37) | **−2.19R** (37) | −5.46R (37) |
+| Momentum → pullback → resumes | **−11.17R** (69) | −16.99R (69) | −17.60R (69) |
+
+**The breakeven at 0.4R is NOT the cause — removing it or moving it to 1R makes things worse.** Without breakeven the
+pullback strategy wins 18 of 69 (26%); at a 2R target it needs 34% (plus costs) to break even. The trades that came
+back to breakeven mostly went on to the full stop. The problem is the entries: not enough of them reach 2R.
