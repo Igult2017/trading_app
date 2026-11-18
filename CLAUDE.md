@@ -225,7 +225,7 @@ historical bar is closed).
 4. Register in `strategies/__init__.py`: `strategy_registry.register(MyStrategy())`
 
 **Registered**: three strategies — `Vix1Strategy` (`vix1`), `BXStrategy` (`bx_sd`) and, since 2026-11-18,
-`OVPStrategy` (`ovp`, BTC/USD + XAU/USD, signals only — read `docs/strategies/ovp.md`). Zero *indicators*
+`PIXStrategy` (`pix`, BTC/USD + XAU/USD, signals only, shares no logic — read `docs/strategies/pix.md`). Zero *indicators*
 are registered; every strategy computes what it needs internally, so the scan loop produces signals
 without the indicator registry. (This block read "zero strategies registered, the scan loop produces
 no signals" until 2026-07-30, long after both shipped.)

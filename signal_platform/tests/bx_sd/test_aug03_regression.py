@@ -62,31 +62,9 @@ book = build(win, pip)
 print("\nTHE SIGNAL THAT SHOULD NOT HAVE FIRED")
 check("the fixture reproduces the exact entry bar (close 1.34872)",
       round(win[-1].close, 5), 1.34872)
-# ⚠ THIS ASSERTION IS RED AS OF 2026-08-23, AND IS DELIBERATELY NOT BEING BENT TO PASS.
-#
-# WHAT CHANGED. `choch_verdict` had a fourth test that called a change of character fake when the
-# zone price reacted from was not the FURTHEST-OUT one in its group at the time. It was deleted
-# because it ran his definition backwards (decisional is the verdict, not the evidence) and because
-# it refused 15 of 19 hand-counted changes of character. On THIS bar it was the only thing refusing.
-#
-# WHAT FIRES NOW IS A DIFFERENT ZONE, and the original defect is NOT recurring:
-#   * the bad 2026-08-03 card sold the 82-day-old 13 May zone 1.35337-1.35510, which price's high
-#     (1.35060) never came within 27.7 pips of
-#   * what fires now is HIS OWN 16 Jul zone 1.34928-1.35208, and price IS inside it on this bar
-#     (high 1.35060). Entry 1.34928 / stop 1.35208, both read off the zone's own edges — not from
-#     `pb_extreme + 15 pips`, which no longer exists
-#
-# WHAT IT DOES EXPOSE, and this is the real question for him. The zone it reacted from
-# (1.35337-1.35510) had THREE UNTOUCHED supply zones above it at that moment — 1.35792-1.35954,
-# 1.35921-1.36105 and 1.36070-1.36449. That is the shape of his own `Fake CHOCH` diagram: price
-# still has somewhere to go. The deleted test was, by accident, the ONLY thing in BX standing in for
-# "is there still untouched supply beyond". Nothing else checks it — `bx_sd_control.control` computes
-# who is in control from exactly this but its own note says it is "REPORTED, never used to reject".
-#
-# PENDING HIS RULING: either an "untouched zone still beyond" gate goes in and this returns to green
-# on its own, or this assertion is narrowed to the zone it was written about. Do NOT do the second
-# without him saying so — the whole point of this file is that it is the receipt for a real signal
-# that cost him.
+# THE RECEIPT: the bad 03 Aug SELL must not fire again on this bar. It does not.
+# (A 23 Aug note here said a different "16 Jul zone he drew" fired instead. He never drew it — that label was mine
+# — and since the 25 Aug formation rule it is not on the zone book at all; see the 16 Jul section below.)
 setup = detect_setup(win, pip, book=book)
 check("detect_setup DOES NOT fire on this bar", setup.active, False)
 
@@ -104,16 +82,18 @@ if old:
     hi = max(b.high for b in win[-12:])
     check("price never reached within 20 pips of that zone", (z.bottom - hi) / pip > 20, True)
 
-print("\nTHE USER'S OWN ZONE (16 Jul, 1.34928-1.35208) — WICKED, NEVER BODY-TRADED")
-his = [z for z in book if z.direction == "supply" and abs(z.top - 1.35208) < 1e-4
-       and z.state != "broken"]
-check("it is on the book exactly where he drew it", len(his), 1)
-if his:
-    z = his[0]
-    check("the registry recorded it as WICK-mitigated", z.mitigation_kind, "wick")
-    note = mitigation_note(z)
-    check("the card does NOT claim it is fresh", "Fresh" in note, False)
-    check("the card says the body never entered", "WICKED ONLY" in note, True)
+print("\nTHE 16 JUL 09:00 CANDLE (1.34928-1.35208) — an imbalance zone that never QUALIFIED")
+# FIXED 18 Nov 2026 (docs/OPEN.md A4). These checks said "his own 16 Jul zone … where he drew it". He never drew it;
+# the label was mine (3 Aug) and was repeated into the docs. The FACT: the candle does form a raw supply zone, but the
+# zone book keeps a zone only once its move broke an earlier level and took liquidity first (his formation rule,
+# `bx_sd_registry.build`), and this one never did — so nothing can ever be traded from it.
+from strategies.bx_sd_zones import find_zones  # noqa: E402
+raw = [z for z in find_zones(win) if z.direction == "supply" and abs(z.bottom - 1.34928) < 1e-5
+       and abs(z.top - 1.35208) < 1e-5]
+check("the 16 Jul 09:00 candle forms a raw supply zone 1.34928-1.35208", len(raw), 1)
+on_book = [z for z in book if z.direction == "supply" and z.bottom < 1.35208 and z.top > 1.34928
+           and z.ifc_time and datetime.datetime.utcfromtimestamp(z.ifc_time).month == 7]
+check("...but it is NOT on the zone book in any state (it never qualified)", len(on_book), 0)
 
 print("\nNO CARD MAY SAY 'Fresh — never tapped' ABOUT A RESPECTED ZONE")
 resp = [z for z in book if z.state == "respected"]

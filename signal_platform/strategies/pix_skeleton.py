@@ -1,7 +1,7 @@
-"""OVP — HIS SKELETON, top to bottom (18 Nov 2026). Pure functions on candles; `ovp.py` only feeds them.
+"""PIX — HIS SKELETON, top to bottom (18 Nov 2026). Pure functions on candles; `pix.py` only feeds them.
 
-  4H  is the market trending? (`ovp_setup.regime`). Trending → zones in the trend's direction only.
-  4H + 1H  the BIG zones near the money that line up with that trend (`ovp_bigzones`).
+  4H  is the market trending? (`pix_setup.regime`). Trending → zones in the trend's direction only.
+  4H + 1H  the BIG zones near the money that line up with that trend (`pix_bigzones`).
   5M  price taps one of them and is RESPECTED: a 5M candle closes back out of the zone the trade's way.
       ⚠ INTERIM. His respect test is order flow (footprint delta, absorption / initiation, CVD divergence) —
       that is the next build and replaces `respected_5m`. Until then the close back out is the test.
@@ -19,10 +19,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from core.types import Candle
-from shared.mtf_utils import closed_only
-from shared.swing_points import find_swing_points
-from strategies.ovp_bigzones import BigZone, big_zones, daily_atr, NEAR_ATR_MULT
-from strategies.ovp_trend import regime
+from strategies.pix_candles import closed_only
+from strategies.pix_swings import find_swings
+from strategies.pix_bigzones import BigZone, big_zones, daily_atr, NEAR_ATR_MULT
+from strategies.pix_trend import regime
 
 TAP_WINDOW_M5 = 12     # the tap must be within the last hour of 5M candles
 TARGET_R      = 3.0
@@ -95,7 +95,7 @@ def _atr(c: list[Candle], n: int = 14) -> float:
 
 def _levels(m5c: list[Candle], bull: bool):
     """5M swing lows (support) or highs (resistance), as (price, time)."""
-    pts = find_swing_points(m5c, n=SR_PIVOT)
+    pts = find_swings(m5c, n=SR_PIVOT)
     return [(p.price, m5c[p.index].time) for p in pts if p.is_high != bull]
 
 
@@ -125,8 +125,8 @@ def zone_plan(h4, h1, m5, m1, price: float, spread: float, d1) -> tuple[Plan | N
         risk = abs(e - sl)
         tp = e + TARGET_R * risk if bull else e - TARGET_R * risk
         why = [f"4H {'UP' if bull else 'DOWN'}TREND — trading with it only",
-               f"BIG {bz.tf} {want} zone {round(z.bottom, 5)}–{round(z.top, 5)}: the move ran {bz.run} closes, gap {bz.gap:.2f} "
-               f"beat the median {bz.median:.2f}",
+               f"REAL {bz.tf} {want} zone {round(z.bottom, 5)}–{round(z.top, 5)}: price left it and travelled to the "
+               f"{bz.reached.direction} zone {round(bz.reached.bottom, 5)}–{round(bz.reached.top, 5)} before coming back",
                "5M: tapped and closed back out of the zone (order-flow check comes next)",
                f"1M stop order at the last closed candle's {'high' if bull else 'low'}; stop beyond the zone; 3R"]
         return Plan("buy" if bull else "sell", "zone", bz.tf, z.top, z.bottom, e, sl, tp, TARGET_R,

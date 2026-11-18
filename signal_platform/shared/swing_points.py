@@ -43,13 +43,17 @@ def classify_structure(points: list[SwingPoint]) -> list[tuple[str, SwingPoint]]
         # with a random first swing to be misclassified as UPTREND.
         if i == 0:
             continue
-        label = "HH" if h.price > highs[i - 1].price else "LH"
+        # EQUAL IS NEITHER (18 Nov 2026). An equal high was labelled "LH" and an equal low "LL", so every tie counted
+        # as DOWNTREND evidence — a perfectly flat range read as a downtrend. "EH"/"EL" count for neither side.
+        p = highs[i - 1].price
+        label = "HH" if h.price > p else ("LH" if h.price < p else "EH")
         result.append((label, h))
 
     for i, l in enumerate(lows):
         if i == 0:
             continue
-        label = "HL" if l.price > lows[i - 1].price else "LL"
+        p = lows[i - 1].price
+        label = "HL" if l.price > p else ("LL" if l.price < p else "EL")
         result.append((label, l))
 
     return sorted(result, key=lambda x: x[1].index)

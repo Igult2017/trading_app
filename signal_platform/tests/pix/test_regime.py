@@ -1,8 +1,8 @@
 """
-OVP — THE 4H TREND READ (`strategies/ovp_trend.regime`): up, down, or ranging, from the 4H alone.
+PIX — THE 4H TREND READ (`strategies/pix_trend.regime`): up, down, or ranging, from the 4H alone.
 
 His skeleton, 18 Nov 2026: *"In 4 hours, we want to confirm if we are trending or not."* Which zone side a trend
-allows is proved through the real strategy in tests/ovp/test_skeleton.py, not re-implemented here.
+allows is proved through the real strategy in tests/pix/test_skeleton.py, not re-implemented here.
 """
 import os
 import sys
@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 os.environ.setdefault("DATABASE_URL", "postgresql://x/x")
 
 from core.types import Candle                                    # noqa: E402
-from strategies.ovp_trend import regime                        # noqa: E402
+from strategies.pix_trend import regime                        # noqa: E402
 
 F, N = [], 0
 
@@ -88,6 +88,31 @@ chk("4H up -> uptrend",   regime(UP4), 1)
 chk("4H down -> downtrend", regime(DN4), -1)
 teeth("up and down really differ", regime(UP4) != regime(DN4))
 FORMING = UP4[:-1] + [Candle(time=2_000_000_000_0, open=UP4[-1].open, high=9, low=0.5, close=0.5, volume=0, timeframe="H4")]
+def zig(points, per=3):
+    """A genuinely FLAT range: highs alternate 1.2105/1.2125, lows 1.1995/1.1975 — no net direction."""
+    out, k = [], 0
+    for a, b in zip(points, points[1:]):
+        for s_ in range(per):
+            o, c = a + (b - a) * s_ / per, a + (b - a) * (s_ + 1) / per
+            up = c > o
+            out.append(Candle(time=1700000000 + k * 14400, open=o, high=max(o, c) + (0.0005 if up else 0.0002),
+                              low=min(o, c) - (0.0002 if up else 0.0005), close=c, volume=0, timeframe="H4"))
+            k += 1
+    return out
+
+
+pts = []
+for i in range(12):
+    pts += [1.200 - (0.002 if i % 2 else 0), 1.210 + (0.002 if i % 2 else 0)]
+FLAT = zig(pts)
+reads = [regime(FLAT[:len(FLAT) - cut]) for cut in range(12)]
+chk("a flat range reads RANGING wherever the window ends (was 4 down / 4 ranging / 4 up)", reads, [0] * 12)
+import strategies.pix_trend as PT  # noqa: E402
+PT.MIN_LEAD = 1
+teeth("with a lead of 1 (the old rule) the flat range flickers again", [regime(FLAT[:len(FLAT) - c]) for c in range(12)] != [0] * 12)
+PT.MIN_LEAD = 2
+SAW = zig([1.200, 1.210] * 12)
+chk("a perfect sawtooth (every high and low EXACTLY equal) reads RANGING, not down", regime(SAW), 0)
 chk("a still-forming last candle is ignored (closed candles only)", regime(FORMING), regime(UP4[:-1]))
 
 print()

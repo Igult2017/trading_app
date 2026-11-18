@@ -415,7 +415,7 @@ The deleted fourth test was, by accident, the only thing standing in for it — 
 (1.35337–1.35510) had three untouched supply zones above it. The original defect is NOT recurring:
 what fires now is his own 16 Jul zone 1.34928–1.35208, which price IS inside on that bar (high
 1.35060), with entry and stop read off the zone's own edges. **The assertion has deliberately not
-been bent** — see the note in that file. Awaiting his ruling.
+been bent** — see the note in that file. **[Corrected 18 Nov 2026: not his — he never drew it; the label was mine. Since the 25 Aug formation rule it is not on the zone book at all, and `test_aug03_regression.py` is GREEN, 8/8 — `docs/OPEN.md` A4.]**
 
 ## The lifecycle
 
@@ -777,7 +777,7 @@ regression to guard against.
 | `bx_sd_continuation.py`, `fvg_zone`, `is_fvg_tap` | removed — they entered off an **imbalance**, not a zone. BX trades zones only |
 | `retapped_now` | the `respected` state |
 | `newly_mitigated_zones` | the `wick_mitigated` / `body_mitigated` states |
-| the `pro_trend()` gate | Ch.7 control (reported, never a gate) — it cost 70-78% of valid zones. **A narrower, regime-conditional gate returned 2026-08-01**: pro-trend only while the 4H is trending, both directions in a range (`bx_sd_setup.regime`) |
+| the `pro_trend()` gate | Ch.7 control (reported, never a gate) — it cost 70-78% of valid zones. **A narrower, regime-conditional gate returned 2026-08-01**: pro-trend only while the 4H is trending, both directions in a range (`bx_sd_setup.regime`). **18 Nov 2026: the shared reader it uses (`shared/trend_detector.detect`) now needs a lead of 2 swing labels and counts an EQUAL high/low for neither side** — a flat range had read down / ranging / up by window end (4/4/4) and every tie leaned down. BX reads RANGING 34-38% of the time now (was 11-14%), so both directions are open more often |
 | the **RETEST path** (`bx_sd_reports` ②) | the core cascade — 2026-08-01. It required `respected` + live retap + B/A confirmation, which is now a strict SUBSET of the cascade's retap branch, so both would emit for one zone with different grades and different dedup keys (unable to suppress each other). The retap did **not** go with it; it is one of the cascade's two ways in |
 | `_PULLBACK_LOOKBACK` (entry-TF, 24 bars) | `_PB_LOOKBACK_H4` — the pullback is a **4H** event; a second, tighter definition on the entry TF was silently the one the stop used |
 | `bx_sd_retest.py` (whole module) | nothing — `bx_sd_reports` was its **only** importer, so deleting the retest path orphaned it outright. Found by the 2026-08-01 audit, not by the change that caused it |
@@ -1060,7 +1060,7 @@ character and the whole book comes back `decisional` **with no error raised**. P
    The deleted fourth CHoCH test was the only thing refusing that bar. What fires now is a DIFFERENT
    zone and the original defect is not recurring: the bad 2026-08-03 card sold the 82-day-old 13 May
    zone 1.35337-1.35510, which price's high (1.35060) never came within 27.7 pips of; what fires now
-   is his own 16 Jul zone 1.34928-1.35208, which price IS inside on that bar, wick-only so still
+   is the 16 Jul zone 1.34928-1.35208 [18 Nov: NOT his, and no longer on the book — A4], which price IS inside on that bar, wick-only so still
    loaded, with entry and stop read off the zone's own edges rather than the deleted
    `pb_extreme + 15 pips`. Its parent was respected, liquidity was swept, 7 opposite zones broken.
    By every stated rule it reads valid. So the assertion `setup.active == False` is probably BROADER

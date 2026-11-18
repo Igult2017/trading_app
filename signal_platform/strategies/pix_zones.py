@@ -1,5 +1,5 @@
 """
-OVP — supply/demand zones from inefficiency.
+PIX — supply/demand zones from inefficiency.
 
 Book Ch.6, "Mitigation / Inefficiency":
   * "Supply/demand is a zone, where price rapidly pushes away from (lots of orders placed), creating
@@ -22,15 +22,15 @@ Book Ch.6, "Mitigation / Inefficiency":
     candle" — the zone is then the IMPULSE candle's wick ("orders are sitting on THIS WICK!"), and
     marking the body instead is "NOT HERE!". See _wick_zone.
   * mitigated / unmitigated (p27): "When price taps into a d/s zone, that has not been tapped yet, it
-    becomes mitigated from unmitigated." OVP trades BOTH (his rule, 18 Nov 2026) — only a BROKEN zone is dead.
+    becomes mitigated from unmitigated." PIX trades BOTH (his rule, 18 Nov 2026) — only a BROKEN zone is dead.
 
-Which of these zones OVP may trade — BIG, unbroken, near the money, the trend's side — is decided in
-`ovp_bigzones` (his skeleton, 18 Nov 2026). This file only marks them. Reads only raw candles.
+Which of these zones PIX may trade — BIG, unbroken, near the money, the trend's side — is decided in
+`pix_bigzones` (his skeleton, 18 Nov 2026). This file only marks them. Reads only raw candles.
 """
 from dataclasses import dataclass
 
 from core.types import Candle
-from shared.mtf_utils import closed_only
+from strategies.pix_candles import closed_only
 
 
 @dataclass

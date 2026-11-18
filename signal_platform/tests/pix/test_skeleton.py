@@ -1,8 +1,8 @@
-"""OVP — HIS SKELETON, proved on hand-built candles with known answers (18 Nov 2026). docs/strategies/ovp.md.
+"""PIX — HIS SKELETON, proved on hand-built candles with known answers (18 Nov 2026). docs/strategies/pix.md.
 
-Every rule is run through the REAL functions (`ovp_bigzones`, `ovp_skeleton`, `ovp.analyze`'s signal builder), and
+Every rule is run through the REAL functions (`pix_bigzones`, `pix_skeleton`, `pix.analyze`'s signal builder), and
 every key assertion has a TEETH case: the rule is deliberately broken and the check must then fail.
-Run: python tests/ovp/test_skeleton.py
+Run: python tests/pix/test_skeleton.py
 """
 import os
 import sys
@@ -14,8 +14,8 @@ import storage.observability_repo as _obs  # noqa: E402
 _obs.record = lambda *a, **k: None
 
 from core.types import Candle  # noqa: E402
-import strategies.ovp_bigzones as B  # noqa: E402
-import strategies.ovp_skeleton as S  # noqa: E402
+import strategies.pix_bigzones as B  # noqa: E402
+import strategies.pix_skeleton as S  # noqa: E402
 
 BAD, N = [], [0]
 
@@ -35,48 +35,62 @@ def teeth(name, failed_when_broken):
 H4_0 = 1_600_000_000 // 14400 * 14400
 
 
-def h4_series(run_closes):
-    """40 'staircase' candles (each leaves a SMALL 1.2 gap), zone candle at 140-141, then a move of `run_closes`."""
-    rows = [(100 + i + 0.1, 100 + i + 0.8, 100 + i, 100 + i + 0.7) for i in range(40)]
-    rows.append((140.6, 141.0, 140.0, 140.3))                       # the zone candle (index 40)
-    rows += [(140.3, 150.0, 140.2, 149.5), (149.5, 155.0, 146.0, 154.0)]   # gap 141 → 146 at index 41
-    c = 154.0
-    for _ in range(run_closes - 2):
-        rows.append((c, c + 3, c - 0.5, c + 2.5)); c += 2.5
-    rows += [(c, c + 0.5, c - 6, c - 5.5), (c - 5.5, c - 5, c - 9.5, c - 9)]   # pull back toward the zone
+def h4_series(peak):
+    """A supply zone forms at 160.0-161.5 (index 5); price drifts down; a demand zone forms at 140-141.5 (index 18,
+    its gap at 19); price rallies to `peak`, then pulls back to ~146. Peak 160.2 TAPS the supply; peak 157 does not."""
+    rows = [(161, 161.5, 160.5, 161)] * 5
+    rows += [(161, 161.5, 160.0, 160.2), (160.2, 160.3, 152, 152.5), (152.5, 153, 151, 152)]   # supply, gap at 6
+    c = 152
+    while c > 142:
+        rows.append((c, c + 1, c - 2, c - 1)); c -= 1                   # overlapping candles: no gaps
+    rows += [(141, 141.5, 140, 140.5), (140.5, 150, 140.4, 149.5), (149.5, 155, 146, 154.5)]    # demand + its gap
+    rows += [(154.5, peak, 154, peak - 0.5), (peak - 0.5, peak, 150, 151), (151, 151.5, 145, 146)]
     return [Candle(H4_0 + k * 14400, o, h, lo, cl, 1, "H4") for k, (o, h, lo, cl) in enumerate(rows)]
 
 
-def ifcs(found):
-    return sorted(b.zone.ifc_index for b in found)
+def demand_of(found):
+    return [b for b in found if b.zone.direction == "demand" and abs(b.zone.bottom - 140.0) < 1e-9]
 
 
-print("RULE 1 — BIG zones only: the move travelled 4+ closes AND the gap beats the recent median")
-big = h4_series(5)
-check("a 5-close move with a tall gap (5.0 vs median 1.2) → its zone is kept",
-      41 in ifcs(B.big_zones(big, "4H", "demand", big[-1].close, 30)), True)
-short = h4_series(3)
-check("the SAME gap left by a 3-close move → refused ('1 or 3 candles … only for re-tap')",
-      ifcs(B.big_zones(short, "4H", "demand", short[-1].close, 30)), [])
-check("the 40 miniature staircase gaps are never 'big' (none equals-or-below the median is kept)",
-      [i for i in ifcs(B.big_zones(big, "4H", "demand", big[-1].close, 999)) if i < 41], [])
-check("fewer than 20 earlier gaps → too little history, nothing is called big", B.is_big([5.0] * 19, 9.0, 6)[0], False)
-B.MIN_RUN = 3
-teeth("the 3-close refusal (MIN_RUN set to 3)", 41 in ifcs(B.big_zones(short, "4H", "demand", short[-1].close, 30)))
-B.MIN_RUN = 4
+print("RULE 1 — HIS REAL ZONES: price left the zone and travelled to ANOTHER zone before coming back")
+went = h4_series(160.2)
+got = demand_of(B.big_zones(went, "4H", "demand", went[-1].close, 30))
+check("demand 140-141.5, rally TAPS the supply 160.0-161.5 → kept", len(got), 1)
+check("...and it names the zone price travelled to",
+      (got[0].reached.direction, got[0].reached.bottom) if got else None, ("supply", 160.0))
+short = h4_series(157.0)
+check("the SAME demand, rally stops at 157 (never reaches the supply) → refused — and the pullback's own supply, "
+      "formed AFTER the peak, does not count", demand_of(B.big_zones(short, "4H", "demand", short[-1].close, 30)), [])
+real_travel = B.travelled_to
+B.travelled_to = lambda closed, z, others: (z, len(closed) - 1)
+teeth("the travel rule (every zone treated as having travelled)",
+      len(demand_of(B.big_zones(short, "4H", "demand", short[-1].close, 30))) == 1)
+B.travelled_to = real_travel
+o = B.Zone("supply", 161.5, 160.0, 160.0, 161.5, 160.75, 5, 6)
+d = B.Zone("demand", 141.5, 140.0, 141.5, 140.0, 140.75, 18, 19)
+check("travelled_to on the tapping series → the supply, tapped by the rally candle (index 21)",
+      (lambda h: (h[0].bottom, h[1]) if h else None)(B.travelled_to(went, d, [o])), (160.0, 21))
+# The impulse candle (index 19) runs straight THROUGH the little supply 142-145 just above the demand: that is price
+# going beyond a zone, not travelling to it, so it must not count — the demand above is kept ONLY because of 160.
+check("a zone the move closed straight through (supply 142-145) is not where price travelled to",
+      B.travelled_to(short, d, [z for z in B.find_zones(short) if z.direction == "supply" and z.bottom == 142]), None)
+dead = list(went[:10]) + [Candle(0, 150, 163, 149, 162.0, 1, "H4")] + list(went[10:])
+dead = [Candle(H4_0 + k * 14400, x.open, x.high, x.low, x.close, 1, "H4") for k, x in enumerate(dead)]
+d2 = B.Zone("demand", 141.5, 140.0, 141.5, 140.0, 140.75, 19, 20)
+check("the supply was CLOSED THROUGH before the rally reached it → no longer a zone, refused",
+      B.travelled_to(dead, d2, [o]), None)
 
 print("\nRULES 2-4 — trend direction, near the money, broken = dead")
-check("wanting SUPPLY in the same market → no zone (never against the trend's side)",
-      ifcs(B.big_zones(big, "4H", "supply", big[-1].close, 30)), [])
-far = big[-1].close - 141.0
-check(f"zone {far:.1f} below price, reach 1.0 → too far (day trading)",
-      41 in ifcs(B.big_zones(big, "4H", "demand", big[-1].close, 1.0)), False)
-broken = big + [Candle(big[-1].time + 14400, 145, 145, 138, 139.0, 1, "H4")]
+check("a demand zone is never returned when SUPPLY is wanted",
+      [b for b in B.big_zones(went, "4H", "supply", went[-1].close, 30) if b.zone.direction != "supply"], [])
+check("zone 4.5 below price, reach 1.0 → too far (day trading)",
+      demand_of(B.big_zones(went, "4H", "demand", went[-1].close, 1.0)), [])
+broken = went + [Candle(went[-1].time + 14400, 145, 145, 138, 139.0, 1, "H4")]
 check("a candle CLOSES below the zone → the zone is dead",
-      41 in ifcs(B.big_zones(broken, "4H", "demand", 139.5, 30)), False)
-wicked = big + [Candle(big[-1].time + 14400, 145, 146, 139.5, 142.0, 1, "H4")]
+      demand_of(B.big_zones(broken, "4H", "demand", 139.5, 30)), [])
+wicked = went + [Candle(went[-1].time + 14400, 145, 146, 139.5, 142.0, 1, "H4")]
 check("a WICK into/below the zone that closes back above → still alive (touched zones are allowed)",
-      41 in ifcs(B.big_zones(wicked, "4H", "demand", 142.0, 30)), True)
+      len(demand_of(B.big_zones(wicked, "4H", "demand", 142.0, 30))), 1)
 
 print("\nRULE 5 — 5M respect: the LAST closed 5M candle is the FIRST close back out of the zone")
 M5_0 = 1_600_000_000 // 300 * 300
@@ -108,7 +122,7 @@ check("buy stop = the last CLOSED 1M high (the forming bar's 109 is ignored)", S
 check("market already through the entry → no order", S.entry_1m(m1, True, 100.0, 102.1), None)
 zone = B.Zone("demand", 101.0, 100.0, 101.0, 100.0, 100.5, 40, 41)
 S.regime, S.daily_atr = (lambda h4: 1), (lambda d1: 50.0)
-S.big_zones = lambda c, tf, want, price, reach: [B.BigZone("4H", zone, 1, 5, 5.0, 1.2, 0.9)] if (tf == "4H" and want == "demand") else []
+S.big_zones = lambda c, tf, want, price, reach: [B.BigZone("4H", zone, 1, zone, 2, 0.9)] if (tf == "4H" and want == "demand") else []
 plan, _ = S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [])
 check("...but with the ASK (101.9 + half the 0.3 spread = 102.05) already past the 102.0 entry → no order",
       S.zone_plan([], [], m5(above + [tap, out]), m1, 101.9, 0.3, [])[0], None)
@@ -116,7 +130,7 @@ check("BUY: entry 102.0, stop 100.0 (zone bottom), target 102 + 3×2 = 108.0", (
       (102.0, 100.0, 108.0, 3.0))
 szone = B.Zone("supply", 101.0, 100.0, 100.0, 101.0, 100.5, 40, 41)
 S.regime = lambda h4: -1
-S.big_zones = lambda c, tf, want, price, reach: [B.BigZone("4H", szone, 1, 5, 5.0, 1.2, 0.5)] if want == "supply" else []
+S.big_zones = lambda c, tf, want, price, reach: [B.BigZone("4H", szone, 1, szone, 2, 0.5)] if want == "supply" else []
 m1s = [Candle(now - 120, 99.6, 99.7, 99.0, 99.2, 1, "M1"), Candle(now, 99.2, 99.3, 99.1, 99.2, 1, "M1")]
 sm5 = m5([(97, 97.5, 96.5, 97)] * 5 + [(98, 100.6, 97.8, 100.4), (100.4, 100.5, 98.5, 99.2)])
 splan, _ = S.zone_plan([], [], sm5, m1s, 99.2, 0.3, [])
@@ -152,11 +166,11 @@ S.regime = lambda h4: -1
 check("4H DOWNTREND → a support (buy) is not taken", S.range_plan([], sr_series(115), m1r, 103.2, 0.0)[0], None)
 
 print("\nTHE SIGNAL — what reaches the channel")
-from strategies.ovp import build_signal  # noqa: E402
-sig = build_signal("XAU/USD", plan, 2, "ovp", "OVP")
+from strategies.pix import build_signal  # noqa: E402
+sig = build_signal("XAU/USD", plan, 2, "pix", "PIX")
 check("entry / stop / target / RR carried exactly", (sig.entry_price, sig.stop_loss, sig.take_profit, sig.risk_reward),
       (102.0, 100.0, 108.0, 3.0))
-check("a real monitored signal, not an alert", (sig.alert_only, sig.strategy_id), (False, "ovp"))
+check("a real monitored signal, not an alert", (sig.alert_only, sig.strategy_id), (False, "pix"))
 
 print(f"\n{'ALL PASS' if not BAD else f'{len(BAD)} of {N[0]} FAILED: {BAD}'} ({N[0]} checks)")
 sys.exit(1 if BAD else 0)

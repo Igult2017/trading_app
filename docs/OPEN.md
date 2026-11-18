@@ -109,7 +109,8 @@ baseline is 4.9 signal 1 / 0.6 advisory / 7.3 signal 2 per month
 every time. Plan approval is not backtest approval.
 **Needs from him:** "run it".
 
-### A4 — `test_aug03_regression.py` is red, and two of its assertions pin something I invented
+### A4 — ~~`test_aug03_regression.py` is red, and two of its assertions pin something I invented~~ FIXED 18 Nov 2026 (his: *"Fix it if it is fixable"*)
+**What was found:** the 16 Jul 09:00 GBP/USD 4H candle does form a raw supply zone 1.34928-1.35208, but the zone book never kept it — its move did not break an earlier level after taking liquidity (his formation rule, `bx_sd_registry.build`). He never drew it. The checks now assert exactly that (raw zone yes, on the book no); the receipt checks for the bad 03 Aug SELL are unchanged. **8/8 green.** The three doc places that repeated "his own 16 Jul zone" are corrected in place.
 **Verified 25 Aug** (confirmed red *before* any of this week's work, by stashing). 3 of 6 assertions
 fail. Two assert a "16 Jul zone he drew" — **no such zone exists**; I traced it to a test label I
 wrote on 3 Aug and then repeated into three doc places.
@@ -5390,35 +5391,38 @@ two entries DO name the same trade the older survives.
 
 ---
 
-## F. OVP (BTC/USD + XAU/USD) — his skeleton built 18 Nov 2026, signals to the channel, NO autotrade
+## F. PIX (BTC/USD + XAU/USD; named OVP until 18 Nov 2026) — his skeleton, signals to the channel, NO autotrade
 
-### F1 — The 4H trend read flickers in a range, and equal highs/lows count as DOWN. Found 18 Nov 2026 — HIS DECISION
-**What:** OVP's first step, "is the 4H trending?", uses the shared reader (`shared/trend_detector.py:33-36`). It
-calls a trend on a surplus of ONE label (one more higher-high/higher-low than lower-high/lower-low), and the labeller
-(`shared/swing_points.py:46,52`) calls an EQUAL high a lower high and an EQUAL low a lower low. **Proved:** one flat,
-balanced range read DOWN, RANGING or UP depending only on which candle the 50-candle window ended on (12 window
-ends: 4 down, 4 ranging, 4 up); and every perfectly flat range tried read DOWN.
-**Why not fixed:** the same reader is used by BX-S/D (`bx_sd_setup`, `bx_sd_extreme`) and by the platform's trend
-pre-filter, so changing it changes another strategy. **Options:** (a) OVP gets its OWN stricter 4H reader (e.g. needs
-2+ of the surplus, equal points neutral) and the shared one stays; (b) fix the shared one for everyone; (c) leave it.
+### F1 — ~~The 4H trend read flickers in a range, and equal highs/lows count as DOWN~~ FIXED 18 Nov 2026 FOR EVERY STRATEGY (his choice)
+Equal highs/lows now count for neither side and a trend needs a lead of 2 swing labels, in the shared reader
+(`shared/trend_detector.py`, `shared/swing_points.py`, used by BX-S/D) AND PIX's own copy (`pix_trend.py`). Flat range:
+RANGING at 12/12 window ends (was 4/4/4). Real 4H: ~24% of readings changed; ranging 34-38% of the time (was 11-14%).
+VIX.1 does not use this reader. A stricter "latest high and low must agree" was measured and rejected.
+**What remains, honestly:** on real 4H the reading still changes ~8-10 times a month (was 10-12). That is what a
+50-candle, 3-each-side swing read does on the 4H — a separate question for him (a longer window / bigger swings),
+not part of this fix.
 
 ### F2 — Order flow on 5M / 1M is not built; the 5M "respected" test is an interim close-back-out
 His list, in order: footprint delta, absorption / initiation, CVD divergence vs convergence → his management (BE at
 1R, lock +1R at 2R, +2R at 2.5R, out at 3R) and autotrade on account 5347047 after he has seen the signals → 1H volume
-profile (backtest first) → Barchart at the session opens (he will specify). `docs/strategies/ovp.md`.
+profile (backtest first) → Barchart at the session opens (he will specify). `docs/strategies/pix.md`.
 
 ### F3 — The stop-order entry backtest he asked for has NOT been run — needs his yes
 
-### F4 — In a falling gold week the zone path fired 0 times; the "4 straight closes" reading of "big" may be strict
-Real gold 12–17 Nov: no 4H supply zone near price came from a move of 4 consecutive lower closes, and every big
-1H one had been closed through. `MIN_RUN = 4` is MY reading of *"travelled many candles not 1 or three candles"* —
-his to confirm or change (e.g. count candles in the leg rather than consecutive closes).
+### F4 — ~~"Big" read as 4 straight closes may be strict~~ REPLACED 18 Nov 2026 by HIS rule
+*"zones where price originated from and tapped another zone before coming back."* My two tests deleted.
+**My reading, still his to confirm:** "another zone" = an OPPOSITE zone on the SAME timeframe, standing when reached.
 
-### F5 — Bitcoin's spread is large against a 1M-sized stop; no cap is applied. Found 18 Nov 2026 — HIS DECISION
-BTC spread on 18 Nov: **$33.82** (bid 62,691.74 / ask 62,725.56); gold: $0.11. OVP skips the platform's 0.05% cap
-(it would refuse every BTC signal). The spread is in a sell's stop, but on a buy it is paid on entry, and against a
-stop of ~$100 it is a third of the risk. **Options:** (a) no cap (now); (b) refuse when spread > a share of the
-trade's own risk, e.g. 20%; (c) a fixed BTC cap in dollars.
+### F5 — ~~Bitcoin's spread vs a 1M-sized stop~~ HIS DECISION 18 Nov 2026: no cap ("A")
+BTC spread $33.82 on 18 Nov. PIX keeps `spread_cap = False`.
+
+### F6 — Tall zones make wide stops. Found 18 Nov 2026 — reported, not changed
+Gold 13-17 Nov: one ~$79-tall supply zone gave a ~$68 stop from a 1M entry (target $200+ away at 3R). That is the rule
+as written (stop beyond the zone's far edge). If he wants the 1M entry to refine the stop, that is his rule to give.
+
+### F7 — PIX shares the PROGRAM with the other strategies (not their logic)
+Scanner, candle feed, Telegram, database: if the scanner or the broker connection stops, every strategy stops. Running
+PIX as its own program would separate that; not asked for yet.
 
 ## E. Parked — do not start these
 

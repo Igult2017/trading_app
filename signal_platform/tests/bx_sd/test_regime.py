@@ -82,9 +82,10 @@ def choppy(base, n=60, tf="H4"):
     and `detect` read it as a DOWNTREND. A range still needs swing points; it just needs the highs
     to stop rising and the lows to stop falling.
 
-    THE AMPLITUDE JITTER IS LOAD-BEARING. A perfect sawtooth makes every high EXACTLY equal and
-    every low EXACTLY equal, and `detect` classifies that as DOWNTREND rather than RANGING — a
-    degenerate case worth knowing about, since the regime gate depends on this detector. Real
+    THE AMPLITUDE JITTER. A perfect sawtooth makes every high EXACTLY equal and every low EXACTLY
+    equal; until 18 Nov 2026 `detect` called that DOWNTREND (an equal point was labelled lower).
+    Fixed that day for every strategy — equal now counts for neither side and a trend needs a lead
+    of 2 — so the sawtooth reads RANGING too. The jitter stays because real
     ranges are never exactly equal, so the fixture varies each leg slightly and tests the case that
     actually occurs.
     """

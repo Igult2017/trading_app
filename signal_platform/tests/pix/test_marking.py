@@ -1,5 +1,5 @@
 """
-OVP — ZONE MARKING GEOMETRY: the band is the whole candle, high to low.
+PIX — ZONE MARKING GEOMETRY: the band is the whole candle, high to low.
 
 WHY THIS EXISTS. `mark_institutional` returned (open, MTH) from 2026-07-26 to 2026-07-30, on a
 misreading of p17. The book's pictures (p16 schematic, p19 live "1HR Institutional candle (IC)") draw
@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 os.environ.setdefault("DATABASE_URL", "postgresql://x/x")
 
 from core.types import Candle                                              # noqa: E402
-from strategies.ovp_zones import mark_institutional, mark_zone           # noqa: E402
+from strategies.pix_zones import mark_institutional, mark_zone           # noqa: E402
 
 F, N = [], 0
 PIP = 0.01                                       # GBP/JPY

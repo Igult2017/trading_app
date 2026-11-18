@@ -1,13 +1,13 @@
 """
-OVP — BTC/USD and XAU/USD. HIS SKELETON (18 Nov 2026). READ docs/strategies/ovp.md FIRST — his rules in his words.
+PIX — BTC/USD and XAU/USD. HIS SKELETON (18 Nov 2026). READ docs/strategies/pix.md FIRST — his rules in his words.
 
   4H trending? → BIG zones (4H + 1H) in its direction, near the money → 5M tap + respect → 1M stop order, 3R.
   4H ranging   → 5M support / resistance on its 2nd respect → 1M stop order, only with ≥2R of room.
 
-The rules live in `ovp_bigzones` and `ovp_skeleton`; this file only feeds them candles and turns a plan into a signal.
-SIGNALS ONLY — to the public channel (`dm_only_exempt`). OVP is NOT in `autotrade_strategies`, so it places nothing:
+The rules live in `pix_bigzones` and `pix_skeleton`; this file only feeds them candles and turns a plan into a signal.
+SIGNALS ONLY — to the public channel (`dm_only_exempt`). PIX is NOT in `autotrade_strategies`, so it places nothing:
 his order, *"test before you link to autotrade. We start by sending them to the channel."*
-Independent: OVP's own modules plus shared platform resources, never another strategy's logic.
+Independent: PIX's own modules plus shared platform resources, never another strategy's logic.
 """
 import logging
 
@@ -19,16 +19,16 @@ from storage import observability_repo as obs
 from shared.pip import price_digits
 from notifications import titles
 from charting import theme
-from strategies.ovp_skeleton import Plan, range_plan, zone_plan
+from strategies.pix_skeleton import Plan, range_plan, zone_plan
 
 log = logging.getLogger(__name__)
 
 _STATE_TTL = 14 * 24 * 3600   # forget a delivered setup after 2 weeks
 
 
-class OVPStrategy(BaseStrategy):
-    name    = "OVP"
-    id      = "ovp"
+class PIXStrategy(BaseStrategy):
+    name    = "PIX"
+    id      = "pix"
     enabled = True             # his order, 18 Nov 2026: "I want it to start working immediately"
 
     required_timeframes = [TF.H4]
@@ -37,7 +37,7 @@ class OVPStrategy(BaseStrategy):
     # support/resistance search (200) plus its pivots; 30 days for the daily range.
     candle_counts       = {TF.H4: 500, TF.H1: 500, TF.M5: 300, TF.M1: 30, TF.D1: 30}
     # THE LIVE BID/ASK. The platform fills `context.quote` / `context.spread` ONLY for a strategy that asks
-    # (`strategy_runner`: `quote_for(...) if deps.needs_spread`). Without it OVP judged "would this stop order fill
+    # (`strategy_runner`: `quote_for(...) if deps.needs_spread`). Without it PIX judged "would this stop order fill
     # at once?" on a closed 1M close up to ~2 minutes old and put no spread on a sell's stop — found live, 18 Nov.
     requires_spread     = True
     # ...but NOT the platform's 0.05%-of-price spread cap (`risk/spread_filter`) — not his rule, and Bitcoin's normal
@@ -71,7 +71,7 @@ class OVPStrategy(BaseStrategy):
         if plan is None:
             self._log(sym, "SCANNING", f"{why_zone}; {why_range}")
             return StrategyResult.empty()
-        key = f"{sym}_ovp_{plan.path}_{plan.tf}_{plan.level_at}_{plan.tap_at}"
+        key = f"{sym}_pix_{plan.path}_{plan.tf}_{plan.level_at}_{plan.tap_at}"
         delivery_ledger.cleanup(_STATE_TTL)
         if delivery_ledger.is_delivered(key):
             return StrategyResult.empty()
@@ -84,8 +84,8 @@ class OVPStrategy(BaseStrategy):
 
     def _log(self, sym: str, stage: str, detail: str) -> None:
         """Print on a change AND restate an unchanged stage every heartbeat (`core.stage_tracker`), recorded durably."""
-        line = f"[ovp] {sym} -> {stage} | {detail}"
-        if stage_tracker.emit("ovp", sym, f"{stage}|{detail}", line, logger=log):
+        line = f"[pix] {sym} -> {stage} | {detail}"
+        if stage_tracker.emit("pix", sym, f"{stage}|{detail}", line, logger=log):
             obs.record(obs.STAGE_EVALUATED, self.id, sym, detail=f"{stage} | {detail}")
 
 
@@ -104,7 +104,7 @@ def build_signal(symbol: str, plan: Plan, digits: int, strategy_id: str, strateg
         direction         = Direction.BUY if buy else Direction.SELL,
         strategy_id       = strategy_id,
         strategy_name     = strategy_name,
-        label             = "OVP-" + ("ZONE" if plan.path == "zone" else "SR"),
+        label             = "PIX-" + ("ZONE" if plan.path == "zone" else "SR"),
         entry_price       = round(plan.entry, digits),
         stop_loss         = round(plan.sl, digits),
         take_profit       = round(plan.tp, digits),
@@ -116,5 +116,5 @@ def build_signal(symbol: str, plan: Plan, digits: int, strategy_id: str, strateg
         stage             = "ready",
         headline          = titles.CONFIRMED_ENTRY,
         technical_reasons = reasons,
-        market_context    = f"OVP — {side} {symbol} off a {what}, {plan.rr}R stop-order entry {plan.entry:.{digits}f}",
+        market_context    = f"PIX — {side} {symbol} off a {what}, {plan.rr}R stop-order entry {plan.entry:.{digits}f}",
     )

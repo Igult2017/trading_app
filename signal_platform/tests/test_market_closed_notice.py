@@ -54,7 +54,7 @@ check("Monday is open",                 is_forex_open(utc(2026, 9, 7, 9, 0)),   
 # ── 2. NOTHING IS TRADEABLE WHILE SHUT ─────────────────────────────────────
 # This is the gate the scanner actually gets its answer from, so it is asserted directly.
 print("\n2. the gate the scanner reads — no instruments means the tick returns at once:")
-# Bitcoin trades round the clock (added for OVP, 18 Nov 2026), so a Saturday offers it and NOTHING else.
+# Bitcoin trades round the clock (added for PIX, 18 Nov 2026), so a Saturday offers it and NOTHING else.
 check("Saturday offers only the round-the-clock instruments", get_open_instruments(utc(2026, 9, 5, 2, 21)), ["BTC/USD"])
 check("...and Monday offers some",      len(get_open_instruments(utc(2026, 9, 7, 9, 0))) > 0, True)
 
