@@ -122,8 +122,8 @@ check("buy stop = the last CLOSED 1M high (the forming bar's 109 is ignored)", S
 check("market already through the entry → no order", S.entry_1m(m1, True, 100.0, 102.1), None)
 GO = lambda m5, m1, bull, tap: (True, ["order flow: GO (stub)"])
 zone = B.Zone("demand", 101.0, 100.0, 101.0, 100.0, 100.5, 40, 41)
-S.regime, S.daily_atr = (lambda h4: 1), (lambda d1: 50.0)
-S.big_zones = lambda c, tf, want, price, reach: [B.BigZone("4H", zone, 1, zone, 2, 0.9)] if (tf == "4H" and want == "demand") else []
+S.direction, S.daily_atr = (lambda h4, h1: (1, "4H")), (lambda d1: 50.0)
+S.candidates = lambda h4, h1, m5, want, price, reach: [(B.BigZone("4H", zone, 1, zone, 2, 0.9), None)] if want == "demand" else []
 plan, _ = S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [], flow=GO)
 check("...but with the ASK (101.9 + half the 0.3 spread = 102.05) already past the 102.0 entry → no order",
       S.zone_plan([], [], m5(above + [tap, out]), m1, 101.9, 0.3, [], flow=GO)[0], None)
@@ -135,14 +135,14 @@ check("ORDER FLOW SAYS NO → no plan, and the reason is given",
       S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [], flow=lambda *a: (False, ["5M ABSORPTION"])),
       (None, "order flow said no: 5M ABSORPTION"))
 szone = B.Zone("supply", 101.0, 100.0, 100.0, 101.0, 100.5, 40, 41)
-S.regime = lambda h4: -1
-S.big_zones = lambda c, tf, want, price, reach: [B.BigZone("4H", szone, 1, szone, 2, 0.5)] if want == "supply" else []
+S.direction = lambda h4, h1: (-1, "4H")
+S.candidates = lambda h4, h1, m5, want, price, reach: [(B.BigZone("4H", szone, 1, szone, 2, 0.5), None)] if want == "supply" else []
 m1s = [Candle(now - 120, 99.6, 99.7, 99.0, 99.2, 1, "M1"), Candle(now, 99.2, 99.3, 99.1, 99.2, 1, "M1")]
 sm5 = m5([(97, 97.5, 96.5, 97)] * 5 + [(98, 100.6, 97.8, 100.4), (100.4, 100.5, 98.5, 99.2)])
 splan, _ = S.zone_plan([], [], sm5, m1s, 99.2, 0.3, [], flow=GO)
 check("SELL: entry 99.0, stop 101.0 + 0.3 spread = 101.3, target 99 − 3×2.3 = 92.1",
       (splan.entry, round(splan.sl, 2), round(splan.tp, 2)), (99.0, 101.3, 92.1))
-S.regime = lambda h4: 0
+S.direction = lambda h4, h1: (0, "")
 check("4H ranging → the zone path stays off", S.zone_plan([], [], sm5, m1s, 99.2, 0.3, [], flow=GO)[0], None)
 
 print("\nRULE 8 — ranging: 5M support on its 2nd respect, stop order, only with 2R of room")
@@ -168,8 +168,48 @@ check("rebound only to 108.5 → 1.2R of room, refused", S.range_plan([], sr_ser
 S.RANGE_MIN_R = 1.0
 teeth("the 2R room rule (lowered to 1R)", S.range_plan([], sr_series(108), m1r, 103.2, 0.0, flow=GO)[0] is not None)
 S.RANGE_MIN_R = 2.0
-S.regime = lambda h4: -1
+S.direction = lambda h4, h1: (-1, "4H")
 check("4H DOWNTREND → a support (buy) is not taken", S.range_plan([], sr_series(115), m1r, 103.2, 0.0, flow=GO)[0], None)
+
+print("\nHIS LAYERS (18 Nov) — trend from 4H (1H when the 4H is sideways); 5M zones first, best inside a 1H/4H zone")
+import strategies.pix_trend as PT  # noqa: E402
+real_regime = PT.regime
+for name, r4, r1, want in [("4H up, 1H pulling back down → UP (never against the 4H)", 1, -1, (1, "4H")),
+                           ("4H sideways, 1H up → UP (a trend starts on the lower timeframe)", 0, 1, (1, "1H")),
+                           ("4H sideways, 1H down → DOWN", 0, -1, (-1, "1H")),
+                           ("both sideways → ranging (support/resistance path)", 0, 0, (0, ""))]:
+    PT.regime = lambda c, r4=r4, r1=r1: r4 if c == "H4" else r1
+    check(name, PT.direction("H4", "H1"), want)
+PT.regime = real_regime
+
+real_big = B.big_zones
+Z = lambda lo, hi: B.Zone("demand", hi, lo, hi, lo, (lo + hi) / 2, 1, 2)  # noqa: E731
+inside_5m = B.BigZone("5M", Z(100.2, 100.6), 10, Z(0, 0), 20, 1.0)
+outer_1h = B.BigZone("1H", Z(100.0, 101.0), 11, Z(0, 0), 21, 0.5)
+alone_5m = B.BigZone("5M", Z(102.0, 102.3), 12, Z(0, 0), 22, 0.2)
+B.big_zones = lambda c, tf, want, price, reach: {"5M": [alone_5m, inside_5m], "1H": [outer_1h], "4H": []}[tf]
+order = [(z.tf, z.zone.bottom, o.tf if o else None) for z, o in B.candidates([], [], [], "demand", 103, 5)]
+check("ORDER: 5M zone inside a 1H zone first, then the 1H zone, then the lone 5M zone (even though it is nearer)",
+      order, [("5M", 100.2, "1H"), ("1H", 100.0, None), ("5M", 102.0, None)])
+B.big_zones = real_big
+
+S.direction = lambda h4, h1: (1, "4H")
+recent = m5(above + [tap, out])
+fresh = B.BigZone("5M", zone, 1, zone, recent[-1].time, 0.9)          # price "travelled" only on the last candle
+S.candidates = lambda *a: [(fresh, None)]
+check("a 5M zone is not 'tapped' by candles from before price travelled away from it",
+      S.zone_plan([], [], recent, m1, 101.7, 0.3, [], flow=GO)[0], None)
+old = B.BigZone("5M", zone, 1, zone, recent[0].time - 600, 0.9)
+S.candidates = lambda *a: [(old, None)]
+p5 = S.zone_plan([], [], recent, m1, 101.7, 0.3, [], flow=GO)[0]
+check("...the same zone, travelled away long before the tap → planned", p5 is not None, True)
+real_tfs = dict(B.TF_S)
+B.TF_S.update({"5M": -10 ** 12})
+S.candidates = lambda *a: [(fresh, None)]
+teeth("the travelled-before-the-tap guard (guard removed)",
+      S.zone_plan([], [], recent, m1, 101.7, 0.3, [], flow=GO)[0] is not None)
+B.TF_S.clear(); B.TF_S.update(real_tfs)
+check("stop = the far edge of the zone TRADED (the 5M zone's 100.0)", p5 and p5.sl, 100.0)
 
 print("\nTHE SIGNAL — what reaches the channel")
 from strategies.pix import build_signal  # noqa: E402

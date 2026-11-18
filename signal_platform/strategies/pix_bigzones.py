@@ -97,3 +97,29 @@ def big_zones(candles: list[Candle], tf: str, want: str, price: float, reach: fl
             continue                           # price never travelled from it to another zone
         out.append(BigZone(tf, z, closed[z.ifc_index].time, hit[0], closed[hit[1]].time, dist))
     return sorted(out, key=lambda b: b.dist)
+
+
+TF_S = {"5M": 300, "1H": 3600, "4H": 14400}
+
+
+def _inside(z, outer) -> bool:
+    """Does the 5M zone sit inside (overlap) the higher-timeframe zone's range?"""
+    return z.bottom <= outer.top and z.top >= outer.bottom
+
+
+def candidates(h4, h1, m5, want: str, price: float, reach: float) -> list[tuple[BigZone, BigZone | None]]:
+    """HIS ORDER (18 Nov 2026): *"our main interest when marking zones is 5mins and if we get a zone there that is in
+    1HR zone or 4HR zone and near the money, the better"* · *"mostly we mark zones in 1HR and look for them in 5min"* ·
+    *"We can also look for zones in 5m so long as they dont go against the trend"*. So:
+      1. 5M zones INSIDE a 1H / 4H zone of the same side (the best), nearest first;
+      2. the 1H / 4H zones themselves, nearest first;
+      3. 5M zones on their own, nearest first.
+    Each entry is (zone, the higher-timeframe zone it sits inside or None)."""
+    htf = big_zones(h1, "1H", want, price, reach) + big_zones(h4, "4H", want, price, reach)
+    m5z = big_zones(m5, "5M", want, price, reach)
+    inside, alone = [], []
+    for z in m5z:
+        outer = next((o for o in sorted(htf, key=lambda o: o.dist) if _inside(z.zone, o.zone)), None)
+        (inside if outer else alone).append((z, outer))
+    by = lambda pair: pair[0].dist  # noqa: E731
+    return sorted(inside, key=by) + sorted(((o, None) for o in htf), key=by) + sorted(alone, key=by)

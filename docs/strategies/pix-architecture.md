@@ -5,8 +5,8 @@
 |---|---|
 | `strategies/pix.py` | the strategy class: declares timeframes / pairs, feeds candles + the live quote to the skeleton, turns a `Plan` into a `Signal`, dedups on delivery |
 | `strategies/pix_skeleton.py` | his skeleton as pure functions: `zone_plan` (trend path), `range_plan` (ranging path), `respected_5m`, `entry_1m` |
-| `strategies/pix_bigzones.py` | which zones count: REAL (price travelled from it to another zone), unbroken, near the money, the wanted side (`big_zones`, `travelled_to`, `daily_atr`) |
-| `strategies/pix_trend.py` | the 4H read: +1 / −1 / 0 (`regime`) — PIX's own copy, lead of 2, equal = neither |
+| `strategies/pix_bigzones.py` | which zones count: REAL (price travelled from it to another zone), unbroken, near the money, the wanted side (`big_zones`, `travelled_to`, `daily_atr`, `candidates` — the 5M → 1H/4H order) |
+| `strategies/pix_trend.py` | the trend: `regime` (+1 / −1 / 0, lead of 2, equal = neither) and `direction` (4H, else 1H) — PIX's own copy |
 | `strategies/pix_swings.py` | swing highs / lows and their labels (HH/LH/EH, HL/LL/EL) — PIX's own copy |
 | `strategies/pix_candles.py` | "has this candle finished?" (`closed_only`) — PIX's own copy |
 | `strategies/pix_flow.py` | order-flow verdict per timeframe: absorption, initiation, CVD divergence / convergence; GO / REFUSE / UNKNOWN |
@@ -21,7 +21,7 @@ Anything else fails the test.
 
 ## Flow, one scan per instrument
 ```
-H4 (500) ── regime ──┬── trending ── big_zones(H4) + big_zones(H1)  [D1 ATR = "near"; travelled to another zone]
+H4 + H1 ── direction ┬── trending ── candidates: 5M inside 1H/4H → 1H/4H → lone 5M  [D1 ATR = "near"; real zones]
                      │                  └─ nearest first → respected_5m(M5) → entry_1m(M1, live ask/bid)
                      │                     → ORDER FLOW: verdict(5M) AND verdict(1M) must be GO → 3R
                      └── ranging / no zone plan ── range_plan(M5 swing levels, 2nd respect, ≥2R room) → entry_1m

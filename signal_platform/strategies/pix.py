@@ -101,7 +101,7 @@ class PIXStrategy(BaseStrategy):
         plan, why_zone = zone_plan(h4, h1, m5, m1, price, spread, d1, flow=check)
         why_range = ""
         if plan is None:
-            plan, why_range = range_plan(h4, m5, m1, price, spread, flow=check)
+            plan, why_range = range_plan(h4, m5, m1, price, spread, flow=check, h1=h1)
         if plan is None:
             self._log(sym, "SCANNING", f"{why_zone}; {why_range}")
             return StrategyResult.empty()

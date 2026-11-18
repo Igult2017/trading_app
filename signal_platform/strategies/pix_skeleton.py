@@ -21,8 +21,8 @@ from dataclasses import dataclass
 from core.types import Candle
 from strategies.pix_candles import closed_only
 from strategies.pix_swings import find_swings
-from strategies.pix_bigzones import BigZone, big_zones, daily_atr, NEAR_ATR_MULT
-from strategies.pix_trend import regime
+from strategies.pix_bigzones import TF_S, candidates, daily_atr, NEAR_ATR_MULT
+from strategies.pix_trend import direction
 
 TAP_WINDOW_M5 = 12     # the tap must be within the last hour of 5M candles
 TARGET_R      = 3.0
@@ -109,25 +109,26 @@ def _levels(m5c: list[Candle], bull: bool):
 def zone_plan(h4, h1, m5, m1, price: float, spread: float, d1, flow=None) -> tuple[Plan | None, str]:
     """The trending path. Returns (plan, why-not). `flow(m5, m1, bull, tap)` -> (ok, reasons) is the ORDER-FLOW check
     (`pix.py` builds it); without one nothing is planned — no order flow, no trade."""
-    trend = regime(h4)
+    trend, src = direction(h4, h1)
     if trend == 0:
-        return None, "4H ranging — zone path off, support/resistance path instead"
+        return None, "4H and 1H both ranging — zone path off, support/resistance path instead"
     bull = trend > 0
     atr = daily_atr(d1)
     if atr is None:
         return None, "not enough daily candles to measure 'near the money'"
     want = "demand" if bull else "supply"
-    zones: list[BigZone] = (big_zones(h4, "4H", want, price, atr * NEAR_ATR_MULT)
-                            + big_zones(h1, "1H", want, price, atr * NEAR_ATR_MULT))
+    zones = candidates(h4, h1, m5, want, price, atr * NEAR_ATR_MULT)
     if not zones:
-        return None, f"4H {'up' if bull else 'down'}trend — no big {want} zone within a day's range"
+        return None, f"{src} {'up' if bull else 'down'}trend — no real {want} zone (5M, 1H or 4H) within a day's range"
     refused: list[str] = []
-    for bz in sorted(zones, key=lambda b: b.dist):
+    for bz, outer in zones:
         z = bz.zone
         tap = respected_5m(m5, z.top, z.bottom, bull)
-        if tap is None:
+        # THE TAP MUST COME AFTER PRICE TRAVELLED AWAY (his rule: "tapped another zone BEFORE coming back"). A 5M zone
+        # can be minutes old, and its own formation candles must never count as price coming back to it.
+        if tap is None or tap < bz.reached_at + TF_S[bz.tf]:
             continue
-        sl = z.bottom if bull else z.top + spread
+        sl = z.bottom if bull else z.top + spread                   # beyond the zone actually traded
         e = entry_1m(m1, bull, sl, price + (spread / 2 if bull else -spread / 2))   # a buy fills on the ask
         if e is None:
             continue
@@ -137,9 +138,12 @@ def zone_plan(h4, h1, m5, m1, price: float, spread: float, d1, flow=None) -> tup
             continue
         risk = abs(e - sl)
         tp = e + TARGET_R * risk if bull else e - TARGET_R * risk
-        why = [f"4H {'UP' if bull else 'DOWN'}TREND — trading with it only",
-               f"REAL {bz.tf} {want} zone {round(z.bottom, 5)}–{round(z.top, 5)}: price left it and travelled to the "
-               f"{bz.reached.direction} zone {round(bz.reached.bottom, 5)}–{round(bz.reached.top, 5)} before coming back",
+        where = (f" — INSIDE the {outer.tf} {want} zone {round(outer.zone.bottom, 5)}–{round(outer.zone.top, 5)}"
+                 if outer else "")
+        why = [f"{src} {'UP' if bull else 'DOWN'}TREND — trading with it only",
+               f"REAL {bz.tf} {want} zone {round(z.bottom, 5)}–{round(z.top, 5)}{where}: price left it and travelled "
+               f"to the {bz.reached.direction} zone {round(bz.reached.bottom, 5)}–{round(bz.reached.top, 5)} "
+               f"before coming back",
                "5M: tapped and closed back out of the zone",
                *flow_why,
                f"1M stop order at the last closed candle's {'high' if bull else 'low'}; stop beyond the zone; 3R"]
@@ -147,12 +151,12 @@ def zone_plan(h4, h1, m5, m1, price: float, spread: float, d1, flow=None) -> tup
                     bz.time, tap, why), ""
     if refused:
         return None, f"order flow said no: {refused[0]}"
-    return None, f"{len(zones)} big {want} zone(s) near price — none tapped and respected on 5M yet"
+    return None, f"{len(zones)} real {want} zone(s) near price — none tapped and respected on 5M yet"
 
 
-def range_plan(h4, m5, m1, price: float, spread: float, flow=None) -> tuple[Plan | None, str]:
+def range_plan(h4, m5, m1, price: float, spread: float, flow=None, h1=None) -> tuple[Plan | None, str]:
     """Support / resistance on 5M: the 2nd respect, stop order, ≥2R room. In a trend, the trend's side only."""
-    trend = regime(h4)
+    trend, _ = direction(h4, h1 or [])
     sides = [True, False] if trend == 0 else [trend > 0]
     m5c = closed_only(m5)[-SR_LOOKBACK:]
     tol = _atr(m5c) * SR_TOL_ATR
@@ -183,7 +187,7 @@ def range_plan(h4, m5, m1, price: float, spread: float, flow=None) -> tuple[Plan
                 continue
             rr = min(TARGET_R, min(room) / risk)
             tp = e + rr * risk if bull else e - rr * risk
-            why = [f"4H {'RANGING' if trend == 0 else ('UPTREND' if trend > 0 else 'DOWNTREND')} — 5M "
+            why = [f"{'RANGING' if trend == 0 else ('UPTREND' if trend > 0 else 'DOWNTREND')} — 5M "
                    f"{'support' if bull else 'resistance'} {round(p, 5)} respected before, respected again now",
                    f"Room to the opposite level {min(room) / risk:.1f}R (needs {RANGE_MIN_R:.0f}R)",
                    *flow_why,

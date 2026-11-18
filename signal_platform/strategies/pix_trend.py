@@ -33,3 +33,17 @@ def regime(h4: list[Candle]) -> int:
     if bear - bull >= MIN_LEAD and bear >= 2:
         return -1
     return 0
+
+
+def direction(h4: list[Candle], h1: list[Candle]) -> tuple[int, str]:
+    """THE DIRECTION PIX TRADES (his rule, 18 Nov 2026): *"4H is mainly for trend and we can also use 1H for trend
+    because trend starts in lower TF. We only dont go against trend."*
+
+    4H trending → its direction (a 1H move against it is a pullback, not a new trend). 4H ranging and the 1H trending →
+    the 1H's direction. Both ranging → 0. Returns (direction, which timeframe set it: "4H" / "1H" / "").
+    """
+    t4 = regime(h4)
+    if t4:
+        return t4, "4H"
+    t1 = regime(h1)
+    return (t1, "1H") if t1 else (0, "")
