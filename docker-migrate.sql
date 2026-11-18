@@ -945,5 +945,18 @@ BEGIN
   RAISE NOTICE 'B36 repair: % signal(s) had a 1e5-misread entry/stop put back from the placed order', n;
 END $$;
 
+-- ── barchart_snapshots: Barchart futures-options Greeks & volatility (19 Nov 2026) ─────────────
+-- One row per fetch, written by the Barchart scraper (switched OFF until he says otherwise: BARCHART_ENABLED).
+CREATE TABLE IF NOT EXISTS barchart_snapshots (
+  id          VARCHAR      PRIMARY KEY DEFAULT gen_random_uuid(),
+  symbol      TEXT         NOT NULL,
+  slot        TEXT         NOT NULL,
+  taken_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  underlying  DOUBLE PRECISION,
+  row_count   INTEGER      DEFAULT 0,
+  rows        JSONB        NOT NULL
+);
+CREATE INDEX IF NOT EXISTS barchart_snapshots_symbol_taken_idx ON barchart_snapshots (symbol, taken_at);
+
 -- ── Done ─────────────────────────────────────────────────────────────────────
 DO $$ BEGIN RAISE NOTICE 'docker-migrate.sql complete'; END $$;

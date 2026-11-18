@@ -420,6 +420,21 @@ export const scrapeRuns = pgTable("scrape_runs", {
 
 export type ScrapeRun = typeof scrapeRuns.$inferSelect;
 
+/** Barchart gold (and later other) futures-options Greeks & volatility, one row per fetch (19 Nov 2026). Written by
+ *  the Barchart scraper (`server/python/barchart_greeks.py`) through /api/internal/barchart/ingest. `rows` = one entry
+ *  per strike and side: { strike, type: "Call"|"Put", last, iv, delta, gamma, theta, vega, ivSkew, tradeTime }. */
+export const barchartSnapshots = pgTable("barchart_snapshots", {
+  id:         varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  symbol:     text("symbol").notNull(),             // the contract the page showed, e.g. GCZ26
+  slot:       text("slot").notNull(),               // asia-1 | asia-2 | ln-1 | ln-2 | ny-1 | ny-2 | manual
+  takenAt:    timestamp("taken_at", { withTimezone: true }).notNull().defaultNow(),
+  underlying: doublePrecision("underlying"),        // the futures' last price shown on the page
+  rowCount:   integer("row_count").default(0),
+  rows:       jsonb("rows").notNull(),
+}, (t) => [
+  index("barchart_snapshots_symbol_taken_idx").on(t.symbol, t.takenAt),
+]);
+
 export const telegramSubscribers = pgTable("telegram_subscribers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   chatId: text("chat_id").notNull().unique(),

@@ -117,6 +117,7 @@ import { PYTHON_BIN } from "./lib/pythonBin";
 // The MyFXBook calendar: when we are ALLOWED to scrape (mfbSchedule) and what to do with
 // what came back (myfxbookIngest). The scrape itself runs outside this container.
 import { decideDue, startRun, finishRun, looksBlocked } from "./scrapers/mfbSchedule";
+import { bcDecideDue, bcStartRun, bcFinishRun, bcStore, cleanRows } from "./scrapers/bcSchedule";
 import { ingestMyfxbookEvents } from "./services/myfxbookIngest";
 
 // ── Metrics in-memory cache ───────────────────────────────────────────────────
@@ -3269,6 +3270,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!d.due) return res.status(409).json({ ok: false, reason: d.reason });
     const runId = await startRun(kind);
     return res.json({ ok: true, runId, kind: d.kind });
+  });
+
+  // ── BARCHART futures-options GREEKS & VOLATILITY (19 Nov 2026) — the same three-step shape as the calendar ──────
+  // Six fetches a day (Asia / London / New York open + 5 and + 20 minutes); every rule is in `scrapers/bcLimits.ts`.
+  // ⚠ SWITCHED OFF until he says otherwise (BARCHART_ENABLED, default off): `due` then answers "switched off" and the
+  // claim refuses, so even an installed host timer could not run it.
+  app.get("/api/internal/barchart/due", requireAdminSecret, async (_req: Request, res: Response) => {
+    try {
+      return res.json(await bcDecideDue());
+    } catch (e: any) {
+      console.error("[barchart] due check failed:", e?.message ?? e);
+      return res.json({ due: false, slot: null, reason: `due check failed: ${e?.message ?? e}` });
+    }
+  });
+
+  app.post("/api/internal/barchart/claim", requireAdminSecret, async (_req: Request, res: Response) => {
+    const d = await bcDecideDue();                              // re-checked here, never trusted from the caller
+    if (!d.due || !d.slot) return res.status(409).json({ ok: false, reason: d.reason });
+    const runId = await bcStartRun(d.slot);
+    return res.json({ ok: true, runId, slot: d.slot });
+  });
+
+  app.post("/api/internal/barchart/ingest", requireAdminSecret, async (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as any;
+    const runId: string | null = typeof body.runId === "string" ? body.runId : null;
+    const tookMs = Number.isFinite(body.tookS) ? Math.round(body.tookS * 1000) : undefined;
+    if (body.ok !== true) {
+      const error = String(body.error ?? "scraper reported failure");
+      const blocked = body.blocked === true || looksBlocked(error);
+      if (runId) await bcFinishRun(runId, { ok: false, blocked, tookMs, error });
+      return res.status(202).json({ ok: false, recorded: true, blocked });
+    }
+    try {
+      const rows = cleanRows(body.rows);
+      const symbol = typeof body.symbol === "string" ? body.symbol.slice(0, 20) : "unknown";
+      const slot = typeof body.slot === "string" ? body.slot.slice(0, 10) : "manual";
+      const underlying = Number.isFinite(body.underlying) ? Number(body.underlying) : null;
+      const stored = await bcStore(symbol, slot, underlying, rows);
+      if (runId) await bcFinishRun(runId, { ok: stored > 0, rowCount: stored, tookMs,
+        error: stored > 0 ? undefined : "no usable rows" });
+      return res.json({ ok: stored > 0, rows: stored });
+    } catch (e: any) {
+      const error = `ingest failed: ${e?.message ?? e}`;
+      if (runId) await bcFinishRun(runId, { ok: false, tookMs, error });
+      console.error("[barchart]", error);
+      return res.status(500).json({ ok: false, error });
+    }
   });
 
   /**

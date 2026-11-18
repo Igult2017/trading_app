@@ -291,6 +291,9 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 
 ## PROGRESS — what actually happened, newest first
 
+**2026-11-19 — Barchart gold-options Greeks & volatility scraper built, SWITCHED OFF.** Six fetches a day (Asia /
+London / New York open + 5 and + 20 min), the MyFXBook shape, no challenge solver. `docs/barchart.md`, OPEN G1.
+
 **2026-11-18 (later) — OVP renamed PIX; PIX shares no logic; 4H trend reader fixed for every strategy; A4 fixed.**
 PIX has its own trend / swing / finished-candle copies (a test fails on any shared-logic import). The shared trend
 reader (BX-S/D) and PIX's copy: equal highs/lows count for neither side, a trend needs a lead of 2 — a flat range

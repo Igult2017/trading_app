@@ -1,0 +1,14 @@
+# One run of the Barchart options fetcher. Started by bc.timer; never enabled on its own.
+# Type=oneshot with NO Restart=: a refusal means waiting (the app's job), never asking again harder.
+[Unit]
+Description=Fetch Barchart futures-options Greeks & volatility (one run)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/bc/run.sh
+TimeoutStartSec=420
+WorkingDirectory=/opt/bc
+StandardOutput=append:/var/log/bc.log
+StandardError=append:/var/log/bc.log

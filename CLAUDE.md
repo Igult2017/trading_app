@@ -260,6 +260,8 @@ All IDs are UUID strings (`varchar`, `gen_random_uuid()`). All categoricals are 
 - **TradingView Screener**: live indicator values across all timeframes, no API key required
 - **MyFXBook** (`/forex-economic-calendar?calPeriod=17`): the economic calendar since **2026-11-09**. Needs a stealth browser with the Cloudflare solver on (`scrapling`, `solve_cloudflare=True`) and takes **3.5-10.6 minutes** a fetch from the server, which is why it runs in a container that EXITS, on a timer, **never inside the app image**. It carries **Previous, Consensus AND Actual in one row** and reaches ~11 days ahead. Rate-limited in `server/scrapers/mfbLimits.ts` and recorded in `scrape_runs`. ⚠ **The 09 Sep ruling that MyFXBook was gone for good is SUPERSEDED** — it was true of the tools tried then; it is not true of this one. The proxy advice still stands: none is needed, so do not buy one
 - **ForexFactory weekly feed** (`nfs.faireconomy.media/ff_calendar_thisweek.json`): now the **FALLBACK** only, and it stays. Plain HTTPS, no browser, this week only, and **no released value at all** — which is exactly what MyFXBook adds. ForexFactory stands down while MyFXBook is fresh and returns the moment it is not; an empty calendar starves VIX.1's two news guards
+- **Barchart** (gold futures-options Greeks & volatility): scraper built 19 Nov 2026 and **SWITCHED OFF** (his order) —
+  read `docs/barchart.md` before touching it
 - **Central banks' own publications**: the interest rates — FRED, ECB, BoE, BoC, RBA, with Trading Economics for JPY/CHF/NZD and as backup. Not MyFXBook
 - **Gemini 2.5 Flash**: screenshot OCR, Trader AI Q&A (Node side only)
 

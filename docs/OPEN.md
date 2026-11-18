@@ -5427,6 +5427,13 @@ as written (stop beyond the zone's far edge). If he wants the 1M entry to refine
 Scanner, candle feed, Telegram, database: if the scanner or the broker connection stops, every strategy stops. Running
 PIX as its own program would separate that; not asked for yet.
 
+## G. Barchart options scraper — built 19 Nov 2026, SWITCHED OFF (his order)
+
+### G1 — Waiting for his instruction on what to do with it; never tried from the server
+`docs/barchart.md`. Off twice: `BARCHART_ENABLED` unset (app refuses), host timer not installed. Barchart's terms
+forbid robots — it uses a plain browser and no challenge solver; a refusal is recorded and the day skipped. Unknown
+until the first run: whether the server is let in, and whether the scraper image's Chromium starts.
+
 ## E. Parked — do not start these
 
 | | | |

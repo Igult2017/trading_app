@@ -1,0 +1,14 @@
+# Wakes the Barchart runner every 5 minutes; it only ASKS the app, which says "due" six times a day at most.
+# ⚠ NOT INSTALLED (his "disable it first"). See run.sh for the install steps.
+[Unit]
+Description=Ask the app whether a Barchart options fetch is due
+
+[Timer]
+OnBootSec=4min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+AccuracySec=30s
+Unit=bc.service
+
+[Install]
+WantedBy=timers.target
