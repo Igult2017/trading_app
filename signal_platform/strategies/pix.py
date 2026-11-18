@@ -1,7 +1,8 @@
 """
 PIX — BTC/USD and XAU/USD. HIS SKELETON (18 Nov 2026). READ docs/strategies/pix.md FIRST — his rules in his words.
 
-  4H trending? → BIG zones (4H + 1H) in its direction, near the money → 5M tap + respect → 1M stop order, 3R.
+  4H trending? → REAL zones (4H + 1H) in its direction, near the money → 5M tap + respect + ORDER FLOW on 5M and 1M
+                → 1M stop order, 3R.
   4H ranging   → 5M support / resistance on its 2nd respect → 1M stop order, only with ≥2R of room.
 
 The rules live in `pix_bigzones` and `pix_skeleton`; this file only feeds them candles and turns a plan into a signal.
@@ -19,11 +20,42 @@ from storage import observability_repo as obs
 from shared.pip import price_digits
 from notifications import titles
 from charting import theme
+from data import tick_listeners
+from strategies import pix_btcflow, pix_goldflow
+from strategies.pix_flow import verdict
 from strategies.pix_skeleton import Plan, range_plan, zone_plan
 
 log = logging.getLogger(__name__)
 
 _STATE_TTL = 14 * 24 * 3600   # forget a delivered setup after 2 weeks
+
+# GOLD'S ORDER FLOW is counted from the live price stream as it arrives (`pix_goldflow`); the stream's watcher hands
+# every tick to the registered listeners, each inside its own try, so this can never disturb the stream.
+tick_listeners.register(pix_goldflow.on_tick)
+
+
+async def flow_data(symbol: str):
+    """{"M5": (source, flows), "M1": (source, flows)} — Bitcoin from Binance, gold from our own tick count."""
+    if symbol.startswith("BTC"):
+        return {"M5": await pix_btcflow.flows("M5", 60), "M1": await pix_btcflow.flows("M1", 90)}
+    if symbol.startswith("XAU"):
+        return {"M5": pix_goldflow.flows("M5"), "M1": pix_goldflow.flows("M1")}
+    return {"M5": ("", {}), "M1": ("", {})}
+
+
+def make_check(data):
+    """The order-flow check the skeleton calls at a respected tap: 5M AND 1M must both say GO."""
+    def check(m5, m1, bull, tap):
+        reasons = []
+        for tf, candles in (("M5", m5), ("M1", m1)):
+            source, fl = data[tf]
+            v = verdict(candles, fl, bull, tap, tf.replace("M", "") + "M")
+            tag = f" ({source})" if source else ""
+            if not v.go:
+                return False, reasons + [r + tag for r in v.reasons]
+            reasons += [r + tag for r in v.reasons]
+        return True, reasons
+    return check
 
 
 class PIXStrategy(BaseStrategy):
@@ -35,7 +67,8 @@ class PIXStrategy(BaseStrategy):
     optional_timeframes = [TF.H1, TF.M5, TF.M1, TF.D1]
     # 500 4H / 1H bars give the "big gap" test its 100 earlier gaps with room to spare; 300 5M bars cover the
     # support/resistance search (200) plus its pivots; 30 days for the daily range.
-    candle_counts       = {TF.H4: 500, TF.H1: 500, TF.M5: 300, TF.M1: 30, TF.D1: 30}
+    # 90 1M bars = the 1M order-flow approach (12) + a visit of up to an hour (the 5M tap window).
+    candle_counts       = {TF.H4: 500, TF.H1: 500, TF.M5: 300, TF.M1: 90, TF.D1: 30}
     # THE LIVE BID/ASK. The platform fills `context.quote` / `context.spread` ONLY for a strategy that asks
     # (`strategy_runner`: `quote_for(...) if deps.needs_spread`). Without it PIX judged "would this stop order fill
     # at once?" on a closed 1M close up to ~2 minutes old and put no spread on a sell's stop — found live, 18 Nov.
@@ -64,10 +97,11 @@ class PIXStrategy(BaseStrategy):
             price, spread = (bid + ask) / 2, max(0.0, ask - bid)
         else:
             price, spread = m1[-1].close, context.spread or 0.0
-        plan, why_zone = zone_plan(h4, h1, m5, m1, price, spread, d1)
+        check = make_check(await flow_data(sym))
+        plan, why_zone = zone_plan(h4, h1, m5, m1, price, spread, d1, flow=check)
         why_range = ""
         if plan is None:
-            plan, why_range = range_plan(h4, m5, m1, price, spread)
+            plan, why_range = range_plan(h4, m5, m1, price, spread, flow=check)
         if plan is None:
             self._log(sym, "SCANNING", f"{why_zone}; {why_range}")
             return StrategyResult.empty()

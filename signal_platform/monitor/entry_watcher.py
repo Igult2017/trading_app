@@ -157,6 +157,11 @@ class EntryWatcher:
         from data.tick_bars import builder
         self._stream.on_bid_tick(builder.on_tick)
         self._stream.on_coverage(builder.connected, builder.disconnected)
+        # ANY OTHER TICK LISTENER (18 Nov 2026 — PIX's gold order-flow estimate). Each runs inside the stream's own
+        # per-listener try (`data/fix_book.py`), so a broken listener is logged and cannot touch the stream.
+        from data.tick_listeners import LISTENERS
+        for fn in LISTENERS:
+            self._stream.on_bid_tick(fn)
         ok = await self._stream.connect(instruments)
         if not ok:
             self._stream = None

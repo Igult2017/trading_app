@@ -120,24 +120,30 @@ now = int(time.time()) // 60 * 60
 m1 = [Candle(now - 120, 101.5, 102.0, 101.4, 101.8, 1, "M1"), Candle(now, 101.8, 109.0, 101.7, 101.9, 1, "M1")]
 check("buy stop = the last CLOSED 1M high (the forming bar's 109 is ignored)", S.entry_1m(m1, True, 100.0, 101.9), 102.0)
 check("market already through the entry → no order", S.entry_1m(m1, True, 100.0, 102.1), None)
+GO = lambda m5, m1, bull, tap: (True, ["order flow: GO (stub)"])
 zone = B.Zone("demand", 101.0, 100.0, 101.0, 100.0, 100.5, 40, 41)
 S.regime, S.daily_atr = (lambda h4: 1), (lambda d1: 50.0)
 S.big_zones = lambda c, tf, want, price, reach: [B.BigZone("4H", zone, 1, zone, 2, 0.9)] if (tf == "4H" and want == "demand") else []
-plan, _ = S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [])
+plan, _ = S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [], flow=GO)
 check("...but with the ASK (101.9 + half the 0.3 spread = 102.05) already past the 102.0 entry → no order",
-      S.zone_plan([], [], m5(above + [tap, out]), m1, 101.9, 0.3, [])[0], None)
+      S.zone_plan([], [], m5(above + [tap, out]), m1, 101.9, 0.3, [], flow=GO)[0], None)
 check("BUY: entry 102.0, stop 100.0 (zone bottom), target 102 + 3×2 = 108.0", (plan.entry, plan.sl, plan.tp, plan.rr),
       (102.0, 100.0, 108.0, 3.0))
+check("NO ORDER-FLOW CHECK → no plan (no order flow, no trade)",
+      S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [])[0], None)
+check("ORDER FLOW SAYS NO → no plan, and the reason is given",
+      S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [], flow=lambda *a: (False, ["5M ABSORPTION"])),
+      (None, "order flow said no: 5M ABSORPTION"))
 szone = B.Zone("supply", 101.0, 100.0, 100.0, 101.0, 100.5, 40, 41)
 S.regime = lambda h4: -1
 S.big_zones = lambda c, tf, want, price, reach: [B.BigZone("4H", szone, 1, szone, 2, 0.5)] if want == "supply" else []
 m1s = [Candle(now - 120, 99.6, 99.7, 99.0, 99.2, 1, "M1"), Candle(now, 99.2, 99.3, 99.1, 99.2, 1, "M1")]
 sm5 = m5([(97, 97.5, 96.5, 97)] * 5 + [(98, 100.6, 97.8, 100.4), (100.4, 100.5, 98.5, 99.2)])
-splan, _ = S.zone_plan([], [], sm5, m1s, 99.2, 0.3, [])
+splan, _ = S.zone_plan([], [], sm5, m1s, 99.2, 0.3, [], flow=GO)
 check("SELL: entry 99.0, stop 101.0 + 0.3 spread = 101.3, target 99 − 3×2.3 = 92.1",
       (splan.entry, round(splan.sl, 2), round(splan.tp, 2)), (99.0, 101.3, 92.1))
 S.regime = lambda h4: 0
-check("4H ranging → the zone path stays off", S.zone_plan([], [], sm5, m1s, 99.2, 0.3, [])[0], None)
+check("4H ranging → the zone path stays off", S.zone_plan([], [], sm5, m1s, 99.2, 0.3, [], flow=GO)[0], None)
 
 print("\nRULE 8 — ranging: 5M support on its 2nd respect, stop order, only with 2R of room")
 
@@ -155,15 +161,15 @@ def sr_series(rebound):
 
 
 m1r = [Candle(now - 120, 102.8, 103.5, 102.6, 103.2, 1, "M1"), Candle(now, 103.2, 103.3, 103.1, 103.2, 1, "M1")]
-rp, _ = S.range_plan([], sr_series(115), m1r, 103.2, 0.0)
+rp, _ = S.range_plan([], sr_series(115), m1r, 103.2, 0.0, flow=GO)
 check("support 100 respected, rebound to 115.5, back to 100 and out → BUY at 103.5, target capped at the resistance",
       (rp.direction, rp.entry, rp.tp), ("buy", 103.5, 115.5))
-check("rebound only to 108.5 → 1.2R of room, refused", S.range_plan([], sr_series(108), m1r, 103.2, 0.0)[0], None)
+check("rebound only to 108.5 → 1.2R of room, refused", S.range_plan([], sr_series(108), m1r, 103.2, 0.0, flow=GO)[0], None)
 S.RANGE_MIN_R = 1.0
-teeth("the 2R room rule (lowered to 1R)", S.range_plan([], sr_series(108), m1r, 103.2, 0.0)[0] is not None)
+teeth("the 2R room rule (lowered to 1R)", S.range_plan([], sr_series(108), m1r, 103.2, 0.0, flow=GO)[0] is not None)
 S.RANGE_MIN_R = 2.0
 S.regime = lambda h4: -1
-check("4H DOWNTREND → a support (buy) is not taken", S.range_plan([], sr_series(115), m1r, 103.2, 0.0)[0], None)
+check("4H DOWNTREND → a support (buy) is not taken", S.range_plan([], sr_series(115), m1r, 103.2, 0.0, flow=GO)[0], None)
 
 print("\nTHE SIGNAL — what reaches the channel")
 from strategies.pix import build_signal  # noqa: E402

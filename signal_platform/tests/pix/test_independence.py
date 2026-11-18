@@ -28,13 +28,21 @@ def check(name, got, want):
 # base and types, the delivery ledger, the stage log, observability, price decimals, the card titles and colours.
 # Any other `shared.*` module, or any other strategy's file, is strategy logic shared with someone else → FAIL.
 PLUMBING = {"core.base_strategy", "core.types", "core.strategy_context", "core", "storage", "shared.pip",
-            "notifications", "charting"}
-STDLIB = {"__future__", "dataclasses", "statistics", "logging", "re", "time"}
-IMPORT = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import|import\s+([\w.]+))", re.M)
+            "notifications", "charting", "data.tick_listeners"}
+STDLIB = {"__future__", "dataclasses", "statistics", "logging", "re", "time", "httpx"}   # httpx: the web library
+IMPORT = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import\s+([\w, ]+)|import\s+([\w.]+))", re.M)
+PACKAGES = {"strategies", "data", "shared"}     # `from strategies import x` imports the MODULE strategies.x
 
 
 def outside(text):
-    mods = [a or b for a, b in IMPORT.findall(text)]
+    mods = []
+    for frm, names, imp in IMPORT.findall(text):
+        if imp:
+            mods.append(imp)
+        elif frm in PACKAGES:
+            mods += [f"{frm}.{n.strip()}" for n in names.split(",") if n.strip()]
+        else:
+            mods.append(frm)
     return [m for m in mods if not (m.startswith("strategies.pix") or m in PLUMBING or m in STDLIB)]
 
 
@@ -46,6 +54,10 @@ check("TEETH — a shared trend-reader import is caught", outside("from shared.t
       ["shared.trend_detector"])
 check("TEETH — another strategy's file is caught", outside("from strategies.bx_sd_zones import find"),
       ["strategies.bx_sd_zones"])
+check("TEETH — `from strategies import <another strategy>` is caught", outside("from strategies import vix1_bias"),
+      ["strategies.vix1_bias"])
+check("TEETH — `from data import <anything but the tick list>` is caught", outside("from data import ctrader_spread"),
+      ["data.ctrader_spread"])
 
 init = (ROOT / "strategies" / "__init__.py").read_text(encoding="utf-8")
 check("PIX is registered with the scanner", "strategy_registry.register(PIXStrategy())" in init, True)

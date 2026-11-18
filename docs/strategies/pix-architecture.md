@@ -9,16 +9,21 @@
 | `strategies/pix_trend.py` | the 4H read: +1 / −1 / 0 (`regime`) — PIX's own copy, lead of 2, equal = neither |
 | `strategies/pix_swings.py` | swing highs / lows and their labels (HH/LH/EH, HL/LL/EL) — PIX's own copy |
 | `strategies/pix_candles.py` | "has this candle finished?" (`closed_only`) — PIX's own copy |
+| `strategies/pix_flow.py` | order-flow verdict per timeframe: absorption, initiation, CVD divergence / convergence; GO / REFUSE / UNKNOWN |
+| `strategies/pix_btcflow.py` | Bitcoin buy / sell per 5M / 1M candle from Binance (futures, then the spot mirror) |
+| `strategies/pix_goldflow.py` | gold buy / sell ESTIMATE: up / down price ticks counted live from our stream |
 | `strategies/pix_zones.py` | marks every zone: the candle before a 3-candle gap, wick / engulfed / institutional (`find_fvgs`, `find_zones`, `break_index`) |
 
 Allowed imports (enforced by `tests/pix/test_independence.py`): PIX's own modules, the standard library, and plumbing —
 `core.*` (strategy base, types, ledger, stage log), `storage` (observability), `shared.pip` (price decimals),
-`notifications` (card titles), `charting` (card colours). Anything else fails the test.
+`notifications` (card titles), `charting` (card colours), `data.tick_listeners` (the live-tick list), `httpx` (web).
+Anything else fails the test.
 
 ## Flow, one scan per instrument
 ```
 H4 (500) ── regime ──┬── trending ── big_zones(H4) + big_zones(H1)  [D1 ATR = "near"; travelled to another zone]
-                     │                  └─ nearest first → respected_5m(M5) → entry_1m(M1, live ask/bid) → 3R
+                     │                  └─ nearest first → respected_5m(M5) → entry_1m(M1, live ask/bid)
+                     │                     → ORDER FLOW: verdict(5M) AND verdict(1M) must be GO → 3R
                      └── ranging / no zone plan ── range_plan(M5 swing levels, 2nd respect, ≥2R room) → entry_1m
 Plan → build_signal → dispatcher → CHANNEL (dm_only_exempt). autotrade: refused (not in autotrade_strategies).
 ```
@@ -34,5 +39,6 @@ platform also holds back a repeat while one is open (one active signal per strat
 - No PIX file imports another strategy's file or any shared logic module.
 
 ## Known open defects
-- Rule 5 is an interim test until the order-flow tools are built; rule 7 (his management) is not built.
+- Rule 7 (his management) is not built. Gold's order flow is an ESTIMATE (price ticks, not money) and is UNKNOWN for
+  about an hour after every restart, so no gold signal then.
 - Tall zones make wide stops (gold 13-17 Nov: a ~$79 zone → ~$68 stop from a 1M entry) — what the rule says; reported.
