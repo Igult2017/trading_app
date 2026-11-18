@@ -97,8 +97,10 @@ else:
     print("   still refused, by tests the margin and the memory never touch:")
     w = at_candle(gbp, 10, 11)
     n = len(w) - 1
-    s.check("GBP/USD 10 Sep 11:00 UTC is refused", qualifies_for_trade(w, n, False, GBP), False)
-    s.check("...because it is not bigger than the candle before it (9.8p vs 9.9p)",
+    # 18 Nov 2026: his order removed "bigger than the candle before" (*"A momentum candle is decided by the size which
+    # is calculated"*). This candle was refused ONLY by that rule, so it now qualifies — on size.
+    s.check("GBP/USD 10 Sep 11:00 UTC now qualifies (size only, since 18 Nov)", qualifies_for_trade(w, n, False, GBP), True)
+    s.check("...although it is not bigger than the candle before it (9.8p vs 9.9p)",
             body_size(w[n]) <= body_size(w[n - 1]), True)
 
     w = at_candle(gbp, 10, 12)

@@ -1,5 +1,5 @@
-"""A WAITING ORDER IS PULLED BEFORE HIGH-IMPACT NEWS AND PUT BACK AFTER — the same 15 / 30 minutes
-VIX.1 already uses for new entries (`news_candle.in_news_window`).
+"""A WAITING ORDER IS PULLED BEFORE HIGH-IMPACT NEWS AND PUT BACK AFTER — the same 10 / 10 minutes (his rule of
+18 Nov 2026; was 15 / 30) VIX.1 uses for new entries (`news_candle.in_news_window`).
 
 Through `news_pull.check` with the calendar, broker, account and records faked at their edges.
 """
@@ -67,15 +67,15 @@ s.check("...and it is no longer treated as waiting", "55" in intents._intent, Fa
 run(NP.check(None))
 s.check("nothing goes back while the window is still open", placed, [])
 
-news[0] = calendar(-20)
+news[0] = calendar(-5)
 run(NP.check(None))
-s.check("20 minutes after the release (inside the 30) → still not back", placed, [])
-news[0] = calendar(-31, ok=False)
+s.check("5 minutes after the release (inside the 10) → still not back", placed, [])
+news[0] = calendar(-11, ok=False)
 run(NP.check(None))
 s.teeth("window over but the calendar UNKNOWN → still not back", placed == [])
-news[0] = calendar(-31)
+news[0] = calendar(-11)
 run(NP.check(None))
-s.check("31 minutes after, calendar known, setup alive → re-placed through the normal placer",
+s.check("11 minutes after, calendar known, setup alive → re-placed through the normal placer",
         [p.symbol for p in placed], ["EUR/USD"])
 s.check("...and the old row closed as withdrawn", statuses[-1], ("55", "cancelled"))
 run(NP.check(None))

@@ -129,8 +129,9 @@ s.check("...two SELLs on 02 Sep, which his 16 Sep rule adds",
 s.check("...and 06:00 is one of them — a candle can never be its own void",
         sorted(d.strftime("%H:%M") for d, bull in _sells_nochaos), ["00:00", "06:00"])
 _sells = [(d, bull) for d, bull in fired if not bull]
-s.check("...and with it ON (17 Nov), both are refused — tug-of-war candles before them", len(_sells), 0)
-s.check("three hours in this window carry a bias — his three 03 Sep buys", len(fired), 3)
+# 18 Nov 2026: the chaotic-move check (which refused both sells on 17 Nov) no longer decides any trade — his order.
+s.check("...and both trade again since 18 Nov (the chaotic-move check decides nothing)", len(_sells), 2)
+s.check("five hours in this window carry a bias — his three 03 Sep buys and the two 02 Sep sells", len(fired), 5)
 
 # ⚠ WHAT THE DEFAULT DOES CHANGED ON 2026-09-29, and only for the 16:00 bar.
 #
@@ -146,9 +147,10 @@ s.check("three hours in this window carry a bias — his three 03 Sep buys", len
 fired_default = fired_with(False)
 s.check("by DEFAULT only the 16:00 BUY trades — the other two still have no pullback behind them",
         [d.strftime("%H:%M") for d, bull in fired_default if bull], ["16:00"])
-s.check("...and nothing else (the two 02 Sep sells are refused by the chaotic-move check)", len(fired_default), 1)
+s.check("...plus the two 02 Sep sells and nothing else", len(fired_default), 3)
+_n_buys = lambda f: sum(1 for _, bull in f if bull)
 s.teeth("the shortcut switch still decides the other two BUYs",
-        len(fired) == 3 and len(fired_default) == 1)
+        _n_buys(fired) == 3 and _n_buys(fired_default) == 1)
 
 
 # ── THE CONTROL: a market where the sides DISAGREE is still refused ────────

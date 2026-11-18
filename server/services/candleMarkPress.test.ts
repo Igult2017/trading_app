@@ -48,6 +48,21 @@ const fakeQuery: any = async (sql: string, args: unknown[]) => {
   check('...and the database is not asked', asked.length, 0);
   check('a Confirm/Reject button is not this handler\'s', await recordMarkPress(`tc:y:${ID}`, 7615035273, fakeQuery), 'not-ours');
   check('button data with anything extra is refused', await recordMarkPress(`mc:t:${ID}x`, 7615035273, fakeQuery), 'not-ours');
+  // 18 Nov 2026 — HIS ASK: "When it is expired I should get expired message" — and it says WHY.
+  const { expiredReason } = await import('./candleMarkPress');
+  const rows: Record<string, any> = {
+    me: { rows: [{ symbol: 'EUR/USD', bar_time: 1794985200, created_at: new Date() }] },
+    newer: { rows: [{ bar_time: 1794992400, bullish: true }] },
+  };
+  const q2: any = async (sql: string) => /bar_time > \$2/.test(sql) ? rows.newer : rows.me;
+  const why = await expiredReason(`mc:t:${ID}`, q2);
+  check('expired names the newer card that replaced it (EUR/USD BUY that closed at 13:00 Kenya)',
+        why.includes('EXPIRED') && why.includes('EUR/USD') && why.includes('BUY') && why.includes('13:00'), true);
+  rows.newer = { rows: [] };
+  check('...with no newer card it says 24 hours passed', (await expiredReason(`mc:t:${ID}`, q2)).includes('24 hours'), true);
+  const src = (await import('fs')).readFileSync(new URL('./candleMarkPress.ts', import.meta.url), 'utf8');
+  check('every outcome replies in the chat, expired with its reason', /outcome === 'expired' \? await expiredReason/.test(src), true);
+  check('a press on a card whose buttons are already gone is not reported as a failure', /not modified/.test(src), true);
   const { readFileSync } = await import('fs');
   const tn = readFileSync(new URL('./telegramNotification.ts', import.meta.url), 'utf8');
   check('TEETH — the handler is attached to the live bot', /attachCandleMarkPress\(this\.bot\)/.test(tn), true);

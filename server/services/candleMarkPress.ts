@@ -48,7 +48,40 @@ const REPLY: Partial<Record<MarkOutcome, string>> = {
   tradeable: '✅ <b>TRADEABLE</b> — the system is now waiting for the entry on this candle and will '
     + 'take the trade when it comes (your DM only; every safety check still applies, the 7pm cut-off does not).',
   untradeable: '⛔ <b>UNTRADEABLE</b> — no trade will be taken from this candle.',
+  used: '🔒 <b>ALREADY USED</b> — a trade has already been taken from this candle, so it cannot be changed.',
+  'not-allowed': '🚫 Only the account owner can answer this card.',
 };
+
+/** EAT clock (UTC+3, no summer time) for a candle's CLOSE, from its open time in seconds. */
+function closesAt(barOpenSec: number): string {
+  const d = new Date((Number(barOpenSec) + 3600 + 3 * 3600) * 1000);
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+}
+
+/** WHY a mark is expired, in his words' terms (his ask, 18 Nov 2026: "When it is expired I should get expired
+ *  message"). A newer momentum candle on the same pair replaces it; otherwise 24 hours passed. */
+export async function expiredReason(data: string | undefined,
+                                    query: typeof pool.query = pool.query.bind(pool)): Promise<string> {
+  const id = PRESS.exec(data ?? '')?.[2];
+  const head = '⏱ <b>EXPIRED</b> — no trade will be taken from this card. ';
+  if (!id) return head;
+  try {
+    const me: any = await query(`SELECT symbol, bar_time, created_at FROM candle_marks WHERE id = $1`, [id]);
+    const row = me.rows?.[0];
+    if (!row) return head + 'This card is no longer on record.';
+    const newer: any = await query(
+      `SELECT bar_time, bullish FROM candle_marks WHERE symbol = $1 AND bar_time > $2
+        ORDER BY bar_time ASC LIMIT 1`, [row.symbol, row.bar_time]);
+    const n = newer.rows?.[0];
+    if (n) {
+      return head + `A newer ${row.symbol} momentum candle (the ${n.bullish ? 'BUY' : 'SELL'} candle that closed at `
+        + `${closesAt(n.bar_time)} Kenya time) replaced it — press the buttons on that card instead.`;
+    }
+    return head + 'More than 24 hours have passed since this candle closed.';
+  } catch {
+    return head;
+  }
+}
 
 export function attachCandleMarkPress(bot: TelegramBot): void {
   bot.on('callback_query', async (q) => {
@@ -58,14 +91,21 @@ export function attachCandleMarkPress(bot: TelegramBot): void {
       if (outcome === 'not-ours') return;          // some other button — not this feature's
       await bot.answerCallbackQuery(q.id, { text: ANSWER[outcome] });
       console.log(`[CandleMark] press ${outcome} by ${q.from?.id}`);
-      const reply = REPLY[outcome];
+      // EVERY PRESS GETS A MESSAGE UNDER THE CARD (his ask, 18 Nov 2026: "Make the buttons communicate"), not
+      // only the pop-up, which is easy to miss.
+      const reply = outcome === 'expired' ? await expiredReason(q.data) : REPLY[outcome];
       if (reply && q.message) {
         await bot.sendMessage(q.message.chat.id, reply,
           { parse_mode: 'HTML', reply_to_message_id: q.message.message_id });
       }
       if ((outcome === 'used' || outcome === 'expired') && q.message) {
-        await bot.editMessageReplyMarkup({ inline_keyboard: [] },
-          { chat_id: q.message.chat.id, message_id: q.message.message_id });
+        // Already removed by an earlier press → Telegram answers "message is not modified": nothing is wrong.
+        try {
+          await bot.editMessageReplyMarkup({ inline_keyboard: [] },
+            { chat_id: q.message.chat.id, message_id: q.message.message_id });
+        } catch (e: any) {
+          if (!/not modified/i.test(String(e?.message ?? e))) throw e;
+        }
       }
     } catch (error: any) {
       console.error('[CandleMark] press failed:', error?.message ?? error);
