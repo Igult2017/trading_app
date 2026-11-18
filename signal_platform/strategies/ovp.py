@@ -1,6 +1,6 @@
 """
-OVP — Smart-Money supply/demand (EUR/USD, GBP/USD, USD/JPY), from the SMC (Vekariya) book.
-READ docs/strategies/bx-sd.md FIRST — the book's rules verbatim, and what is already settled.
+OVP — BTC/USD and XAU/USD. Created 17 Nov 2026 as an exact, independent copy of BX-S/D (Smart-Money supply/demand),
+SWITCHED OFF until his own changes are built. READ docs/strategies/ovp.md FIRST — his skeleton and its fix log.
 Cascade — 4H: the SETUP is confirmed there and ONLY there (a fresh 3-factor
 zone: IFC + broke structure + liquidity grabbed, tapped, priced right, defensive-liquidity clear).
 15M: a CHoCH INSIDE the zone confirms (never a blind limit), refines it to a tight POI, and grades it.
@@ -38,7 +38,8 @@ _STATE_TTL = 14 * 24 * 3600   # forget a fired 4H setup after 2 weeks
 class OVPStrategy(BaseStrategy):
     name    = "OVP"
     id      = "ovp"
-    enabled = True
+    # SWITCHED OFF until his skeleton changes are built and he says to switch it on (docs/strategies/ovp.md).
+    enabled = False
 
     # H4 is the only HARD one; OPTIONAL = a flaky feed degrades a path, never kills the strategy.
     required_timeframes = [TF.H4]
@@ -52,10 +53,10 @@ class OVPStrategy(BaseStrategy):
     candle_counts       = {TF.H4: 1000, TF.H1: 200, TF.M30: 200, TF.M15: 200, TF.M5: 250,
                            TF.M1: 250, TF.D1: 200, TF.W1: 120, TF.MN: 60}
 
-    # All 3 sessions: the 4H cascade IS the filter, and USD/JPY gets Tokyo — its home session.
+    # All 3 sessions: the 4H cascade IS the filter (Bitcoin also trades at weekends — see docs/strategies/ovp.md).
     allowed_sessions    = [Session.LONDON, Session.NEW_YORK, Session.ASIAN]
     allowed_trends      = [Trend.ANY]
-    allowed_instruments = ["EUR/USD", "GBP/USD", "USD/JPY", "GBP/JPY"]
+    allowed_instruments = ["BTC/USD", "XAU/USD"]          # his instruction: "It will trade BTCUSD and XAUUSD"
     news_stance         = NewsStance.NEWS_AGNOSTIC
     news_impact_filter  = [NewsImpact.HIGH]
 
