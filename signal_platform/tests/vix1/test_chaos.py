@@ -109,31 +109,33 @@ else:
             ch.is_chaotic(BARS, at(MISS[0])), False)
 
     print("\n4. in his chaotic move no 2nd or 3rd momentum candle came — the reason waiting saves money:")
-    for when, bull in CHAOS + [MISS]:
+    for when, bull in CHAOS:
         i = at(when)
         s.check(f"{when}: next two candles are not momentum candles",
                 [qualifies_for_trade(BARS[:j + 1], j, bull, SYM) for j in (i + 1, i + 2)], [False, False])
+    # 18 Nov 2026: with "bigger than the candle before" removed (his order), the candle after his MISS, 11 Nov 17:00,
+    # now counts — size alone decides. The other seven are unchanged.
+    i = at(MISS[0])
+    s.check(f"{MISS[0]}: the next candle IS a momentum candle since the 18 Nov size-only rule",
+            [qualifies_for_trade(BARS[:j + 1], j, MISS[1], SYM) for j in (i + 1, i + 2)], [True, False])
 
     print("\n5. the verdict the DM card carries:")
     tag, line = ch.verdict(BARS, at("2026-11-16 09:00"), False, SYM)
-    s.check("chaotic candle -> WAIT tag", tag, "CHAOTIC MOVE · WAIT FOR 2ND/3RD")
-    s.check("...and says what would let a trade happen", "Trade only on the next 2 candles' momentum" in line, True)
+    # 18 Nov 2026 — INFORMATION ONLY (his order): the card must not suggest it holds a trade back.
+    s.check("chaotic candle -> INFO tag", tag, "CHAOTIC MOVE (INFO ONLY)")
+    s.check("...and says plainly it blocks nothing", "trades not blocked" in line, True)
     s.check("...and WHICH test objected (both, here)", ("progress" in line, "nobody in control" in line), (True, True))
-    s.check("THE GATE refuses his chaotic candle (Mon 16 09:00 SELL)",
-            ch.refusal(BARS[:at("2026-11-16 09:00") + 1], False, SYM) is not None, True)
-    s.check("THE GATE lets his clean candle through (Fri 06 16:00 SELL)",
-            ch.refusal(BARS[:at("2026-11-06 16:00") + 1], False, SYM), None)
+    s.check("there is no gate any more (removed 18 Nov)", hasattr(ch, "refusal"), False)
     s.check("clean candle -> CLEAN MOVE tag", ch.verdict(BARS, at("2026-11-06 16:00"), False, SYM)[0], "CLEAN MOVE")
     win = BARS[:at("2026-11-16 09:00") + 1]
     got = mw.check(win, SYM)
-    s.check("the DM announcement carries it as its fifth item", got is not None and got[4][0], "CHAOTIC MOVE · WAIT FOR 2ND/3RD")
+    s.check("the DM announcement carries it as its fifth item", got is not None and got[4][0], "CHAOTIC MOVE (INFO ONLY)")
     note = mw.note(SYM, got[1], got[0], 0.0001, "VIX.1", got[2], got[3], got[4])
-    # 17 Nov: *"in the DM, i cant tell whether it is passed or not"* — so the card leads with PASSED/FAILED.
-    s.check("...the card's FIRST detail says FAILED, plainly", note.technical_reasons[0].startswith(
-        "❌ Chaotic market"), True)
+    s.check("...the card's FIRST detail is the chaotic-market information line", note.technical_reasons[0].startswith(
+        "ℹ️ Chaotic market"), True)
     s.check("...the stomach rule gets its own PASSED/FAILED line second",
             note.technical_reasons[1][:1] in ("✅", "❌") and "Stomach rule" in note.technical_reasons[1], True)
-    s.check("...line 2 is the verdicts at a glance", note.label.startswith("SELL · ❌ CHAOTIC MARKET · "), True)
+    s.check("...line 2 is the verdicts at a glance", note.label.startswith("SELL · ➖ CHAOTIC MARKET · "), True)
     s.check("...less wordy: every detail is one short line", max(len(r) for r in note.technical_reasons) <= 120, True)
     s.check("...and the card stays within the five details shown", len(note.technical_reasons) <= 5, True)
     from notifications.telegram_formatter import format_setup_alert  # noqa: E402
@@ -152,7 +154,7 @@ else:
             (ch.is_chaotic(EUR, e), round(ch.clean_travel(EUR, e), 3)), (True, 0.002))
     got = mw.check(EUR, "EUR/USD")
     n = mw.note("EUR/USD", got[1], got[0], 0.0001, "VIX.1", got[2], got[3], got[4])
-    s.check("his card now opens with FAILED", n.technical_reasons[0].startswith("❌ Chaotic market"), True)
+    s.check("his card opens with the chaotic-market information line", n.technical_reasons[0].startswith("ℹ️ Chaotic market"), True)
 
 print("\n5c. GBP/JPY 17 Nov, 11:00 EAT SELL — the trade that ended at breakeven; the old two-test rule let it in:")
 GJ = load("GBPJPY_H1_nov17_chaos.csv", "H1")
@@ -164,16 +166,9 @@ else:
     s.check("it qualifies as a momentum candle", qualifies_for_trade(GJ, g, False, "GBP/JPY"), True)
     s.check("by hand: 16.3 pips got / 339.9 pips travelled = 4.8% -> chaotic",
             (round(ch.clean_travel(GJ, g), 3), ch.is_chaotic(GJ, g)), (0.048, True))
-    s.check("THE GATE refuses it", ch.refusal(GJ, False, "GBP/JPY") is not None, True)
     from strategies.vix1_bias import detect_bias  # noqa: E402
-    s.check("...and so does the real trade decision", detect_bias(GJ, [], "GBP/JPY"), None)
-    _gate = ch.refusal
-    try:
-        ch.refusal = lambda *a, **k: None
-        b = detect_bias(GJ, [], "GBP/JPY")
-    finally:
-        ch.refusal = _gate
-    s.check("...and it is THIS check that refuses it: switched off, the trend route trades the SELL",
+    b = detect_bias(GJ, [], "GBP/JPY")
+    s.check("since 18 Nov the real trade decision is NOT blocked by it: the trend route trades the SELL",
             None if b is None else (b.origin, b.bullish), ("trend", False))
     # TEETH: the bodies-only measure that let it in must not come back
     body_only = abs(GJ[g - 1].close - GJ[g - 12].open) / sum(abs(c.close - c.open) for c in GJ[g - 12:g])
@@ -217,19 +212,14 @@ try:
 finally:
     ch.qualifies_for_trade = _real
 
-print("\n7. it DECIDES (ON since 17 Nov) — on BOTH trading routes, and nowhere else:")
+print("\n7. it DECIDES NOTHING (his order, 18 Nov) — the only reader is the DM announcement:")
 root = Path(__file__).resolve().parents[2]
 users = sorted(f.relative_to(root).as_posix() for f in root.rglob("*.py")
                if not f.relative_to(root).as_posix().startswith("tests/") and f.name != "vix1_chaos.py"
                and "vix1_chaos" in f.read_text(encoding="utf-8", errors="replace"))
-s.teeth("exactly two readers: the trade decision (vix1_bias) and the DM card (vix1_momentum_watch)",
-        users == ["strategies/vix1_bias.py", "strategies/vix1_momentum_watch.py"])
-bias_src = (root / "strategies/vix1_bias.py").read_text(encoding="utf-8")
-# the CALLS, matched as calls — `def refusal(` lives in another file, so a deleted call cannot hide here
-s.teeth("the change-of-character route does NOT ask it (his option A — it refused his 28 Jul trade)",
-        bias_src.count("vix1_chaos.refusal(") == 1)
-s.teeth("the main route asks it in its refusal list", "vix1_chaos.refusal(h1, bullish, symbol)," in bias_src)
-s.teeth("the DM card only DESCRIBES (verdict), never decides (refusal)",
-        "vix1_chaos.refusal(" not in (root / "strategies/vix1_momentum_watch.py").read_text(encoding="utf-8"))
+s.teeth("exactly one reader: the DM card (vix1_momentum_watch)", users == ["strategies/vix1_momentum_watch.py"])
+s.teeth("no trade decision imports it (vix1_bias)",
+        "vix1_chaos" not in (root / "strategies/vix1_bias.py").read_text(encoding="utf-8"))
+s.teeth("the module has no refusal to call", "def refusal(" not in (root / "strategies/vix1_chaos.py").read_text(encoding="utf-8"))
 
 s.done()

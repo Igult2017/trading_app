@@ -250,7 +250,24 @@ goes quiet.
   (from 18:00: a 12.6-pip up candle, then tiny mixed candles); 2 of its 3 big candles were half given back (67%).
   Adding "a momentous move does not give back its big candles (under 1/3)" keeps all 7 blocked. Not built.
 
-### B37 — ~~The chaotic-move check is REPORTED on the DM but does not refuse trades yet~~ SWITCHED ON 17 Nov 2026 at his word ("Just switch it on already") — TREND route only; change-of-character trades exempt (his option A, "Lets do A and see how it goes")
+### D76 — The live "breakeven" stop does not cover the commission. Found 18 Nov 2026 — OPEN (he stopped the fix)
+
+- `data/ctrader_positions.Position.breakeven()` (lines 219-236) divides the round-trip commission by `self.volume`, which is the
+  broker's raw size in HUNDREDTHS of a unit (line 178: "cents for FX"; his 1-lot GBP/USD fill reads 10,000,000 with $3 a
+  side). The offset comes out 100x too small, so the breakeven stop sits on the entry and every breakeven exit still pays
+  ~0.6 pip; on GBP/JPY the dollar cost is also never converted to yen. `tests/vix1/test_position_tracker.py:73` builds the
+  position with volume 100,000 — the wrong premise, which is why it passes.
+- Fix (planned, not done — he said stop): units = volume / 100; cost converted into the pair's quote currency (USD/JPY from
+  `execution/placer._usd_jpy_for`); test re-pinned with a real broker size.
+
+### D75 — Copy trading: a master's order event is saved twice → duplicate-key crash. Found 18 Nov 2026 — OPEN
+
+- **Seen:** 10 crashes in the live log, 18 Nov 09:21 UTC on — `copy_platform/dispatcher.py:217` `_save_master_trade`,
+  `UniqueViolation … idx_copy_trades_master_dedup` for (master 83a14f84…, external 377939771); the master has no followers,
+  so nothing was mis-copied. Cause not yet traced (likely the same order event arriving twice and both inserting).
+- **Not touched:** found while diagnosing VIX.1; the copy gateway work is deferred by his call.
+
+### B37 — The chaotic-move check — ~~refuses break-of-structure trades~~ REMOVED FROM EVERY TRADE DECISION 18 Nov 2026 by his order; DM label only
 - **17 Nov, later: ONE test, whole candle (wicks included), chaotic under 7.75%** — his *"test one is enough"*, after
   the GBP/JPY 11:00 EAT SELL got through on the old second test. Fix log `vix1.md` 2026-11-17 (g).
 - **Watch:** the line sits in a NARROW gap on his examples (7.4% chaotic vs 8.1% keep). If a clean move he would

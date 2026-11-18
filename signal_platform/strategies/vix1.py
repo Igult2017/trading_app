@@ -43,7 +43,7 @@ from strategies import vix1_marked, vix1_spacing, vix1_log
 from strategies.vix1_watch import check_invalidation, invalidation_signal, WATCH_M1
 from shared.pip import pip_size, price_digits
 from shared.mtf_utils import closed_only
-from news.news_candle import is_news_candle, in_news_window   # shared platform resources
+from news.news_candle import in_news_window   # shared platform resource
 
 log = logging.getLogger(__name__)
 
@@ -360,11 +360,11 @@ class Vix1Strategy(BaseStrategy):
             why = context.news.why if context.news is not None else "no news calendar was given"
             vix1_log.say(sym, f"[vix1] {sym} NEWS UNKNOWN — {why} — no new trades until it is back")
             return StrategyResult(signals=out)
-        if is_news_candle(vc, context.news, sym):           # NEVER trade the news candle itself
-            vix1_log.say(sym, f"[vix1] {sym} 1st momentum candle is a news candle — skip")
-            return StrategyResult(signals=out)
-        if in_news_window(context.news, sym):               # H2: skip entries in a high-impact window
-            vix1_log.say(sym, f"[vix1] {sym} inside a high-impact news window — skip entry")
+        # HIS NEWS RULE (18 Nov 2026): no entry from 10 minutes before a high-impact release to 10 minutes after;
+        # any candle — the one holding the news included — may be traded after that, unless it is a liquidity void
+        # (refused inside `detect_bias` by `vix1_void`).
+        if in_news_window(context.news, sym):
+            vix1_log.say(sym, f"[vix1] {sym} within 10 minutes of a high-impact release — skip entry")
             return StrategyResult(signals=out)
 
         # SPACING — is this instrument still busy with the last signal? Checked here, AFTER the bias

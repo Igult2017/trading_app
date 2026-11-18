@@ -1,68 +1,31 @@
 """
-News-candle identifier — a shared PLATFORM RESOURCE, independent of any strategy.
+News timing — a shared PLATFORM RESOURCE, independent of any strategy.
 
-A "news candle" is a candle whose OWN time window contains a scheduled news release of the
-requested impact(s) for the instrument's currencies. Any strategy that declares `requires_news`
-can consume this to honour a "never trade the news candle" rule (e.g. VIX.1's playbook) — the
-identifier lives here, in the news resource layer, not inside a strategy.
+`in_news_window` — is NOW within 10 minutes before / after a scheduled high-impact release for the instrument
+(his rule of 18 Nov 2026; entries and waiting orders both read it). `release_near` — was there a release in this
+H1 candle or the hour before (VIX.1's liquidity-void rule). The old "news candle" identifier was deleted with his
+18 Nov ruling: a candle holding the news may be traded once the 10 minutes have passed.
 
-Reuses the platform's own building blocks only: the currency map (`news_filter._currencies_for`)
-and the bar-duration helper (`mtf_utils.seconds`). No trading logic.
+Reuses the platform's own currency map (`news_filter._currencies_for`). No trading logic.
 """
 from datetime import datetime, timezone, timedelta
 
-from core.types import Candle, NewsContext, NewsImpact
+from core.types import NewsContext, NewsImpact
 from news.news_filter import _currencies_for
-from shared.mtf_utils import seconds as _bar_seconds
 
 _DEFAULT_IMPACTS: tuple[NewsImpact, ...] = (NewsImpact.HIGH,)
-
-
-def is_news_candle(
-    candle: Candle,
-    news_context: NewsContext | None,
-    instrument: str,
-    impacts: tuple[NewsImpact, ...] = _DEFAULT_IMPACTS,
-) -> bool:
-    """
-    True if a scheduled news release (of `impacts`, for `instrument`'s currencies) falls inside
-    this candle's own time window [open, open + one bar). That is the "news candle" a strategy
-    may want to exclude. Safe defaults → False when: no news context, no currency mapping for the
-    instrument, or an unrecognised timeframe.
-    """
-    if not news_context or not news_context.events:
-        return False
-    currencies = _currencies_for(instrument)
-    if not currencies:
-        return False
-    try:
-        start = candle.time
-        end   = start + _bar_seconds(candle.timeframe)
-    except (ValueError, TypeError):
-        return False
-    for e in news_context.events:
-        if e.impact in impacts and e.currency in currencies and e.scheduled_at:
-            if start <= e.scheduled_at.timestamp() < end:
-                return True
-    return False
-
-
-def news_candles(
-    candles: list[Candle],
-    news_context: NewsContext | None,
-    instrument: str,
-    impacts: tuple[NewsImpact, ...] = _DEFAULT_IMPACTS,
-) -> set[int]:
-    """Indices of the candles that are news candles — batch helper for scans / back-fills."""
-    return {i for i, c in enumerate(candles)
-            if is_news_candle(c, news_context, instrument, impacts)}
+# HIS NEWS RULE, 18 Nov 2026: *"Ten minutes before and after news means we dont trade any candle 10 before news and we
+# trade any candle 10 after news unless that candle is the liquidity void defined in VIX."* (Was 15 before / 30 after,
+# plus a separate "never trade the news candle" skip, which is gone.) ONE place, read by entries and waiting orders.
+NEWS_BEFORE_MIN = 10
+NEWS_AFTER_MIN = 10
 
 
 def in_news_window(
     news_context: NewsContext | None,
     instrument: str,
-    before_min: int = 15,
-    after_min: int = 30,
+    before_min: int = NEWS_BEFORE_MIN,
+    after_min: int = NEWS_AFTER_MIN,
     impacts: tuple[NewsImpact, ...] = _DEFAULT_IMPACTS,
     now: datetime | None = None,
 ) -> bool:

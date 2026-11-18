@@ -25,7 +25,7 @@ import datetime as dt
 
 from _harness import Suite, load
 
-from strategies import vix1_bias, vix1_chaos, vix1_chop, vix1_trend
+from strategies import vix1_bias, vix1_chop, vix1_trend
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_trend import trend_state
 
@@ -53,21 +53,16 @@ else:
         come back and the check can no longer demonstrate its point — the proof is MASKED, not
         broken. Muting the later rule keeps the older proof honest; the range gate has its own file.
         """
-        # 17 Nov 2026: the chaotic-move check (whole candle, 7.16% here) ALSO refuses that bar, so it is
-        # muted with the range gate for the same reason. It has its own file (`test_chaos.py`).
         keep = vix1_trend._ARM_BROKEN_LEVEL
         keep_chop = vix1_chop.not_tradeable
-        keep_chaos = vix1_chaos.refusal
         vix1_trend._ARM_BROKEN_LEVEL = armed
         if mute_range:
             vix1_chop.not_tradeable = lambda *a, **k: None
-            vix1_chaos.refusal = lambda *a, **k: None
         try:
             return fn()
         finally:
             vix1_trend._ARM_BROKEN_LEVEL = keep
             vix1_chop.not_tradeable = keep_chop
-            vix1_chaos.refusal = keep_chaos
 
     def state(i, armed=True):
         def go():

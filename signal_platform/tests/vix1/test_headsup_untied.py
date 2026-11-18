@@ -57,7 +57,6 @@ def run(entry_returns, bias="default"):
     vix1_mod.detect_bias = lambda *a, **k: use
     vix1_mod.m1_signals = lambda *a, **k: list(entry_returns)
     vix1_mod.vix1_spacing.check = lambda *a, **k: (True, "")
-    vix1_mod.is_news_candle = lambda *a, **k: False
     vix1_mod.in_news_window = lambda *a, **k: False
     # A fresh strategy each run: the delivery ledger and _debut are per-instance state, and a second
     # run reusing the first one's ledger would dedup the very signal being asserted.

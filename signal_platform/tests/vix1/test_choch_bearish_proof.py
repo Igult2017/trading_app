@@ -176,14 +176,6 @@ s.check("  ...and the refusal says WHY, in his terms",
         "no momentum candle that way yet" in _bear_why, True)
 
 # ── 4. HIS SEQUENCE, STAGE BY STAGE, THROUGH THE REAL `detect_bias` — BOTH WAYS ──────────────────
-# 17 Nov 2026: the chaotic-move check's WHO-IS-IN-CONTROL half (`vix1_chaos.push_and_pull`, his "Combine and
-# deploy") refuses stage 3 of these drawn bars: the 6 candles before the momentum candle are all small (5.8 pips
-# against a usual 7.5), so nobody took control in his "immediate previous move" (story BBBBBB......). That is a
-# later rule doing its job, and this file proves an older one, so it is stood aside for these calls only. Proven:
-# with it stood aside all 23 checks pass; with it live, exactly the 6 stage-3 checks fail. It has its own file.
-from strategies import vix1_chaos as _chaos                         # noqa: E402
-_real_pp = _chaos.push_and_pull
-_chaos.push_and_pull = lambda *a, **k: False
 print()
 print("THE NORMAL ROUTE OPENS AT EXACTLY HIS PROOF, NOT BEFORE — a turn DOWN")
 _stages = [("breaks down and runs", 1), ("pulls back up", 2), ("turns back down + momentum", 3)]
@@ -217,9 +209,6 @@ s.check("a BUY once it turns back up and momentum prints", _ubias_at[3] is not N
 s.check("  ...and it is a BUY, not a sell", bool(_ubias_at[3]) and _ubias_at[3].bullish, True)
 s.teeth("the upward sequence is ordered too",
         _ubias_at[1] is None and _ubias_at[2] is None and _ubias_at[3] is not None)
-_chaos.push_and_pull = _real_pp
-s.check("with the who-is-in-control half live again, it refuses stage 3 (nobody took control in the last 5)",
-        (detect_bias(bear(3), bear(3), "EUR/USD"), detect_bias(bull_proof(3), bull_proof(3), "EUR/USD")), (None, None))
 
 # THE SHORTCUT STAYS SHUT THROUGHOUT, BOTH WAYS. If it re-opened at a later stage the rule would leak.
 s.check("the shortcut is refused at EVERY stage, both directions",

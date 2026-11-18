@@ -72,15 +72,6 @@ _MIN_BODY_FRAC  = 0.50  # GATE: body >= this share of the candle's OWN range. 75
                         # that went on to hit TP). The 60% gate was rejecting 3 of those 22 outright.
                         # 50% is the measured floor, not a guess; the SHAPE above it is GRADED
                         # (momentum_grade), so a thin-but-valid candle still scores lower.
-_MIN_VS_PREV    = 1.0   # GATE: body must be BIGGER THAN THE PREVIOUS CANDLE'S body — the user's own
-                        # stated theory, and it holds in 22/22 of his real trades (median 2.96x, min
-                        # 1.06x; robust at every timezone offset tested). This test USED to exist, was
-                        # removed in the 2026-07-20 rebuild in favour of the 100-bar median, and the
-                        # removal was wrong: measured over 41,900 H1 bars, 596 of the 4,980 candles
-                        # that pass the other three gates (12.0%) FAIL this one — i.e. it strips 12%
-                        # of the scanner's output at ZERO cost to the real setups. It is a COMPANION
-                        # to the median test, never a replacement: alone it admits tiny candles that
-                        # merely beat a tinier neighbour, which is why the median rule exists too.
 _A_BODY_FRAC    = 0.75  # A-grade body: >= 75% of range  (the "perfect" wickless look)
 _A_CWICK_FRAC   = 0.15  # A-grade counter-wick: <= 15%   (a "perfect" wick)
 _A_CONF         = 0.85  # confidence assigned to an A-grade (perfect) momentum candle
@@ -209,8 +200,7 @@ def _size_mult() -> float:
 
 
 def _held_its_move(h1: list[Candle], i: int, bullish: bool) -> bool:
-    """Right direction + CLEAN + UNREJECTED + BIGGER THAN THE ONE BEFORE IT — every test that needs only
-    the candle and its neighbour. They run first, so the medians are only computed for candles that
+    """Right direction + CLEAN + UNREJECTED — every test that needs only the candle itself. They run first, so the medians are only computed for candles that
     already look like momentum (the 2,000-bar one costs ~0.6 ms a call)."""
     c = h1[i]
     if is_bullish(c) != bullish:
@@ -218,9 +208,9 @@ def _held_its_move(h1: list[Candle], i: int, bullish: bool) -> bool:
     rng = full_range(c)
     if rng <= 0:
         return False
-    prev = body_size(h1[i - 1]) if i > 0 else 0.0
-    return (body_size(c) > _MIN_VS_PREV * prev          # the user's own rule — 22/22 of his trades
-            and body_size(c) >= _MIN_BODY_FRAC * rng
+    # SIZE DECIDES, NOT THE NEIGHBOUR (his order, 18 Nov 2026): *"A momentum candle is decided by the size which
+    # is calculated not it being bigger than the previous candle."* The bigger-than-previous test is gone.
+    return (body_size(c) >= _MIN_BODY_FRAC * rng
             and counter_wick(c, bullish) <= _MAX_CWICK_FRAC * rng)
 
 
@@ -304,7 +294,7 @@ def qualifies_for_trade(h1: list[Candle], i: int, bullish: bool, symbol: str,
                         ignore_open_rule: bool = False) -> bool:
     """THE LAST STAGE — may THIS candle be traded? His 2.5x rule PLUS the alternatives he added on 15 Sep
     (the 0.2 margin and the 24-hour memory) as other evidence that a good setup's candle is big enough.
-    BIG FOR THE LAST ~4 MONTHS, BIGGER THAN THE ONE BEFORE IT, CLEAN and UNREJECTED still all apply.
+    BIG FOR THE LAST ~4 MONTHS, CLEAN and UNREJECTED still all apply.
 
     ASK THIS ONLY ABOUT THE CANDLE BEING QUALIFIED FOR A TRADE. His words, 15 Sep: *"these new rules
     should not change calculations in any way because they only apply at the moment the momentum is
@@ -364,8 +354,8 @@ def traded_on_memory(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bo
 
 
 def is_momentum_candle(h1: list[Candle], i: int, bullish: bool, symbol: str) -> bool:
-    """BIG for this pair right now (2.5x its 100-bar median) + BIG FOR THE LAST ~4 MONTHS + BIGGER THAN THE
-    ONE BEFORE IT + CLEAN + UNREJECTED. The wick WITH the move is not capped (a 48% with-wick appears in
+    """BIG for this pair right now (2.5x its 100-bar median) + BIG FOR THE LAST ~4 MONTHS + CLEAN +
+    UNREJECTED. The wick WITH the move is not capped (a 48% with-wick appears in
     the user's real winners). UNCHANGED BY THE 15 SEP MARGIN AND MEMORY — those live only in
     `qualifies_for_trade`, the last-stage check.
 
@@ -466,7 +456,7 @@ def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:
     going to be stopped by the long one, and a single "too small" tally cannot say which.
     """
     start = max(1, len(h1) - LOOKBACK)
-    in_dir = too_small = under_long = not_bigger = wrong_shape = qualified_but_old = 0
+    in_dir = too_small = under_long = wrong_shape = qualified_but_old = 0
     pip, mult = pip_size(symbol), _size_mult()
     for i in range(len(h1) - 1, start - 1, -1):
         c = h1[i]
@@ -474,7 +464,6 @@ def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:
             continue
         in_dir += 1
         rng, base = full_range(c), baseline_body(h1, i)
-        prev = body_size(h1[i - 1]) if i > 0 else 0.0
         need = long_requirement(h1, i, symbol)
         # THE SAME SIZE QUESTION `size_yardstick` ASKS: its own 2.3x, or the 24-hour memory. Asking only
         # the first would log a candle the memory admitted as "too small" while the entry traded it.
@@ -483,8 +472,6 @@ def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:
             too_small += 1
         elif need > 0 and pip > 0 and body_size(c) / pip < need - _LONG_EPS:
             under_long += 1
-        elif body_size(c) <= _MIN_VS_PREV * prev:
-            not_bigger += 1
         elif rng > 0 and (body_size(c) < _MIN_BODY_FRAC * rng
                           or counter_wick(c, bullish) > _MAX_CWICK_FRAC * rng):
             wrong_shape += 1
@@ -517,7 +504,6 @@ def veto_reason(h1: list[Candle], bullish: bool, symbol: str) -> str:
         head = f"{in_dir} in-direction bars but none was a momentum candle"
     return (f"{head} "
             f"(too small x{too_small}, under the long-window floor x{under_long}, "
-            f"not bigger than the previous candle x{not_bigger}, "
             f"wicky/shape x{wrong_shape} — needs body >= "
             f"{mult:.1f}x the {_BASELINE_BARS}-bar median body ({_MIN_BODY_MULT:.1f}x less the "
             f"{_SIZE_MARGIN:.1f} margin) {memory}, "

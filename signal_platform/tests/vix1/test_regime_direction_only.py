@@ -123,16 +123,8 @@ s.check("...his three 03 Sep hours still carry a BUY — 11:00, 12:00 and 16:00 
 # candle can never be its own void, and both sells are back. This assertion is now the regression
 # test for that: if 06:00 disappears again, the void module has gone back to measuring candles.
 #
-# ⚠ 2026-11-17 — HIS CHAOTIC-MOVE CHECK NOW REFUSES BOTH SELLS. Neither was a trade he marked: they are
-# the side effect recorded above. The void regression is kept by asking with that check stood aside.
-from strategies import vix1_chaos  # noqa: E402
-_real_chaos = vix1_chaos.refusal
-vix1_chaos.refusal = lambda *a, **k: None
-try:
-    _sells_nochaos = [(d, bull) for d, bull in fired_with(True) if not bull]
-finally:
-    vix1_chaos.refusal = _real_chaos
-s.check("...with the chaotic-move check stood aside, two SELLs on 02 Sep, which his 16 Sep rule adds",
+_sells_nochaos = [(d, bull) for d, bull in fired_with(True) if not bull]
+s.check("...two SELLs on 02 Sep, which his 16 Sep rule adds",
         len(_sells_nochaos), 2)
 s.check("...and 06:00 is one of them — a candle can never be its own void",
         sorted(d.strftime("%H:%M") for d, bull in _sells_nochaos), ["00:00", "06:00"])

@@ -171,29 +171,13 @@ s.check("   2026-08-03 18:00 no longer trades — his 16 Sep pullback rule refus
 # definition, still unbuilt. Asserted as TRADING so a later change that closes them cannot pass
 # unnoticed — this file going red is exactly the job it was given.
 #
-# ⚠ 2026-11-17 — BOTH NOW CLOSED, BY HIS CHAOTIC-MOVE CHECK (`vix1_chaos`). This is his chop definition
-# above in another form — "prints 1 red volume candle then prints a bullish candle … no specific group of
-# candles": the candles before each are tug-of-war. Proven: with that check forced off, both trade again.
-#
-# ⚠ 2026-11-17 (later) — 14:00 IS OPEN AGAIN. The check now reads the whole candle, wicks included (his "test one
-# is enough"); 14:00 scores 8.23%, just over the 7.75% line, while his KEEP candle GBP/USD 10 Nov 12:00 scores
-# 8.1% — no single line separates the two. Asserted as TRADING so the next change that closes it goes red here.
-# 17:00 scores 4.56% and stays refused. docs/OPEN.md B37.
-#
-# ⚠ 2026-11-17 (latest) — 14:00 CLOSED AGAIN, by the second half of the check his "Combine and deploy" added: the
-# candles before it read B.rrBSr.rBSr — buyers took control 3x, sellers 2x, nobody in control. Proven below: with
-# that half forced off it trades again.
-s.check("   2026-08-05 14:00 no longer trades — nobody in control before it (push/pull half)",
-        fires("2026-08-05 14:00"), False)
-from strategies import vix1_chaos as _chaos  # noqa: E402
-_pp = _chaos.push_and_pull
-try:
-    _chaos.push_and_pull = lambda *a, **k: False
-    s.teeth("...and it is THAT half: forced off, 14:00 trades", fires("2026-08-05 14:00") is True)
-finally:
-    _chaos.push_and_pull = _pp
-s.check("   2026-08-05 17:00 no longer trades — his chaotic-move check refuses it (4.56%)",
-        fires("2026-08-05 17:00"), False)
+# ⚠ 2026-11-18 — BOTH OPEN AGAIN. Only his chaotic-move check (17-18 Nov) refused them, and he removed it from every
+# trade decision: *"it is blocking change of character and break of structure signals. Remove it there."* Still D42
+# (the chop definition) — asserted as TRADING so a later change that closes them goes red here.
+s.check("   2026-08-05 14:00 trades again — the chaotic-move check no longer decides (removed 18 Nov)",
+        fires("2026-08-05 14:00"), True)
+s.check("   2026-08-05 17:00 trades again — the chaotic-move check no longer decides (removed 18 Nov)",
+        fires("2026-08-05 17:00"), True)
 
 
 

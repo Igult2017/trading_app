@@ -33,7 +33,6 @@ from strategies.vix1_momentum import momentum_run, size_note, veto_reason
 from strategies import vix1_log
 from shared.candle_math import atr
 from strategies import vix1_choch
-from strategies import vix1_chaos
 from strategies import vix1_pullback_end
 from strategies import vix1_chop
 from strategies import vix1_regime
@@ -546,9 +545,6 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
         for veto in (None if regime.tradeable else
                      f"the market state is {regime.kind.upper()} - {regime.why}",
                      trend_reproven(mstate, at_mc, run_time=_rt),
-                     # HIS CHAOTIC-MOVE CHECK (17 Nov 2026): a momentum candle in a tug-of-war market
-                     # waits for the 2nd or 3rd. Read on the NEWEST closed candle — the one traded.
-                     vix1_chaos.refusal(h1, bullish, symbol),
                      # HIS PULLBACK-END RULE (17 Nov 2026): the first candle ending a pullback must pass
                      # his original 2.5x rule — no 0.2 margin, no 24-hour memory.
                      vix1_pullback_end.refusal(h1, bullish, symbol),

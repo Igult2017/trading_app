@@ -1,13 +1,12 @@
 """
 A WAITING ORDER IS PULLED BEFORE HIGH-IMPACT NEWS, AND PUT BACK AFTER IF THE SETUP STILL STANDS.
 
-WHY (15 Nov 2026). His rule is never to trade the news candle (*"if we miss the news we risk trading
-news candles which can be disastrous for propfirms"*), and VIX.1 refuses a NEW entry from 15 minutes
-before a high-impact release for the pair until 30 minutes after (`news_candle.in_news_window`, used
+WHY (15 Nov 2026). VIX.1 refuses a NEW entry from 10 minutes before a high-impact release for the
+pair until 10 minutes after (his rule of 18 Nov 2026, `news_candle.NEWS_BEFORE_MIN` / `NEWS_AFTER_MIN`) (`news_candle.in_news_window`, used
 in `strategies/vix1.py`). But that only stopped NEW orders. An order already waiting at the broker
 stayed there, and could fill in the middle of CPI — exactly when spreads blow out and stops slip.
 
-THE RULE — the same 15 / 30 minutes, applied to orders already waiting:
+THE RULE — the same 10 / 10 minutes, applied to orders already waiting:
   * PULL: an autotrade order still resting when the window opens is cancelled, and saved as
     `news_pulled` (durable, so a restart in between cannot forget it).
   * PUT BACK: once the window has closed and the calendar is known again, if the signal is still
@@ -22,6 +21,7 @@ import logging
 import time
 
 from execution.intents import _intent, pending_intents
+from news.news_candle import NEWS_AFTER_MIN, NEWS_BEFORE_MIN
 
 log = logging.getLogger(__name__)
 
@@ -46,14 +46,14 @@ async def check(send) -> None:
         for oid, intent in list(pending_intents().items()):
             if oid in _pulled or not cp.last_resting_levels(oid):
                 continue
-            if in_news_window(news, intent["symbol"], before_min=15, after_min=30):
+            if in_news_window(news, intent["symbol"]):
                 if time.monotonic() - _tried.get(oid, 0.0) >= _RETRY_S:
                     _tried[oid] = time.monotonic()
                     await _pull(oid, intent, send)
         if news is None or not news.ok:
             return                       # calendar unknown — nothing goes back until it is known
         for oid, rec in list(_pulled.items()):
-            if not in_news_window(news, rec["symbol"], before_min=15, after_min=30):
+            if not in_news_window(news, rec["symbol"]):
                 await _put_back(oid, rec, send)
     except Exception as exc:
         log.error(f"[news_pull] {type(exc).__name__}: {exc}", exc_info=True)
@@ -70,7 +70,7 @@ async def _pull(oid: str, intent: dict, send) -> None:
         log.warning(f"[news_pull] {sym}: no usable account — cannot pull order {oid} before the news")
         return
     res = await StopOrderClient(acct.creds, acct.account_type).cancel(int(oid))
-    why = "pulled — a high-impact release for this pair is 15 minutes away or less"
+    why = f"pulled — a high-impact release for this pair is {NEWS_BEFORE_MIN} minutes away or less"
     if not res.ok:
         if "ORDER_NOT_FOUND" in str(res.error or "").upper():
             from execution import order_fate        # gone already: it may have FILLED (B29)
@@ -84,7 +84,7 @@ async def _pull(oid: str, intent: dict, send) -> None:
     _intent.pop(oid, None)
     log.info(f"[news_pull] {sym}: order {oid} {why}")
     await decision_log.cancelled(intent.get("signal_id"), sym, oid, why)
-    await withdrawal_notice.announce(oid, sym, f"{why}; it goes back 30 minutes after the release "
+    await withdrawal_notice.announce(oid, sym, f"{why}; it goes back {NEWS_AFTER_MIN} minutes after the release "
                                                f"if the setup still stands", withdrawal_notice.WITHDRAWN)
 
 

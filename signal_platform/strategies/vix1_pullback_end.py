@@ -5,7 +5,7 @@ pullback, it must qualify using the first qualification of a momentum candle not
 error."*
 
 So that one candle must pass `is_momentum_candle` — 2.5x the 100-bar median body, big for the last ~4 months,
-bigger than the one before it, clean, unrejected — and NOT get in through the two allowances of 15 Sep that
+clean, unrejected — and NOT get in through the two allowances of 15 Sep that
 `qualifies_for_trade` adds: the 0.2 margin (2.3x) and the 24-hour memory. His stomach rule is untouched: it
 still applies through `qualifies_for_trade`, which the trade asks first.
 

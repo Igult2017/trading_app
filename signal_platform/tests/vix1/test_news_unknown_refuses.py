@@ -36,7 +36,6 @@ def entries(news):
     vix1_mod.detect_bias = lambda *a, **k: BIAS
     vix1_mod.m1_signals = lambda *a, **k: list(ENTRY)
     vix1_mod.vix1_spacing.check = lambda *a, **k: (True, "")
-    vix1_mod.is_news_candle = lambda *a, **k: False
     vix1_mod.in_news_window = lambda *a, **k: False
     st = Vix1Strategy()
     st._debut.note(SYM, h1[-1].time - 10 * 3600)

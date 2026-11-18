@@ -42,11 +42,9 @@ HOW THE LINE WAS CHOSEN, 17 Nov 2026 — his own marked candles, real broker H1,
   * Over 7 years it holds back 44-48% of momentum candles (GBP/USD, EUR/USD, GBP/JPY); after those, the next
     candle is a momentum candle ~5% of the time and the one after ~6-7%.
 
-⚠ IT DECIDES, SINCE 17 NOV 2026 — his words: "Just switch it on already. I am losing money."
-`refusal()` is asked in `vix1_bias.detect_bias`'s MAIN (trend) refusal list only. The change-of-character
-route is EXEMPT — his option A, same day: *"Lets do A and see how it goes."* Asked there it refused his own
-marked trade (EUR/USD 28 Jul 17:00 BUY); a turn is the end of a trend, and the candles before a turn always
-stall. The DM announcement still DESCRIBES every candle via `verdict()`.
+⚠ IT DECIDES NOTHING SINCE 18 NOV 2026 — his order: *"it is blocking change of character and break of structure
+signals. Remove it there."* (It refused the GBP/JPY 11:00 EAT break-of-structure SELL that day.) No trade decision
+asks it; the DM momentum announcement only DESCRIBES every candle with it via `verdict()` (CLEAN / CHAOTIC).
 `test_chaos.py` fails if any other file reads this module.
 """
 from __future__ import annotations
@@ -134,36 +132,24 @@ def verdict(h1: list[Candle], i: int, bullish: bool, symbol: str) -> tuple[str, 
     ct = clean_travel(h1, i)
     if ct is None:
         return "CHAOS CHECK: NOT JUDGED", "➖ Chaotic market — not judged (too little history)."
-    # ONE SHORT LINE, ✅ / ❌ FIRST — his asks, 17 Nov: *"make it clear so that i can easily understand if a
-    # signal has passed it or not"*, then *"make the card less wordy but more clearer"*. The full numbers are
-    # in `refusal()`, which the server log records.
+    # ONE SHORT LINE — his asks, 17 Nov: *"make it clear …"*, *"make the card less wordy but more clearer"*. Since
+    # 18 Nov it is INFORMATION ONLY (his order: no trade is blocked by it), and the card says so.
     if not is_chaotic(h1, i):
         return "CLEAN MOVE", "✅ Clean move before it."
     if is_second_or_third(h1, i, bullish, symbol):
-        return "CHAOTIC · 2ND/3RD CANDLE", "✅ Chaotic market, but this is the 2nd/3rd momentum candle."
-    return ("CHAOTIC MOVE · WAIT FOR 2ND/3RD",
-            f"❌ Chaotic market — {_why(h1, i, short=True)}. Trade only on the next 2 candles' momentum.")
+        return "CHAOTIC · 2ND/3RD CANDLE", "ℹ️ Chaotic market, and this is the 2nd/3rd momentum candle."
+    return ("CHAOTIC MOVE (INFO ONLY)",
+            f"ℹ️ Chaotic market — {_why(h1, i)}. Info only — trades not blocked.")
 
 
-def _why(h1: list[Candle], i: int, short: bool = False) -> str:
-    """Which test objected, in plain words — one or both. `short` fits the card's 120-character line."""
+def _why(h1: list[Candle], i: int) -> str:
+    """Which test called it chaotic, in plain words — one or both; short enough for the card's 120-character line."""
     ct, s = clean_travel(h1, i), story(h1, i)
     parts = []
     if ct is not None and ct < CHAOS_MAX:
-        parts.append(f"{ct:.1%} progress" if short else f"price got {ct:.1%} of the distance it travelled")
+        parts.append(f"{ct:.1%} progress")
     if push_and_pull(h1, i):
-        parts.append(f"nobody in control (buyers {s.count('B')}, sellers {s.count('S')})" if short else
-                     f"nobody in control (buyers took control {s.count('B')}x, sellers {s.count('S')}x)")
-    return ", ".join(parts) if short else " and ".join(parts)
+        parts.append(f"nobody in control (buyers {s.count('B')}, sellers {s.count('S')})")
+    return ", ".join(parts)
 
 
-def refusal(h1: list[Candle], bullish: bool, symbol: str) -> str | None:
-    """THE GATE (switched on 17 Nov 2026 — *"Just switch it on already. I am losing money."*).
-    Asked about the NEWEST closed candle — the one the trend route in `vix1_bias.detect_bias` trades.
-    -> why it is refused, or None (clean move, too little history, or it IS the 2nd/3rd candle)."""
-    i = len(h1) - 1
-    if i < 1 or not is_chaotic(h1, i) or is_second_or_third(h1, i, bullish, symbol):
-        return None
-    return (f"chaotic move — tug-of-war over the {CLEAN_LOOK} candles before this momentum candle: {_why(h1, i)} "
-            f"[story {story(h1, i)}; chaotic under {CHAOS_MAX:.2%} or when no side controls]; waiting for "
-            f"the next or the one after to be a momentum candle too")
