@@ -901,6 +901,26 @@ CREATE TABLE IF NOT EXISTS candle_marks (
 );
 CREATE INDEX IF NOT EXISTS candle_marks_symbol_idx ON candle_marks (symbol, status);
 
+-- HIS ❌ CANCEL TRADE / ✏️ ADJUST SL buttons on the "order placed" / "trade filled" messages (18 Nov 2026).
+-- status: offered -> awaiting_price -> pending -> working -> done | failed.
+CREATE TABLE IF NOT EXISTS trade_actions (
+  id           VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id     TEXT,
+  position_id  TEXT,
+  symbol       TEXT NOT NULL,
+  bullish      BOOLEAN NOT NULL,
+  kind         TEXT,
+  price        DOUBLE PRECISION,
+  status       TEXT NOT NULL DEFAULT 'offered',
+  chat_id      TEXT,
+  message_id   INTEGER,
+  prompt_id    INTEGER,
+  result       TEXT,
+  created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at   TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS trade_actions_status_idx ON trade_actions (status);
+
 -- ── B36 REPAIR (16 Nov 2026): signals given a broker price divided by 100,000 ──────────────────────
 -- Since 8 Nov the order-reading code divided ORDER prices by 100,000 (they are real prices), so a stop of
 -- 210.597 read as 0.00210597, looked hand-moved, and was ADOPTED into the saved signal. This puts back,

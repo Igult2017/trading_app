@@ -250,6 +250,19 @@ goes quiet.
   (from 18:00: a 12.6-pip up candle, then tiny mixed candles); 2 of its 3 big candles were half given back (67%).
   Adding "a momentous move does not give back its big candles (under 1/3)" keeps all 7 blocked. Not built.
 
+### D77 — Telegram trade buttons: ❌ Cancel trade / ✏️ Adjust SL built, and every Tradeable / Untradeable press now answers. 18 Nov 2026 — LIVE PROOF PENDING
+
+- **His asks:** *"add a button for cancelling a trade and adjusting SL by entering the price level"*; *"Make the buttons
+  communicate. When it is expired I should get expired message"*. Cancel = one button (waiting order cancelled, filled
+  trade closed at market); on the order-placed and trade-filled messages.
+- **Built:** `notifications/trade_buttons.py` (buttons, plain text if they fail), `server/services/tradeActionPress.ts` (his
+  press + typed stop price, owner only), `execution/trade_actions.py` (claims once, acts, reads back, replies; refuses a stop
+  on the wrong side of the market; re-passes the target; demo only), table `trade_actions`. Tests: `test_trade_actions.py`
+  (19), `tradeActionPress.test.ts` (14), `candleMarkPress.test.ts` (15).
+- **Open:** (1) proven only with the broker faked — the first real press is the proof. (2) His three Tradeable/Untradeable
+  presses at ~13:08 EAT were all "expired"; which card they were on is not known (no read of `candle_marks` from here) —
+  the reply now names the newer card that replaced it, so the next press says why.
+
 ### D76 — The live "breakeven" stop does not cover the commission. Found 18 Nov 2026 — OPEN (he stopped the fix)
 
 - `data/ctrader_positions.Position.breakeven()` (lines 219-236) divides the round-trip commission by `self.volume`, which is the

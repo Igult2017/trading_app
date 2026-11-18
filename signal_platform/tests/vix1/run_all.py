@@ -165,6 +165,7 @@ TESTS = [
     "test_tp_extend.py",           # 17 Nov: target 2R, moved to 4R when a momentum candle closes the trade's way
     "test_fix_one_session.py",     # 17 Nov: ONE FIX connection — the trade watcher borrows it, never logs on twice
     "test_nov18_orders.py",        # 18 Nov: chaos out of trading, size-only momentum, news 10 / 10 — his real candles
+    "test_trade_actions.py",       # 18 Nov: his Cancel trade / Adjust SL presses — carried out, refused, answered
     #                           read it, who may opt out, and that it really refuses
                                     # gating nothing until he approves it. Real 15 Jul bars.
 ]

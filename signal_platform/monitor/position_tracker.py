@@ -458,8 +458,12 @@ def _start_waiting_order_work(send) -> None:
             await resting_watch.check(send)
         _waiting_task = loop.create_task(_pass())
     if _confirm_task is None or _confirm_task.done():
-        from execution import confirmations
-        _confirm_task = loop.create_task(confirmations.check(send))
+        from execution import confirmations, trade_actions
+
+        async def _presses():
+            await confirmations.check(send)
+            await trade_actions.check()           # his ❌ Cancel trade / ✏️ Adjust SL presses (18 Nov 2026)
+        _confirm_task = loop.create_task(_presses())
 
 
 # HEALTH (16 Nov 2026, `docs/OPEN.md` C10) — how many passes really ran, and the longest gap between

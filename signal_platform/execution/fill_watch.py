@@ -70,7 +70,10 @@ async def check_fills(positions, send) -> None:
             # stop move. A stalled Telegram here would hold that poll up; `tell` caps it at 3s and
             # never raises, and a False still retries below.
             from notifications import safe_notify as _notify
-            if await _notify.tell(send, msg):
+            from notifications import trade_buttons      # ❌ CANCEL / ✏️ ADJUST SL on this message (18 Nov 2026)
+            if (await trade_buttons.send(msg, symbol=match.symbol, bullish=match.bullish, order_id=order_id,
+                                         position_id=match.position_id)
+                    or await _notify.tell(send, msg)):
                 delivery_ledger.mark_delivered(key)
             else:
                 # The send failed, so put the intent back and try again next poll — `fill_report`

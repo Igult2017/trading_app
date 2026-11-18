@@ -279,7 +279,12 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
                  f"order {res.order_id}")
         await decision_log.placed(signal, res.order_id, lots, entry, sl, tp)
         if notify and res.order_id:
-            await _tell(notify, placement_message(res.order_id))
+            # ❌ CANCEL TRADE / ✏️ ADJUST SL ON THIS MESSAGE (his ask, 18 Nov 2026); plain text if the buttons fail.
+            from notifications import trade_buttons
+            msg = placement_message(res.order_id)
+            if not await trade_buttons.send(msg, symbol=symbol, bullish=(side == "BUY"), order_id=res.order_id,
+                                            mark_id=getattr(signal, "mark_id", None)):
+                await _tell(notify, msg)
         return res.order_id
     except Exception as exc:                       # never let placement break the scan
         log.error(f"[execution] placement failed for {getattr(signal, 'symbol', '?')}: {exc}")

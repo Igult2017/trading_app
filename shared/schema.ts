@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, decimal, boolean, integer, bigint, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, decimal, doublePrecision, boolean, integer, bigint, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1224,6 +1224,30 @@ export const candleMarks = pgTable("candle_marks", {
   decidedAt: timestamp("decided_at"),
   usedAt:    timestamp("used_at"),
 }, (t) => [index("candle_marks_symbol_idx").on(t.symbol, t.status)]);
+
+/**
+ * HIS ❌ CANCEL TRADE / ✏️ ADJUST SL buttons on the "order placed" and "trade filled" messages (18 Nov 2026).
+ * One row per message that carries the buttons, made by the signal engine when it sends it; his press (and, for
+ * Adjust SL, his typed price) is recorded by the website server (`server/services/tradeActionPress.ts`); the engine
+ * carries it out at the broker and replies (`signal_platform/execution/trade_actions.py`).
+ * status: offered -> awaiting_price (Adjust SL asked for a price) -> pending -> working -> done | failed.
+ */
+export const tradeActions = pgTable("trade_actions", {
+  id:         varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId:    text("order_id"),
+  positionId: text("position_id"),
+  symbol:     text("symbol").notNull(),
+  bullish:    boolean("bullish").notNull(),
+  kind:       text("kind"),                                  // cancel | move_sl, once pressed
+  price:      doublePrecision("price"),                       // the stop he typed
+  status:     text("status").notNull().default("offered"),
+  chatId:     text("chat_id"),
+  messageId:  integer("message_id"),
+  promptId:   integer("prompt_id"),                           // the "send the new stop price" message
+  result:     text("result"),
+  createdAt:  timestamp("created_at").defaultNow().notNull(),
+  updatedAt:  timestamp("updated_at"),
+}, (t) => [index("trade_actions_status_idx").on(t.status)]);
 
 export type SyncEvent = typeof syncEvents.$inferSelect;
 export type AutotradeOrder = typeof autotradeOrders.$inferSelect;
