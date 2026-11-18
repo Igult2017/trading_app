@@ -117,6 +117,8 @@ wrote on 3 Aug and then repeated into three doc places.
 **Why open:** a test that pins a fabricated fact is worse than a red test, because the next session
 will bend the *code* to satisfy it. I will not quietly delete his regression test either.
 **Needs from him:** delete those assertions, or keep the file red.
+**18 Nov 2026:** OVP's copy of this file is GONE (the code it tested was replaced by his skeleton), so A4 is BX-S/D's
+alone. `tests/run_all.py` now runs `tests/bx_sd`, so this red shows in every full run until he decides.
 
 ### A8 — ~~The mitigation heads-up contradicts its own comment~~ CONFIRMED and corrected 25 Aug
 **Settled by reading production, not by reasoning.** `bx_sd_reports.py` carried the comment *"a
@@ -5387,6 +5389,30 @@ entry for one trade is refused, the migration is safe to run twice, and the teet
 two entries DO name the same trade the older survives.
 
 ---
+
+## F. OVP (BTC/USD + XAU/USD) — his skeleton built 18 Nov 2026, signals to the channel, NO autotrade
+
+### F1 — The 4H trend read flickers in a range, and equal highs/lows count as DOWN. Found 18 Nov 2026 — HIS DECISION
+**What:** OVP's first step, "is the 4H trending?", uses the shared reader (`shared/trend_detector.py:33-36`). It
+calls a trend on a surplus of ONE label (one more higher-high/higher-low than lower-high/lower-low), and the labeller
+(`shared/swing_points.py:46,52`) calls an EQUAL high a lower high and an EQUAL low a lower low. **Proved:** one flat,
+balanced range read DOWN, RANGING or UP depending only on which candle the 50-candle window ended on (12 window
+ends: 4 down, 4 ranging, 4 up); and every perfectly flat range tried read DOWN.
+**Why not fixed:** the same reader is used by BX-S/D (`bx_sd_setup`, `bx_sd_extreme`) and by the platform's trend
+pre-filter, so changing it changes another strategy. **Options:** (a) OVP gets its OWN stricter 4H reader (e.g. needs
+2+ of the surplus, equal points neutral) and the shared one stays; (b) fix the shared one for everyone; (c) leave it.
+
+### F2 — Order flow on 5M / 1M is not built; the 5M "respected" test is an interim close-back-out
+His list, in order: footprint delta, absorption / initiation, CVD divergence vs convergence → his management (BE at
+1R, lock +1R at 2R, +2R at 2.5R, out at 3R) and autotrade on account 5347047 after he has seen the signals → 1H volume
+profile (backtest first) → Barchart at the session opens (he will specify). `docs/strategies/ovp.md`.
+
+### F3 — The stop-order entry backtest he asked for has NOT been run — needs his yes
+
+### F4 — In a falling gold week the zone path fired 0 times; the "4 straight closes" reading of "big" may be strict
+Real gold 12–17 Nov: no 4H supply zone near price came from a move of 4 consecutive lower closes, and every big
+1H one had been closed through. `MIN_RUN = 4` is MY reading of *"travelled many candles not 1 or three candles"* —
+his to confirm or change (e.g. count candles in the leg rather than consecutive closes).
 
 ## E. Parked — do not start these
 

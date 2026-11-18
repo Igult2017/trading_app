@@ -30,7 +30,15 @@ TRADEABLE_INSTRUMENTS: list[tuple[str, str, str]] = [
     #     therefore only ever match USD events for gold. That is defensible (gold is driven by USD
     #     data) but it IS different from the FX rows, and is recorded here rather than discovered.
     ("XAU/USD", "XAU", "USD"),
+    # OVP only — added 2026-11-18, his instruction: *"It will trade BTCUSD and XAUUSD."* Verified on the broker
+    # before shipping: symbol `BTCUSD`, id 10028, prices to 2 decimals (~64,557 on 18 Nov), matching
+    # `shared/pip.py` (BTCUSD: 2). "BTC" has no economic calendar, so news can only match USD events.
+    ("BTC/USD", "BTC", "USD"),
 ]
+
+# TRADES ROUND THE CLOCK, WEEKENDS INCLUDED. `data/instrument_filter.get_open_instruments` keeps scanning these while
+# the forex week is shut; every other instrument stops at the Friday close as before.
+ALWAYS_OPEN: set[str] = {"BTC/USD"}
 
 SYMBOL_TO_CURRENCIES: dict[str, tuple[str, str]] = {
     s: (base, quote) for s, base, quote in TRADEABLE_INSTRUMENTS

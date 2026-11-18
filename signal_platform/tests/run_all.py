@@ -28,6 +28,18 @@ for f in files:
         failed.append(f)
         print("\n".join(l for l in (r.stdout + r.stderr).splitlines() if "FAIL" in l or "Error" in l)[:2000])
 
+# THE STRATEGY FOLDERS (18 Nov 2026). `tests/ovp` and `tests/bx_sd` were run by NOTHING — the same gap the paragraph
+# at the top describes. Each file runs from its own folder, as it is written to.
+for sub in ("ovp", "bx_sd"):
+    d = os.path.join(HERE, sub)
+    for f in sorted(x for x in os.listdir(d) if x.startswith("test_") and x.endswith(".py")):
+        r = subprocess.run([sys.executable, f], cwd=d, env=ENV, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace")
+        print(f"   {'PASS' if r.returncode == 0 else 'FAIL'}  {sub}/{f}")
+        if r.returncode != 0:
+            failed.append(f"{sub}/{f}")
+            print("\n".join(l for l in (r.stdout + r.stderr).splitlines() if "FAIL" in l or "Error" in l)[:2000])
+
 vix = subprocess.run([sys.executable, os.path.join(HERE, "vix1", "run_all.py")], env=ENV)
 if vix.returncode != 0:
     failed.append("vix1/run_all.py")
@@ -36,4 +48,4 @@ print()
 if failed:
     print(f"SIGNAL PLATFORM TESTS: {len(failed)} FAILED: {failed}")
     sys.exit(1)
-print(f"SIGNAL PLATFORM TESTS: ALL PASS ({len(files)} platform files + the VIX.1 suite)")
+print(f"SIGNAL PLATFORM TESTS: ALL PASS ({len(files)} platform files + the OVP, BX-S/D and VIX.1 suites)")

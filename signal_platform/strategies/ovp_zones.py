@@ -22,10 +22,10 @@ Book Ch.6, "Mitigation / Inefficiency":
     candle" — the zone is then the IMPULSE candle's wick ("orders are sitting on THIS WICK!"), and
     marking the body instead is "NOT HERE!". See _wick_zone.
   * mitigated / unmitigated (p27): "When price taps into a d/s zone, that has not been tapped yet, it
-    becomes mitigated from unmitigated." OVP only ever trades UNMITIGATED zones.
+    becomes mitigated from unmitigated." OVP trades BOTH (his rule, 18 Nov 2026) — only a BROKEN zone is dead.
 
-The other two validity factors (broke structure, liquidity grabbed) are applied by ovp_setup;
-selecting the most recent zone that carries all three is its job too (p32). Reads only raw candles.
+Which of these zones OVP may trade — BIG, unbroken, near the money, the trend's side — is decided in
+`ovp_bigzones` (his skeleton, 18 Nov 2026). This file only marks them. Reads only raw candles.
 """
 from dataclasses import dataclass
 
@@ -53,18 +53,6 @@ class Zone:
     ifc_index:    int      # the FVG that validates it
     mitigated:    bool = False
     kind:         str = "institutional"   # which BOOK technique marked it — see mark_zone
-    # WHERE THIS ZONE SITS IN ITS OWN GROUP — "extreme" | "decisional" | "" (alone / unclassified).
-    #
-    # Smart Risk, "Double Zone Break Out": when a move leaves more than one same-side zone behind, the
-    # FURTHEST one is the extreme and the nearer one is DECISIONAL — *"Don't use the decisional zones,
-    # you will be a liquidity."* Price pushes past the decisional to sweep the stops resting above it
-    # and to mitigate the extreme, so an order at the decisional is the fuel for that push.
-    role:         str = ""
-    # How many opposite-side zones the move that created this one CLOSED THROUGH. Two or more is the
-    # document's strong case ("break & close below or above the two successive supply or demand
-    # zones"). A label and a strength input, never a gate on its own.
-    broke_through: int = 0
-    group:        int = -1    # which same-move group it belongs to (see classify_roles)
 
 
 def find_fvgs(candles: list[Candle]) -> list[FVG]:
@@ -146,8 +134,7 @@ def mark_institutional(candle: Candle, bull: bool) -> tuple[float, float]:
     marked zone read as a body break of an incorrectly marked one.
 
     A zone marked too NARROW invents breaks and misses taps. A zone marked too WIDE cannot do either;
-    `refine_zone` (ovp_ltf) collapses it onto a tight LTF POI for the entry, which is the book's own
-    Ch.9 third step. The error is not symmetric — do not "tighten" this.
+    The error is not symmetric — do not "tighten" this.
     """
     return candle.high, candle.low
 
@@ -178,7 +165,7 @@ def _is_mitigated(candles: list[Candle], after: int, direction: str, top: float,
     """A fresh zone is mitigated the first time price taps back to its proximal edge (p27).
 
     THE BAR AND THE BAND MUST OVERLAP — the third copy of the one-sided tap test, all fixed together
-    on 2026-08-25 (see `ovp_registry.MarkedZone.tapped_by` for the full reasoning). Written as
+    on 2026-08-25. Written as
     `c.low <= top` alone, a bar sitting wholly BELOW a demand zone reported it mitigated; and since
     this scans forward to the END of the series, one bar far past the zone marked it touched for
     good. Fixing only the registry's copy would have left this one contradicting it.
@@ -189,31 +176,12 @@ def _is_mitigated(candles: list[Candle], after: int, direction: str, top: float,
     return False
 
 
-def zone_broken(candles: list[Candle], zone: Zone, after: int | None = None) -> bool:
-    """Is the zone DEAD? Price CLOSING beyond its distal — the far edge — means the orders that made
-    it are gone. It is not support any more; it is a level price went through. The book calls the
-    aftermath an "S/D flip" (Ch.8): a broken demand becomes supply. Either way it is finished as what
-    it was, and nothing should trade it.
-
-    By body close, never a wick — OVP's rule everywhere. A wick beyond the distal is a SWEEP (the
-    book's own liquidity grab, and a REASON to trade the zone); a close beyond it is a break. Reading
-    wicks here would throw away exactly the setups the book wants.
-
-    CLOSED bars only (fix 2026-07-22): a break is a body-CLOSE determination, and the feed's newest
-    bar has no close yet — its "close" is live price. Reading it killed the zone intra-bar EXACTLY
-    during the sweep wick below it (live price beyond the distal), i.e. at the precise moment the
-    book says to prepare the entry; the zone then resurrected when the bar closed back inside. Same
-    rule check_invalidation already follows.
-    """
-    return break_index(candles, zone, after) is not None
-
-
 def break_index(candles: list[Candle], zone: Zone, after: int | None = None) -> int | None:
-    """WHERE the zone broke — the first closed bar beyond its distal, else None.
+    """WHERE the zone broke — the first CLOSED bar whose BODY closed beyond the far edge, else None.
 
-    Identical rule to `zone_broken` (which delegates here, so the two cannot drift). The index is
-    what "who is in control" needs: control belongs to whoever broke the OTHER side most recently
-    (Ch.7 p58 — "Price broke through our last supply level, demand is in control now").
+    A wick beyond the edge is a sweep, not a break; a close beyond it is a break, and the zone is dead (his rule:
+    a touched zone may still be traded, a broken one may not). Closed bars only: the forming bar's "close" is live
+    price, and reading it would kill the zone mid-wick and resurrect it at the close.
     """
     candles = closed_only(candles)
     for j in range(((zone.ifc_index if after is None else after)) + 1, len(candles)):
@@ -258,79 +226,3 @@ def find_zones(candles: list[Candle]) -> list[Zone]:
             mitigated    = _is_mitigated(candles, fvg.index, direction, top, bottom),
         ))
     return zones
-
-
-
-
-def wick_dominant(candle: Candle) -> bool:
-    """p50-51 — the book's EQUILIBRIUM-entry test, and it is about the candle's SHAPE.
-
-    > "I use 50% entry if the WICK of the candle is bigger than the 50% of the WHOLE candle."
-    > (worked example, p51: "the wick is 66% of the whole candle. In this case I use 50% of the
-    >  candle for the limit.")
-
-    So: total wick > half the candle's range -> enter at the 50% (MTH) instead of the proximal edge.
-
-    THIS IS ONLY THE FIRST OF THE BOOK'S TWO EQ50 TRIGGERS — see `needs_eq50`, which is what callers
-    must use. When this rule was introduced it REPLACED the pre-existing `zone width > 2 pips` test,
-    described at the time as "an unrelated size threshold". That was wrong: p53-54 is the book's
-    second scenario, and 2 pips is its MAX SL, not a coincidence. Removing it stopped wide zones
-    getting the equilibrium entry that keeps their stop inside 2 pips.
-    """
-    rng = candle.high - candle.low
-    if rng <= 0:
-        return False
-    body = abs(candle.close - candle.open)
-    return (rng - body) > 0.5 * rng
-
-
-_MAX_SL_PIPS = 2.0   # p53: "the maximum 2 pip SL"
-
-
-def needs_eq50(zone: Zone, candle: Candle | None, pip: float) -> bool:
-    """The book uses the 50% (equilibrium) entry in TWO scenarios — EITHER is sufficient.
-
-      1. SHAPE (p51-52) — "I use 50% entry if the WICK of the candle is bigger than the 50% of the
-         WHOLE candle." (worked example: "the wick is 66% of the whole candle.")
-      2. WIDTH (p53-54) — "I use 50% entry in ONE MORE SCENARIO, if the maximum 2 pip SL can't fit.
-         As you can see, the candle is more than 2 pips, so the SL can't cover the whole zone." /
-         "In this case I also use equilibrium entry, to make sure the whole zone is covered, and my
-         SL isn't bigger than 2 pips."
-
-    Scenario 2 was the ORIGINAL implementation and was deleted when scenario 1 was added, on the
-    mistaken view that a pip threshold could not be a book rule. Both are the book's; they are ORed.
-    """
-    if candle is not None and wick_dominant(candle):
-        return True
-    return (zone.top - zone.bottom) / pip > _MAX_SL_PIPS
-
-
-# ── HOW SMALL IS TOO SMALL FOR A ZONE — a share of what the instrument moves ────────────────────
-#
-# His specification, 2026-08-23: *"The 3-pip minimum zone size has the same problem. Instead of
-# minimum_zone_size = 3 pips, make it volatility-relative too: minimum_zone_size = ATR(N) x
-# zone_percentage."*
-#
-# WHAT WAS WRONG WITH 3 PIPS FLAT. The number came from an unmessaged automatic commit on 3 July
-# 2026 — the day OVP was created — with no measurement behind it, and it predates GBP/JPY and USD/JPY
-# joining the pair list. On his measured data 3 pips is ~4.5% of an average EUR/USD day but ~2.3% of
-# a GBP/JPY one, so the same floor throws away zones of very different real significance.
-#
-# ONE HOME, TWO CALLERS. `ovp_setup` and `ovp_reports` each carried their own `_MIN_PIPS = 3.0`,
-# and a comment in one pointed at the other to explain why they matched. Two copies of a number is
-# how one of them ends up wrong; this is the single definition both now read.
-#
-# 5% IS A STARTING VALUE. His caution: *"I would not automatically declare 3% and 5% to be the final
-# optimal values. Those should be treated as initial parameters and tested."*
-_MIN_ZONE_ATR = 0.05
-
-
-def min_zone_height(candles, pip: float = 0.0001, fallback_pips: float = 3.0) -> float:
-    """The smallest zone worth marking, in the instrument's own price units.
-
-    `fallback_pips` covers a series too short to have an ATR — a guard, not a second rule. Without it
-    a zero ATR would make every micro-gap a valid zone.
-    """
-    from shared.candle_math import atr
-    a = atr(candles, 14)
-    return a * _MIN_ZONE_ATR if a > 0 else fallback_pips * pip

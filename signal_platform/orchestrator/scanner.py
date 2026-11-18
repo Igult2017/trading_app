@@ -38,6 +38,9 @@ _was_scanning: bool = False
 # by the paused and SCAN_ENABLED=false branches, so keying the closed notice off it would swallow
 # the notice whenever the market shut while the scanner happened to be paused.
 _market_closed_logged: bool = False
+# ...and that the FOREX week is shut while the round-the-clock instruments (Bitcoin) still scan. Without it a weekend
+# log full of BTC ticks reads like the scanner grinding through a closed market (18 Nov 2026).
+_weekend_logged: bool = False
 # None until the first tick — lets us seed live sessions silently so a restart
 # during London/NY does not re-emit SESSION_OPEN for already-open sessions.
 _active_sessions: set[str] | None = None
@@ -118,7 +121,7 @@ async def scan_markets() -> None:
 
 async def _run_tick() -> tuple[bool, int | None]:
     """The tick itself. Returns (did_a_real_scan, tick_duration_ms) for the heartbeat above."""
-    global _was_scanning, _active_sessions, _current_interval, _market_closed_logged
+    global _was_scanning, _active_sessions, _current_interval, _market_closed_logged, _weekend_logged
     tick_now = datetime.now(timezone.utc)
     current_sessions = get_current_sessions(tick_now)
 
@@ -177,6 +180,11 @@ async def _run_tick() -> tuple[bool, int | None]:
     if _market_closed_logged:
         log.info("[scanner] market open — scanning resumed")
         _market_closed_logged = False
+    forex_shut = not instrument_filter.is_forex_open(tick_now)
+    if forex_shut != _weekend_logged:
+        log.info(f"[scanner] forex week shut — scanning only the round-the-clock instruments: {', '.join(instruments)}"
+                 if forex_shut else "[scanner] forex week open — scanning every instrument")
+        _weekend_logged = forex_shut
 
     # Session-open detection (market is open). Uses ONE source (the sessions API);
     # when it's unreachable (e.g. the first seconds after a restart, before Node is

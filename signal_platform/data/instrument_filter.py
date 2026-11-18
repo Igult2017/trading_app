@@ -1,10 +1,10 @@
 """
 Returns only tradeable instruments that are currently active
-based on forex market hours (Mon 00:00 UTC – Fri 22:00 UTC).
+based on forex market hours (Sun 22:00 UTC – Fri 22:00 UTC); Bitcoin (`ALWAYS_OPEN`) also at the weekend.
 """
 
 from datetime import datetime, timedelta, timezone
-from config.instruments import TRADEABLE_INSTRUMENTS
+from config.instruments import ALWAYS_OPEN, TRADEABLE_INSTRUMENTS
 
 
 def is_forex_open(now: datetime | None = None) -> bool:
@@ -47,7 +47,10 @@ def next_open(now: datetime | None = None) -> datetime:
 
 
 def get_open_instruments(now: datetime | None = None) -> list[str]:
-    """Return app symbols for all currently tradeable instruments."""
+    """Return app symbols for all currently tradeable instruments.
+
+    While the forex week is shut, only the round-the-clock instruments (`ALWAYS_OPEN`, Bitcoin) are returned —
+    so the scanner keeps scanning those at the weekend, and an EMPTY list still means "nothing is open"."""
     if not is_forex_open(now):
-        return []
+        return [symbol for symbol, *_ in TRADEABLE_INSTRUMENTS if symbol in ALWAYS_OPEN]
     return [symbol for symbol, *_ in TRADEABLE_INSTRUMENTS]

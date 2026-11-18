@@ -134,11 +134,16 @@ async def _old_behaviour():
         return
     obs.beat(True, 1)
 
+# A FULLY SHUT market: since 18 Nov 2026 a Saturday still offers Bitcoin, so the old code would beat by accident.
+# The teeth need the case the bug was about — nothing open at all.
+real_open = scanner.instrument_filter.get_open_instruments
+scanner.instrument_filter.get_open_instruments = lambda now=None: []
 scanner.scan_markets = _old_behaviour
 regressed = run_tick_at(SATURDAY)
 scanner.scan_markets = saved
-teeth("the old code writes NO heartbeat on a Saturday (so this file has teeth)", len(regressed) == 0)
+teeth("the old code writes NO heartbeat when nothing is open (so this file has teeth)", len(regressed) == 0)
 teeth("the fixed code does", len(run_tick_at(SATURDAY)) == 1)
+scanner.instrument_filter.get_open_instruments = real_open
 
 print()
 if failed:

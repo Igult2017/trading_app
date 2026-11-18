@@ -36,6 +36,12 @@ so.
 
 ## Where to look, by question
 
+### "Why did OVP send this?" / anything about BTC/USD or XAU/USD on OVP
+
+Read [strategies/ovp.md](./strategies/ovp.md) (his rules in his words, the constants, what is not built) and
+[strategies/ovp-architecture.md](./strategies/ovp-architecture.md) (5 files, one flow). OVP is his own skeleton since
+18 Nov 2026 — the BX copy it started as is deleted. Signals to the channel; it places NO orders yet.
+
 ### "Why did BX send me this signal?" / anything about supply & demand zones
 
 **Read [strategies/bx-sd-architecture.md](./strategies/bx-sd-architecture.md) FIRST** — it holds the
@@ -284,6 +290,11 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 ---
 
 ## PROGRESS — what actually happened, newest first
+
+**2026-11-18 — OVP: his skeleton built and switched on (BTC/USD + XAU/USD), signals to the channel, no autotrade.**
+4H trend → BIG zones (4H + 1H) near the money → 5M respect → 1M stop order, 3R; ranging → 5M support/resistance on
+the 2nd respect, ≥2R. The copied BX cascade (24 modules + 12 tests) deleted. Bitcoin scanned at weekends. Open:
+`docs/OPEN.md` F1-F4 (the 4H trend reader flickers in a range — his decision).
 
 **2026-11-08 — password reset could never be completed, and the button failed in silence.**
 His report: *"After clicking reset password and resetting, it dint take effect like saying 'it was

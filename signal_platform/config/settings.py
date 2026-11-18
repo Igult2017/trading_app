@@ -71,7 +71,8 @@ class Settings(BaseSettings):
     #   * TP/SL close cards  — `on_signal_closed` sends privately whenever channel_entries_only is
     #                          on, regardless of this list
     #   * session opens / scan status — never touch this path at all
-    dm_only_exempt: str = "bx_sd,vix1"
+    # OVP added 2026-11-18, his order: *"We start by sending them to the channel"* — ENTRIES only, as above.
+    dm_only_exempt: str = "bx_sd,vix1,ovp"
     # THE PUBLIC CHANNEL CARRIES ENTRY SIGNALS AND NOTHING ELSE.
     # User, 2026-07-27: "take those TP HIT and other unnecessary messages to DM for now. Only send BX
     # entry signals to the channel." So outcome cards (TP hit / SL / cancelled) and session-open
