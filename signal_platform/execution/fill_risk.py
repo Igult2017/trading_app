@@ -46,6 +46,7 @@ async def correct(order_id: str, intent: dict, pos, send) -> None:
         if not stop:
             return                       # no stop on the trade — nothing honest to size against
         from config.settings import settings
+        from config import live_settings
         if settings.autotrade_fixed_lots:
             delivery_ledger.mark_delivered(key)
             return                       # the diagnostic fixed size is not a 1% plan
@@ -57,7 +58,7 @@ async def correct(order_id: str, intent: dict, pos, send) -> None:
             return                       # try again next poll
         lots, target, pips = plan_size(
             equity=acct.risk_base, entry=pos.entry, stop=stop, symbol=pos.symbol,
-            risk_pct=settings.autotrade_risk_pct, max_lots=settings.autotrade_max_lots,
+            risk_pct=live_settings.get('autotrade_risk_pct'), max_lots=live_settings.get('autotrade_max_lots'),
             usd_jpy=await _usd_jpy_for(pos.symbol))
         cut = excess(int(pos.volume), int(target))
         delivery_ledger.mark_delivered(key)          # BEFORE the close — see the module note

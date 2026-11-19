@@ -3,7 +3,10 @@
 **Status (18 Nov 2026): HIS SKELETON, BUILT, REGISTERED AND SWITCHED ON. SIGNALS ONLY.** Since 19 Nov they go to
 HIS DM through the copy bot @tandjournal_copybot, not the channel — his *"can we direct PIX signals to DM of
 @tandjournal_copybot for now"* (`COPY_BOT_DM_STRATEGIES=""` puts them back on the channel).
-It places NO orders: `pix` is not in `autotrade_strategies` (`config/settings.py`), and a test fails if it ever is.
+Autotrade never places it by itself: `pix` is not in `autotrade_strategies` (`config/settings.py`), and a test fails if
+the default ever includes it. **Since 19 Nov (his answer 3B)** a PIX signal comes to his DM as a Confirm card marked
+*"Outside autotrade hours/pairs"*, and his Confirm places it (`docs/autotrade-disabled.md`, top). Adding `pix` to the
+autotrade strategies on the admin page would let autotrade place it unasked — that is his switch to flip, not a default.
 His order: *"build the strategy first please. and test before you link to autotrade. We start by sending them to the
 channel."* The shape (files, flow, constants) is in [pix-architecture.md](pix-architecture.md).
 

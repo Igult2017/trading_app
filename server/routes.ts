@@ -1327,6 +1327,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── THE ENGINE SETTINGS (19 Nov 2026) — the values he changes from time to time, moved off Coolify ─────────────
+  // `server/lib/engineSettings.ts`. Admin only. PUT { name, value } saves one; value null deletes the row so the
+  // Coolify / code value applies again. Only names on the shared list are accepted, each checked against it.
+  app.get("/api/admin/engine-settings", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const { readEngineSettings } = await import("./lib/engineSettings");
+      return res.json(await readEngineSettings());
+    } catch (error) {
+      console.error('[Admin/engine-settings]', error);
+      return res.status(500).json({ error: 'Could not read the engine settings' });
+    }
+  });
+  app.put("/api/admin/engine-settings", requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { findSetting, checkValue, writeEngineSetting, readEngineSettings } = await import("./lib/engineSettings");
+      const setting = findSetting(req.body?.name);
+      if (!setting) return res.status(400).json({ error: 'unknown setting' });
+      let value: string | null = null;
+      if (req.body?.value !== null) {
+        const checked = checkValue(setting, req.body?.value);
+        if ('error' in checked) return res.status(400).json({ error: `${setting.label} ${checked.error}` });
+        value = checked.value;
+      }
+      const by = String((req as any).adminUser?.email || (req as any).adminUser?.id || 'admin');
+      await writeEngineSetting(setting, value, by);
+      console.log(`[Admin/engine-settings] ${setting.name} ${value === null ? 'reset to default' : `= ${JSON.stringify(value)}`} by ${by}`);
+      return res.json(await readEngineSettings());
+    } catch (error) {
+      console.error('[Admin/engine-settings]', error);
+      return res.status(500).json({ error: 'Could not save the setting' });
+    }
+  });
+
   // SETTINGS VAULT RESTORE (17 Nov 2026) — `scripts/vault/restore.mjs` sends the decrypted settings TABLES here after a
   // move. Admin only. Body: { tables: { <table>: [rows] } }; only the fixed vault tables are written (`VAULT_TABLES`).
   app.post("/api/admin/vault/restore-tables", requireAdmin, async (req: Request, res: Response) => {

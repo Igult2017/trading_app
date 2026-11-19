@@ -57,9 +57,10 @@ class _Broker:
 import execution.broker as broker                                 # noqa: E402
 broker.StopOrderClient = _Broker
 guards.check = lambda *a, **k: None
+guards.scope_refusal = lambda *a, **k: None   # the clock is not what this tests
 placer._live_book = lambda: asyncio.sleep(0, result=([], set()))
 placer._usd_jpy_for = lambda sym: asyncio.sleep(0, result=None)
-CF.offer = lambda signal, lots, pips: asyncio.sleep(0, result=offers.append((signal.symbol, lots)))
+CF.offer = lambda signal, lots, pips, **k: asyncio.sleep(0, result=offers.append((signal.symbol, lots)))
 decision_log.refused = lambda *a, **k: asyncio.sleep(0, result=refused.append(a))
 decision_log.placed = lambda *a, **k: asyncio.sleep(0)
 from storage import autotrade_repo                                # noqa: E402

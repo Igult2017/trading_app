@@ -13,6 +13,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from config.settings import settings
+from config import live_settings
 from execution import liveness
 
 log = logging.getLogger(__name__)
@@ -86,14 +87,79 @@ def _recent(hours: int = 24) -> list[tuple[datetime, str, str, str, int | None]]
     return [p for p in _placed if p[0] >= cutoff]
 
 
+def scope_refusal(symbol: str, strategy: str) -> str | None:
+    """Rules 3, 4, 4b and 4c alone: is this outside what AUTOTRADE may trade, or outside its hours?
+
+    None = inside. A string = the reason it is outside. These are the rules an order HE decided skips
+    (`check(dm=True)`), and the placer uses this to send an outside signal to his DM as a Confirm card
+    instead of refusing it (his answers 1A and 2A, 19 Nov 2026)."""
+    # 3. STRATEGY ALLOW-LIST. Every strategy enters with a stop order now (Supply/Demand too,
+    #    `docs/strategies/bx-sd-architecture.md`), but each is opted in to AUTOTRADE deliberately.
+    allowed = _csv(live_settings.get('autotrade_strategies'))
+    if allowed and (strategy or "").lower() not in allowed:
+        return f"strategy {strategy!r} is not in autotrade_strategies"
+
+    # 4. SYMBOL ALLOW-LIST (empty = allow all).
+    syms = _csv(live_settings.get('autotrade_symbols'))
+    if syms and (symbol or "").lower() not in syms:
+        return f"symbol {symbol!r} is not in autotrade_symbols"
+
+    # 4b. SESSION ALLOW-LIST — his instruction, 2026-08-31: *"I want you to make it trade during
+    #     London and New York Sessions only."* Empty = any session.
+    #
+    #     THE WINDOWS ARE NOT DEFINED HERE. `get_current_sessions` computes them from each centre's
+    #     real timezone, so daylight saving is handled and this agrees with what the sessions page
+    #     shows. Writing "London is 08:00-17:00 UTC" here would be a second definition that drifts
+    #     from the first twice a year.
+    #
+    #     REFUSES ON ERROR, like every other guard: if the session cannot be read we do not know
+    #     whether we are inside the permitted window, and "ambiguous refuses" is the rule this
+    #     module opens with.
+    wanted = _csv(live_settings.get('autotrade_sessions'))
+    if wanted:
+        try:
+            from scheduler.session_windows import get_current_sessions
+            active = {s.value.lower() for s in get_current_sessions()}
+        except Exception as exc:
+            return f"could not read the current session ({type(exc).__name__}) — refusing"
+        if not (wanted & active):
+            return (f"outside the permitted sessions — now: "
+                    f"{', '.join(sorted(active - {'all'})) or 'none'}; allowed: "
+                    f"{', '.join(sorted(wanted))}")
+
+    # 4c. THE DAY'S HARD STOP — his instruction, 2026-11-14: *"not late hours of New York when the
+    #     market goes quiet which is from 7 pm Kenyan time."* Kenya is UTC+3 all year, so that is
+    #     16:00 UTC, fixed. A session NAME could not express it: London's own close moves an hour
+    #     with British summer time, and his cut-off does not move at all.
+    #
+    #     REFUSES ON A BAD VALUE, like every other guard in this file. A cut-off that cannot be
+    #     read is not a licence to trade all night.
+    cutoff = (live_settings.get('autotrade_cutoff_utc') or "").strip()
+    if cutoff:
+        try:
+            hh, mm = (int(x) for x in cutoff.split(":", 1))
+            limit = hh * 60 + mm
+        except Exception:
+            return f"autotrade_cutoff_utc is not a HH:MM time ({cutoff!r}) — refusing"
+        now = datetime.now(timezone.utc)
+        if now.hour * 60 + now.minute >= limit:
+            return (f"past the day's cut-off — now {now:%H:%M} UTC, trading stops at {cutoff} UTC "
+                    f"(7pm Kenyan time)")
+
+    return None
+
+
 def check(symbol: str, direction: str, strategy: str,
           account_type: str, equity: float, lots: float,
-          book: tuple[list, set[int]] | None = None, manual: bool = False) -> str | None:
+          book: tuple[list, set[int]] | None = None, manual: bool = False,
+          dm: bool = False) -> str | None:
     """None = place it. A string = refuse, and that string is the reason.
 
-    `manual` = a trade from a candle HE marked Tradeable (16 Nov 2026). It skips exactly two rules —
-    1 (the trading switch: his press was the decision) and 4c (the 7pm cut-off: *"It can be any time"*)
-    — and every other rule applies as for any order.
+    `dm` = an order HE decided: his Confirm press, a /level order or a Tradeable mark (19 Nov 2026). It
+    skips rules 3, 4, 4b and 4c (`scope_refusal`) — what autotrade may trade and when.
+    `manual` = a Tradeable mark or a /level order (16 Nov 2026); it also skips rule 1, the trading
+    switch, because his press was the decision. A Confirm press does NOT skip rule 1: OFF places nothing.
+    Rules 2, 5, 6 and 7 apply to every order.
 
     `book` is what the broker has right now: open positions and the ids of resting orders, from ONE
     reply (`monitor.position_book.snapshot`). None means it could not be read. Only rule 7 uses it.
@@ -113,58 +179,14 @@ def check(symbol: str, direction: str, strategy: str,
     if settings.autotrade_demo_only and (account_type or "").lower() != "demo":
         return f"account_type is {account_type!r}, and autotrade_demo_only is set"
 
-    # 3. STRATEGY ALLOW-LIST. VIX.1 is the one being measured; BX has different entry semantics
-    #    (limit, not stop) and must be opted in deliberately rather than inherited.
-    allowed = _csv(settings.autotrade_strategies)
-    if allowed and (strategy or "").lower() not in allowed:
-        return f"strategy {strategy!r} is not in autotrade_strategies"
-
-    # 4. SYMBOL ALLOW-LIST (empty = allow all).
-    syms = _csv(settings.autotrade_symbols)
-    if syms and (symbol or "").lower() not in syms:
-        return f"symbol {symbol!r} is not in autotrade_symbols"
-
-    # 4b. SESSION ALLOW-LIST — his instruction, 2026-08-31: *"I want you to make it trade during
-    #     London and New York Sessions only."* Empty = any session.
-    #
-    #     THE WINDOWS ARE NOT DEFINED HERE. `get_current_sessions` computes them from each centre's
-    #     real timezone, so daylight saving is handled and this agrees with what the sessions page
-    #     shows. Writing "London is 08:00-17:00 UTC" here would be a second definition that drifts
-    #     from the first twice a year.
-    #
-    #     REFUSES ON ERROR, like every other guard: if the session cannot be read we do not know
-    #     whether we are inside the permitted window, and "ambiguous refuses" is the rule this
-    #     module opens with.
-    wanted = _csv(settings.autotrade_sessions)
-    if wanted:
-        try:
-            from scheduler.session_windows import get_current_sessions
-            active = {s.value.lower() for s in get_current_sessions()}
-        except Exception as exc:
-            return f"could not read the current session ({type(exc).__name__}) — refusing"
-        if not (wanted & active):
-            return (f"outside the permitted sessions — now: "
-                    f"{', '.join(sorted(active - {'all'})) or 'none'}; allowed: "
-                    f"{', '.join(sorted(wanted))}")
-
-    # 4c. THE DAY'S HARD STOP — his instruction, 2026-11-14: *"not late hours of New York when the
-    #     market goes quiet which is from 7 pm Kenyan time."* Kenya is UTC+3 all year, so that is
-    #     16:00 UTC, fixed. A session NAME could not express it: London's own close moves an hour
-    #     with British summer time, and his cut-off does not move at all.
-    #
-    #     REFUSES ON A BAD VALUE, like every other guard in this file. A cut-off that cannot be
-    #     read is not a licence to trade all night.
-    cutoff = "" if manual else (settings.autotrade_cutoff_utc or "").strip()
-    if cutoff:
-        try:
-            hh, mm = (int(x) for x in cutoff.split(":", 1))
-            limit = hh * 60 + mm
-        except Exception:
-            return f"autotrade_cutoff_utc is not a HH:MM time ({cutoff!r}) — refusing"
-        now = datetime.now(timezone.utc)
-        if now.hour * 60 + now.minute >= limit:
-            return (f"past the day's cut-off — now {now:%H:%M} UTC, trading stops at {cutoff} UTC "
-                    f"(7pm Kenyan time)")
+    # 3-4c. WHAT AUTOTRADE IS ALLOWED TO TRADE, AND WHEN — strategy list, pair list, sessions, cut-off
+    #    (`scope_refusal`). SKIPPED FOR AN ORDER HE DECIDED (`dm`), his instruction 19 Nov 2026: *"make an
+    #    exemption for orders placed by DM so that they can be placed whether autotrade doesnt allow them
+    #    and no matter the time."* Every other rule here still applies to his orders.
+    if not (dm or manual):
+        why = scope_refusal(symbol, strategy)
+        if why:
+            return why
 
     # 5. SIZE. 0.0 means sizing could not be done honestly. Never guess.
     #
@@ -189,8 +211,8 @@ def check(symbol: str, direction: str, strategy: str,
     except Exception:
         filled = None
     counted, what = (filled, "filled trades") if filled is not None else (len(recent), "orders placed")
-    if counted >= settings.autotrade_max_per_day:
-        return (f"daily cap reached ({counted}/{settings.autotrade_max_per_day} "
+    if counted >= live_settings.get('autotrade_max_per_day'):
+        return (f"daily cap reached ({counted}/{live_settings.get('autotrade_max_per_day')} "
                 f"{what} in the last 24h)")
 
     # 7. ONE TRADE AT A TIME — on the whole account (his rule, 15 Nov 2026: *"we only trade 1 signal at

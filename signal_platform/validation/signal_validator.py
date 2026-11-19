@@ -38,6 +38,7 @@ import logging
 from core.types import Signal, StrategyResult
 from config.settings import settings
 
+from config import live_settings
 log = logging.getLogger(__name__)
 
 # In-memory duplicate guard, keyed "strategy:symbol:direction" (lowercase).
@@ -144,12 +145,12 @@ def validate(result: StrategyResult, instrument: str) -> list[Signal]:
 
 
 def _check_rr(signal: Signal) -> bool:
-    if signal.risk_reward < settings.min_rr:
+    if signal.risk_reward < live_settings.get('min_rr'):
         # INFO: this DISCARDS a signal the strategy worked to produce. At DEBUG it was invisible in
         # production, so "the strategy found nothing" and "we threw away what it found" read the same.
         log.info(
             f"[validator] {signal.symbol} {signal.strategy_id} REJECTED — "
-            f"RR={signal.risk_reward:.2f} < min {settings.min_rr}"
+            f"RR={signal.risk_reward:.2f} < min {live_settings.get('min_rr')}"
         )
         return False
     return True
@@ -159,14 +160,14 @@ def _min_confidence_for(strategy_id: str) -> float:
     """The confidence floor for THIS strategy — global default unless overridden ("id:floor" CSV).
     VIX.1 grades its momentum candle 0.85..0.60 by shape; the grade is information carried on the
     card, so its floor matches the bottom of that scale instead of the global gate."""
-    for part in settings.min_confidence_overrides.split(","):
+    for part in live_settings.get('min_confidence_overrides').split(","):
         sid, _, floor = part.strip().partition(":")
         if sid and sid.lower() == (strategy_id or "").lower():   # env-side ids may arrive any case
             try:
                 return float(floor)
             except ValueError:
                 break
-    return settings.min_confidence
+    return live_settings.get('min_confidence')
 
 
 def _check_confidence(signal: Signal) -> bool:

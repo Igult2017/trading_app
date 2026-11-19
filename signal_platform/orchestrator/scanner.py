@@ -20,6 +20,7 @@ from functools import partial
 
 from core import strategy_registry, event_bus
 from config.settings import settings
+from config import live_settings
 from data import candle_fetcher, instrument_filter
 from news import news_fetcher
 from scheduler.session_windows import get_current_sessions, scan_interval_seconds
@@ -134,7 +135,7 @@ async def _run_tick() -> tuple[bool, int | None]:
     if _is_paused():
         _was_scanning = False
         return False, None
-    if not settings.scan_enabled:
+    if not live_settings.get('scan_enabled'):
         log.info("[scanner] SCAN_ENABLED=false — tick skipped, no signals will be produced")
         _was_scanning = False
         return False, None

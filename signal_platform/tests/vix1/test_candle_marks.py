@@ -77,7 +77,7 @@ s.check("a mark whose candle is not in the window is ignored", vix1_marked.apply
 candle_marks.marks_for = lambda sym: [dict(T, bullish=False)]
 s.check("the setup takes HIS candle's direction", vix1_marked.apply(h1, SYM, None)[0].bullish, False)
 
-# ── 4. the safety checks: only the switch and the 7pm cut-off are lifted ─────
+# ── 4. the safety checks: the switch, pairs, strategies, sessions and cut-off are lifted ─
 from config.settings import settings                              # noqa: E402
 from execution import guards                                      # noqa: E402
 from storage import autotrade_repo                                # noqa: E402
@@ -95,8 +95,9 @@ s.check("...the same order NOT his is refused by the switch", guards.check(*ARGS
 trade_mode_is("auto")
 s.check("...and by the cut-off", "cut-off" in (guards.check(*ARGS, book=([], set())) or ""), True)
 object.__setattr__(settings, "autotrade_sessions", "no_such_session")
-s.check("his trade outside the permitted sessions → still REFUSED",
-        "sessions" in (guards.check(*ARGS, book=([], set()), manual=True) or ""), True)
+s.check("his trade outside the permitted sessions → ALLOWED (his DM exemption, 19 Nov 2026)",
+        guards.check(*ARGS, book=([], set()), manual=True), None)
+s.check("...the same order NOT his → refused by the sessions", "sessions" in (guards.check(*ARGS, book=([], set())) or ""), True)
 object.__setattr__(settings, "autotrade_sessions", "")
 s.check("his trade on a LIVE account → still REFUSED",
         guards.check("EUR/USD", "BUY", "vix1", "live", 10_000.0, 0.5, book=([], set()), manual=True)

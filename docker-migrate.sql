@@ -915,6 +915,12 @@ CREATE TABLE IF NOT EXISTS platform_settings (
 );
 INSERT INTO platform_settings (key, value, updated_by) VALUES ('trade_mode', 'auto', 'migration')
   ON CONFLICT (key) DO NOTHING;
+-- ENGINE SETTINGS MOVED OFF COOLIFY (19 Nov 2026, `server/lib/engineSettings.ts`). Only ONE needs a row: auto-breakeven
+-- is ON in Coolify (AUTO_BREAKEVEN_ENABLED=true) but OFF in the code, so deleting that variable without this row would
+-- switch breakeven off. MIN_RR, MIN_CONFIDENCE and SCAN_ENABLED in Coolify equal the code defaults and need nothing.
+-- Inserted only if absent, so a value he sets on the admin page is never overwritten by a redeploy.
+INSERT INTO platform_settings (key, value, updated_by) VALUES ('auto_breakeven_enabled', 'true', 'migration')
+  ON CONFLICT (key) DO NOTHING;
 
 -- One row per signal offered for his confirmation. status: pending -> confirmed | rejected (his press,
 -- written by the website server) -> placed | refused | too_late (written by the signal engine), or

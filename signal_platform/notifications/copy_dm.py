@@ -12,6 +12,7 @@ import logging
 
 from config.settings import settings
 
+from config import live_settings
 log = logging.getLogger(__name__)
 
 _copy_bot = None
@@ -26,7 +27,7 @@ def _get_copy_bot():
     try:
         from telegram import Bot
         _copy_bot = Bot(token=settings.telegram_copy_bot_token)
-        log.info("[dispatcher] copy bot initialised (for %s cards to his DM)", settings.copy_bot_dm_strategies)
+        log.info("[dispatcher] copy bot initialised (for %s cards to his DM)", live_settings.get('copy_bot_dm_strategies'))
     except Exception as exc:
         log.warning(f"[dispatcher] copy bot init failed: {exc}")
     return _copy_bot
@@ -36,7 +37,7 @@ def route(strategy_id: str | None) -> bool:
     """Do this strategy's cards go to his DM through the copy bot? (`_watch` stripped — the setting names a strategy.)"""
     sid = strategy_id or ""
     base = sid[:-len("_watch")] if sid.endswith("_watch") else sid
-    return base in {x.strip() for x in settings.copy_bot_dm_strategies.split(",") if x.strip()}
+    return base in {x.strip() for x in live_settings.get('copy_bot_dm_strategies').split(",") if x.strip()}
 
 
 async def send(message: str, chart: str | None = None) -> bool:

@@ -127,6 +127,7 @@ async def check(send) -> None:
 
 async def _adjust(oid, intent, live, meta, live_spread, pip, he, send) -> None:
     from config.settings import settings
+    from config import live_settings
     from execution.account import load_account
     from execution.placer import _usd_jpy_for
     from execution.sizing import plan_size
@@ -138,8 +139,8 @@ async def _adjust(oid, intent, live, meta, live_spread, pip, he, send) -> None:
 
     def size_for(e, s):
         return plan_size(equity=acct.risk_base, entry=e, stop=s, symbol=sym,
-                         risk_pct=settings.autotrade_risk_pct, fixed_lots=settings.autotrade_fixed_lots,
-                         max_lots=settings.autotrade_max_lots, usd_jpy=usd_jpy)
+                         risk_pct=live_settings.get('autotrade_risk_pct'), fixed_lots=settings.autotrade_fixed_lots,
+                         max_lots=live_settings.get('autotrade_max_lots'), usd_jpy=usd_jpy)
 
     plan = decide(side, float(live["entry"]), float(live["sl"]), int(meta["volume"]),
                   float(intent.get("spread_used") or 0.0), live_spread, pip, he, size_for)

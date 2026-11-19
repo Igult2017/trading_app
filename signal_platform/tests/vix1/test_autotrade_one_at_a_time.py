@@ -74,6 +74,7 @@ class _Fake:
 _real = (decision_log.refused, guards.check, placer._live_book, placer._usd_jpy_for)
 decision_log.refused = _no
 guards.check = lambda *a, **k: None
+guards.scope_refusal = lambda *a, **k: None   # the clock is not what this tests
 placer._live_book = lambda: asyncio.sleep(0, result=([], set()))
 placer._usd_jpy_for = lambda sym: asyncio.sleep(0, result=None)
 import execution.broker as _broker   # noqa: E402

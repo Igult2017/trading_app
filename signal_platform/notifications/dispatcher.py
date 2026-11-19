@@ -13,6 +13,7 @@ import logging
 import os
 
 from config.settings import settings
+from config import live_settings
 from notifications import copy_dm   # PIX (for now) → his DM via the copy bot, 19 Nov 2026
 from core import event_bus
 from core.types import Signal
@@ -161,7 +162,7 @@ def _channel_all(strategy_id: str | None) -> bool:
     """
     sid  = strategy_id or ""
     base = sid[:-len("_watch")] if sid.endswith("_watch") else sid
-    return base in {x.strip() for x in settings.channel_all.split(",") if x.strip()}
+    return base in {x.strip() for x in live_settings.get('channel_all').split(",") if x.strip()}
 
 
 async def on_setup_alert(signal: Signal) -> None:
@@ -212,13 +213,13 @@ async def on_setup_alert(signal: Signal) -> None:
     # exemption is a property of the STRATEGY, not of which of its two cards is being sent.
     _sid  = signal.strategy_id or ""
     _base = _sid[:-len("_watch")] if _sid.endswith("_watch") else _sid
-    _exempt = _base in {x.strip() for x in settings.dm_only_exempt.split(",") if x.strip()}
+    _exempt = _base in {x.strip() for x in live_settings.get('dm_only_exempt').split(",") if x.strip()}
     # CHANNEL_ALL forces the channel regardless of `to_channel` or the kill-switch — his
     # *"send everything for BX on the channel"*. It cannot be reached by a strategy that is not
     # named in the setting, so nothing else is republished.
     if copy_dm.route(_sid):
         ok = await copy_dm.send(caption, chart if has_chart else None)   # his DM via the copy bot (19 Nov)
-    elif _channel_all(_sid) or (signal.to_channel and (not settings.signals_dm_only or _exempt)):
+    elif _channel_all(_sid) or (signal.to_channel and (not live_settings.get('signals_dm_only') or _exempt)):
         ok = (await _send_photo(chart, caption) if has_chart          # public signal channel
               else await _send_text(caption))
     else:
@@ -289,7 +290,7 @@ async def on_signal_confirmed(signal: Signal) -> None:
     # DM_ONLY_EXEMPT — their confirmed signals still go public (a trusted, fixed strategy goes live
     # while a still-in-refinement one stays held). _watch heads-ups always stay in the DM.
     base   = signal.strategy_id[:-len("_watch")] if is_watch else signal.strategy_id
-    exempt = base in {s.strip() for s in settings.dm_only_exempt.split(",") if s.strip()}
+    exempt = base in {s.strip() for s in live_settings.get('dm_only_exempt').split(",") if s.strip()}
     if getattr(signal, "manual", False):
         # A TRADE FROM A CANDLE HE MARKED TRADEABLE (16 Nov 2026) — his DM ONLY, never the channel,
         # whatever CHANNEL_ALL or the exemption list say. It was his manual call, not the strategy's.
@@ -302,14 +303,14 @@ async def on_signal_confirmed(signal: Signal) -> None:
         target = settings.telegram_chat_id
     elif is_watch:
         target = settings.watchdog_chat_id
-    elif settings.channel_entries_only and not exempt:
+    elif live_settings.get('channel_entries_only') and not exempt:
         # While CHANNEL_ENTRIES_ONLY is on, DM_ONLY_EXEMPT is a positive ALLOWLIST for the channel:
         # an entry reaches subscribers only if its strategy is named there. Deliberately NOT
         # conditional on SIGNALS_DM_ONLY — the user's rule is "only BX entry signals to the channel",
         # and making that hold only while a separate kill-switch happens to be on would mean flipping
         # that switch off silently republishes every other strategy to the channel.
         target = settings.watchdog_chat_id
-    elif settings.signals_dm_only and not exempt:
+    elif live_settings.get('signals_dm_only') and not exempt:
         target = settings.watchdog_chat_id
     else:
         target = settings.telegram_chat_id
@@ -325,7 +326,7 @@ async def on_signal_confirmed(signal: Signal) -> None:
         log.error("[dispatcher] NO TARGET CHAT for %s signal %s %s — SIGNAL DISCARDED "
                   "(signals_dm_only=%s, watchdog_chat_id set=%s, telegram_chat_id set=%s)",
                   "watch" if is_watch else "confirmed", signal.symbol, signal.strategy_id,
-                  settings.signals_dm_only, bool(settings.watchdog_chat_id),
+                  live_settings.get('signals_dm_only'), bool(settings.watchdog_chat_id),
                   bool(settings.telegram_chat_id))
         sent = False
     elif chart and os.path.isfile(chart):
@@ -430,7 +431,7 @@ async def on_scan_started(payload: dict) -> None:
 async def on_session_open(session_name: str) -> None:
     # Session opens (London/NY/Sydney/Tokyo + overlaps) were public. They are NOT a tradeable entry,
     # so under CHANNEL_ENTRIES_ONLY they go to the admin DM and the channel stays a clean signal feed.
-    if settings.channel_entries_only:
+    if live_settings.get('channel_entries_only'):
         await _send_private(format_session_open(session_name))
     else:
         await _send_text(format_session_open(session_name))
@@ -508,12 +509,12 @@ async def on_signal_closed(signal_id: str) -> None:
         # The rule below this remains: close cards otherwise follow the SAME routing as the entry
         # card, because before that was fixed a DM-held strategy's outcome leaked to subscribers who
         # had never seen its entry.
-        exempt = strategy in {s.strip() for s in settings.dm_only_exempt.split(",") if s.strip()}
+        exempt = strategy in {s.strip() for s in live_settings.get('dm_only_exempt').split(",") if s.strip()}
         if copy_dm.route(strategy):
             await copy_dm.send(message)  # his DM via the copy bot, like its entry card (19 Nov 2026)
         elif _channel_all(strategy):
             await _send_text(message)          # his "everything on the channel"
-        elif settings.channel_entries_only or (settings.signals_dm_only and not exempt):
+        elif live_settings.get('channel_entries_only') or (live_settings.get('signals_dm_only') and not exempt):
             await _send_private(message)
         else:
             await _send_text(message)

@@ -19,6 +19,7 @@ strategy's own `qualifies_for_trade` — the same test that qualifies a candle t
 import logging
 
 from config.settings import settings
+from config import live_settings
 from data import ctrader_positions
 from core import delivery_ledger
 
@@ -45,7 +46,7 @@ def why_not(p, account_type: str) -> str | None:
     """The reason this position's target must NOT be extended, or None. No network call."""
     if not str(getattr(p, "label", "") or "").startswith(_LABEL):
         return "not a VIX.1 position"
-    if not settings.auto_breakeven_enabled:
+    if not live_settings.get('auto_breakeven_enabled'):
         return "automatic trade management is off"
     if settings.auto_breakeven_demo_only and (account_type or "").lower() != "demo":
         return f"account is '{account_type}', not demo — refusing to amend"

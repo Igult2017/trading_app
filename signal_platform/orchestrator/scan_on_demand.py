@@ -28,6 +28,7 @@ import time
 from datetime import datetime, timezone
 
 from config.settings import settings
+from config import live_settings
 from core import strategy_registry
 from data import instrument_filter
 from news import news_fetcher
@@ -63,7 +64,7 @@ async def scan_one(instrument: str, reason: str = "bar close") -> bool:
         # THE SAME GATES A TICK OBEYS, in the same order and from the same sources.
         if _is_paused():
             return False
-        if not settings.scan_enabled:
+        if not live_settings.get('scan_enabled'):
             return False
         open_instruments = instrument_filter.get_open_instruments(now)
         if instrument not in open_instruments:

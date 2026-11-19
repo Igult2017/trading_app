@@ -27,8 +27,10 @@ from execution.confirm_messages import (TEST_CARD, TEST_OK, card, refusal_reason
 log = logging.getLogger(__name__)
 
 
-async def offer(signal, lots, stop_pips) -> None:
-    """Save the offer, then send it to his DM with Confirm / Reject. Nothing is placed here."""
+async def offer(signal, lots, stop_pips, outside: str | None = None) -> None:
+    """Save the offer, then send it to his DM with Confirm / Reject. Nothing is placed here.
+
+    `outside` = why autotrade itself would not take it (19 Nov 2026); the card says so."""
     try:
         from config.settings import settings
         from execution import decision_log
@@ -42,7 +44,7 @@ async def offer(signal, lots, stop_pips) -> None:
         if not cid:
             return                       # not saved → not offered (a press could not be matched)
         chat = settings.watchdog_chat_id
-        message_id = await _send(chat, card(signal, lots, stop_pips), buttons=cid)
+        message_id = await _send(chat, card(signal, lots, stop_pips, outside), buttons=cid)
         if not message_id:
             # NOT SENT IS NOT OFFERED (audit, 16 Nov 2026). This used to record "Sent to your DM" even
             # when Telegram refused, so the Autotrade screen showed an offer he never received. The

@@ -39,6 +39,7 @@ takes for order placement.
 import logging
 
 from config.settings import settings
+from config import live_settings
 from data import ctrader_positions
 
 log = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ def why_not(p, account_type: str, new_sl: float | None = None,
             price: float | None = None) -> str | None:
     """The reason this position must NOT be amended, or None if it may be. Checked before any
     network call, so a refusal costs nothing and reaches the log with its reason intact."""
-    if not settings.auto_breakeven_enabled:
+    if not live_settings.get('auto_breakeven_enabled'):
         return "auto-breakeven is off"
     if settings.auto_breakeven_demo_only and (account_type or "").lower() != "demo":
         return f"account is '{account_type}', not demo — refusing to amend"

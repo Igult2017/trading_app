@@ -11,10 +11,10 @@ import { nextMode, useTradeMode, type TradeMode } from './useTradeMode';
  */
 const ROWS: { which: 'auto' | 'confirm'; title: string; on: string; off: string; Icon: typeof Power }[] = [
   { which: 'auto', title: 'Autotrade', Icon: Power,
-    on: 'Placing every qualified signal by itself.',
+    on: 'Placing every qualified signal by itself. Signals outside its pairs, strategies or hours come to your Telegram DM as Confirm cards.',
     off: 'Off. Qualified signals are not placed automatically.' },
   { which: 'confirm', title: 'DM confirmation', Icon: MessageSquareText,
-    on: 'Each signal autotrade would take is sent to your Telegram DM. Confirm places it; Reject or no answer places nothing.',
+    on: "Each qualified signal is sent to your Telegram DM, including ones outside autotrade's pairs, strategies or hours (marked so). Confirm places it; Reject or no answer places nothing.",
     off: 'Off. No signals are sent to your DM for confirmation.' },
 ];
 

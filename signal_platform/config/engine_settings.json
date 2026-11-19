@@ -1,0 +1,51 @@
+{
+  "_about": "THE ONE LIST of settings changed from the admin panel (19 Nov 2026). Read by the engine (config/live_settings.py) and by the website (server/lib/engineSettings.ts), so both check a value the same way. 'default' must equal config/settings.py — tests/test_live_settings.py fails if it does not.",
+  "groups": [
+    { "id": "autotrade", "title": "Autotrade limits", "hint": "What autotrade may place by itself, and when. Orders you decide in your DM (Confirm, /level, Tradeable) skip the pairs, strategies, sessions and cut-off." },
+    { "id": "quality", "title": "Signal quality", "hint": "The minimum a signal must reach before it is sent at all." },
+    { "id": "delivery", "title": "Signal delivery", "hint": "Where signal cards go: the public channel or your DM." },
+    { "id": "switches", "title": "Engine switches", "hint": "Take effect within a few seconds. The real-time price watcher is not here: it is read once at start-up, so it stays in Coolify." }
+  ],
+  "settings": [
+    { "name": "autotrade_symbols", "group": "autotrade", "kind": "pairs", "default": "eur/usd,gbp/usd,gbp/jpy",
+      "label": "Pairs autotrade may place", "help": "Comma-separated, e.g. eur/usd,gbp/usd. Empty means every pair. Signals on other pairs come to your DM as Confirm cards." },
+    { "name": "autotrade_strategies", "group": "autotrade", "kind": "strategies", "default": "vix1",
+      "label": "Strategies autotrade may place", "help": "Comma-separated strategy ids: vix1, bx_sd, pix. Empty means all. Other strategies' signals come to your DM as Confirm cards." },
+    { "name": "autotrade_sessions", "group": "autotrade", "kind": "sessions", "default": "london,new_york",
+      "label": "Sessions autotrade may place in", "help": "Comma-separated: asian, london, new_york. Empty means any time." },
+    { "name": "autotrade_cutoff_utc", "group": "autotrade", "kind": "hhmm", "default": "16:00",
+      "label": "Daily cut-off (UTC)", "help": "HH:MM in UTC; 16:00 UTC is 7pm Kenyan time. Empty means no cut-off." },
+    { "name": "autotrade_risk_pct", "group": "autotrade", "kind": "number", "min": 0.1, "max": 5, "default": "1.0",
+      "label": "Risk per trade (% of starting balance)", "help": "Between 0.1 and 5." },
+    { "name": "autotrade_max_lots", "group": "autotrade", "kind": "number", "min": 0.01, "max": 50, "default": "5.0",
+      "label": "Largest order (lots)", "help": "No order is ever bigger than this. Between 0.01 and 50." },
+    { "name": "autotrade_max_per_day", "group": "autotrade", "kind": "int", "min": 1, "max": 50, "default": "6",
+      "label": "Most filled trades in 24 hours", "help": "A whole number between 1 and 50. Applies to your DM orders too." },
+
+    { "name": "min_rr", "group": "quality", "kind": "number", "min": 0.5, "max": 10, "default": "2.0",
+      "label": "Minimum reward-to-risk", "help": "A signal whose target is less than this many times its stop is dropped. Between 0.5 and 10." },
+    { "name": "min_confidence", "group": "quality", "kind": "number", "min": 0, "max": 1, "default": "0.70",
+      "label": "Minimum confidence", "help": "Between 0 and 1." },
+    { "name": "min_confidence_overrides", "group": "quality", "kind": "overrides", "default": "vix1:0.60",
+      "label": "Minimum confidence per strategy", "help": "strategy:number pairs, comma-separated, e.g. vix1:0.60." },
+
+    { "name": "signals_dm_only", "group": "delivery", "kind": "bool", "default": "false",
+      "label": "Hold signals back in my DM", "help": "Emergency switch. On: every strategy's signals go to your DM, except the strategies listed in the next box." },
+    { "name": "dm_only_exempt", "group": "delivery", "kind": "strategies", "default": "bx_sd,vix1,pix",
+      "label": "Strategies whose entries may go to the channel", "help": "Comma-separated strategy ids. Any strategy not listed sends its entries to your DM." },
+    { "name": "channel_entries_only", "group": "delivery", "kind": "bool", "default": "true",
+      "label": "Channel gets entry signals only", "help": "On: the channel carries entry signals only; heads-ups and results (target / stop hit) go to your DM." },
+    { "name": "channel_all", "group": "delivery", "kind": "strategies", "default": "bx_sd",
+      "label": "Strategies whose every card goes to the channel", "help": "Comma-separated strategy ids." },
+    { "name": "copy_bot_dm_strategies", "group": "delivery", "kind": "strategies", "default": "pix",
+      "label": "Strategies sent to my DM through the copy bot", "help": "Comma-separated strategy ids." },
+
+    { "name": "scan_enabled", "group": "switches", "kind": "bool", "default": "true",
+      "label": "Scanning for signals", "help": "Off: no strategy looks for setups." },
+    { "name": "auto_breakeven_enabled", "group": "switches", "kind": "bool", "default": "false",
+      "label": "Auto-breakeven", "help": "On: the engine moves a running trade's stop to breakeven by itself." }
+  ],
+  "pairs": ["eur/usd", "gbp/usd", "gbp/jpy", "usd/jpy", "xau/usd", "btc/usd", "aud/usd", "usd/cad", "usd/chf", "nzd/usd", "eur/jpy", "eur/gbp"],
+  "strategies": ["vix1", "bx_sd", "pix"],
+  "sessions": ["asian", "london", "new_york"]
+}

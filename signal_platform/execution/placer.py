@@ -17,6 +17,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from config.settings import settings
+from config import live_settings
 from execution import decision_log, guards
 from execution.sizing import plan_size
 from execution.placer_messages import refusal_message, rejection_message  # noqa: F401 — re-used here
@@ -148,9 +149,9 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
         # every log.
         lots, volume, stop_pips = plan_size(
             equity=risk_base, entry=entry, stop=sl, symbol=symbol,
-            risk_pct=settings.autotrade_risk_pct,
+            risk_pct=live_settings.get('autotrade_risk_pct'),
             fixed_lots=settings.autotrade_fixed_lots,
-            max_lots=settings.autotrade_max_lots,
+            max_lots=live_settings.get('autotrade_max_lots'),
             # Only fetched for a yen-quoted pair; None for the dollar-quoted three, which need no
             # conversion and so cannot be held up by a quiet feed.
             usd_jpy=await _usd_jpy_for(symbol))
@@ -171,8 +172,14 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
         # WHAT THE BROKER HAS RIGHT NOW, so the duplicate rule can tell a live order from a withdrawn
         # one (guards rule 7, fixed 2026-09-15).
         book = await _live_book()
+        # AN ORDER HE DECIDED (his Confirm press, a /level order, a Tradeable mark) skips what autotrade
+        # may trade and when — his instruction, 19 Nov 2026. Anything else that is OUTSIDE those limits is
+        # checked against every OTHER rule and, if it passes, offered to his DM below instead of refused.
+        manual = bool(getattr(signal, "manual", False))
+        dm = manual or bool(getattr(signal, "confirmed", False))
+        outside = None if dm else guards.scope_refusal(symbol, signal.strategy_id)
         why = guards.check(symbol, side, signal.strategy_id, account_type, equity, lots, book=book,
-                           manual=bool(getattr(signal, "manual", False)))
+                           manual=manual, dm=dm or bool(outside))
         if why:
             log.info(f"[execution] NOT placing {symbol} {side} — {why}")
             await decision_log.refused(signal, why, lots)
@@ -182,6 +189,15 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
             if notify:
                 await _tell(notify, refusal_message(
                     symbol, side, signal.strategy_name or signal.strategy_id, why))
+            return None
+
+        # OUTSIDE AUTOTRADE'S PAIRS / HOURS / STRATEGIES → A CONFIRM CARD IN HIS DM (his answers 1A and 2A,
+        # 19 Nov 2026), in AUTO as well as CONFIRM mode (OFF was refused above). It passed every other rule.
+        # It does NOT enter the best-signal window: an offer must never knock out a trade autotrade would
+        # place. His Confirm comes back `confirmed` and goes through every rule again, as a DM order.
+        if outside:
+            from execution import confirmations
+            await confirmations.offer(signal, lots, stop_pips, outside=outside)
             return None
 
         # ONE TRADE AT A TIME, THE BEST ONE (his rule, 15 Nov 2026). Signals that arrive together
@@ -234,7 +250,7 @@ async def place_for_signal(signal, creds: dict, account_type: str, equity: float
         strategy = signal.strategy_name or signal.strategy_id or "bot"
         label = order_label(str(signal.strategy_id or strategy), getattr(signal, "id", None))
         comment = (f"{strategy} {side} {lots}L "
-                   f"risk {settings.autotrade_risk_pct:g}% over {stop_pips:.1f}p")
+                   f"risk {live_settings.get('autotrade_risk_pct'):g}% over {stop_pips:.1f}p")
         res = await StopOrderClient(creds, account_type).place_stop(
             symbol=symbol, side=side, volume=volume, lots=lots,
             stop_price=entry, sl=sl, tp=tp, expiry_ms=expiry_ms,

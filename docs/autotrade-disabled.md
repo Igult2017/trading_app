@@ -1,5 +1,29 @@
 # Autotrade — OFF from 2026-10-05, BACK ON from 2026-11-14, SWITCHED FROM THE ADMIN PANEL from 2026-11-16
 
+> ⚠ **19 NOV 2026 — ORDERS HE DECIDES ARE EXEMPT, AND THE LIMITS MOVED TO THE ADMIN PAGE.**
+> His words: *"make an exemption for orders placed by DM so that they can be placed whether autotrade doesnt allow
+> them and no matter the time."* His answers: 1A, 2A, 3B.
+>
+> - **An order he decides** = his ✅ Confirm press, a `/level` order, or a Tradeable mark. It SKIPS autotrade's
+>   strategy list, pair list, sessions and 16:00 UTC cut-off (`guards.scope_refusal`, rules 3/4/4b/4c). It still
+>   needs: a demo account, an honest size, room under the daily cap, and no other trade live (rules 2/5/6/7). A
+>   Confirm press while trading is OFF still places nothing.
+> - **A signal outside those limits** (gold, PIX, after 16:00 UTC, …) that passes every OTHER rule is no longer
+>   refused: in Autotrade AND in DM-confirmation mode it comes to his DM as a Confirm card, with the line
+>   *"⚠ Outside autotrade hours/pairs — <reason>"* (`placer.place_for_signal`, the `outside` branch). It never joins
+>   the best-signal window, so it cannot knock out a trade autotrade would place. Inside the limits nothing changed.
+> - **This fixed a live fault:** every `/level` order was refused — always by the strategy list (`manual_level` was
+>   never on it), and on gold or outside London/New York by the pair and session rules too.
+> - **The limits are now set on the admin Autotrade page**, under the switches: pairs, strategies, sessions, cut-off,
+>   risk %, largest order, trades a day — plus signal quality, delivery and the scan / breakeven switches. One list
+>   (`signal_platform/config/engine_settings.json`) is checked by the website before saving
+>   (`server/lib/engineSettings.ts`) and by the engine when reading (`config/live_settings.py`, 5-second memory, a bad
+>   value ignored). No row = the Coolify value, else the code default; "Reset" deletes the row. `MIN_RR`,
+>   `MIN_CONFIDENCE`, `SCAN_ENABLED`, `AUTO_BREAKEVEN_ENABLED` and the dead `AUTOTRADE_ENABLED` were removed from
+>   Coolify; breakeven's ON was carried over by a seeded row (`docker-migrate.sql`). The real-time watcher switch
+>   stays in Coolify — it is read only at start-up. Proofs: `tests/test_dm_exemption.py` (25 checks),
+>   `tests/test_live_settings.py` (20), `server/lib/engineSettings.test.ts` (28, on PGlite).
+
 > ⚠ **HOW IT IS TURNED ON AND OFF CHANGED ON 16 NOV 2026.** The `AUTOTRADE_ENABLED` environment
 > variable is GONE. The admin **Autotrade** page now has two switches, and only one can be on:
 >

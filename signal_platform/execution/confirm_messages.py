@@ -23,15 +23,24 @@ TEST_OK = ("🧪 <b>TEST — the chain works.</b> Your Confirm went Telegram →
            "trading engine and back. Nothing was placed.")
 
 
-def card(signal, lots, stop_pips) -> str:
+def card(signal, lots, stop_pips, outside: str | None = None) -> str:
+    """The Confirm / Reject card. `outside` = why autotrade itself would not take it (its pairs, hours or
+    strategies, `guards.scope_refusal`): the card then says so, and a Confirm still places it (his answer
+    1A, 19 Nov 2026). The risk shown is the live admin-panel value, not a fixed number."""
+    from config import live_settings
     d = price_digits(signal.symbol)
     side = "BUY" if signal.direction.value == "buy" else "SELL"
     strategy = signal.strategy_name or signal.strategy_id
+    risk = live_settings.get("autotrade_risk_pct")
+    note = (f"⚠️ <b>Outside autotrade hours/pairs</b> — {outside}. Your Confirm places it anyway.\n"
+            if outside else "")
+    passed = "It passed every other check." if outside else "It passed every autotrade check."
     return (f"🟡 <b>CONFIRM THIS TRADE?</b> · {signal.symbol} {side} · {strategy}\n"
             f"entry <code>{signal.entry_price:.{d}f}</code> · stop <code>{signal.stop_loss:.{d}f}</code>"
             f" · target <code>{signal.take_profit:.{d}f}</code>\n"
-            f"{lots} lots · {stop_pips:.1f} pip stop · 1% risk\n"
-            f"<i>It passed every autotrade check. Confirm places it; Reject or no answer places nothing. "
+            f"{lots} lots · {stop_pips:.1f} pip stop · {risk:g}% risk\n"
+            f"{note}"
+            f"<i>{passed} Confirm places it; Reject or no answer places nothing. "
             f"A Confirm after the price has reached the entry is refused.</i>")
 
 

@@ -210,6 +210,7 @@ in `sync_events`.
 | `GET /api/admin/sync-events` | every step a broker trade took into the journal |
 | `GET /api/admin/signal-events` | every stage a signal passed through |
 | `autotrade_orders` | every order autotrade placed, and the levels it intended |
+| `platform_settings` | the trading switch (`trade_mode`) AND, since 19 Nov, the engine settings he changes from the admin Autotrade page — pairs, strategies, sessions, cut-off, risk, signal quality, delivery, scan / breakeven. One list `signal_platform/config/engine_settings.json`; website `server/lib/engineSettings.ts`, engine `config/live_settings.py`. No row = Coolify, else the code default. Read `docs/autotrade-disabled.md` (top) |
 | `signal_events` stages `autotrade_*` | every autotrade DECISION: placed, refused, broker refused, withdrawn, failed. Shown on the admin **Autotrade** screen (`GET /api/admin/autotrade`), added 15 Sep |
 
 Read those FIRST. On 02 Sep finding one defect cost four deploys because none of this existed and
