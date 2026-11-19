@@ -29,7 +29,7 @@ def check(name, got, want):
 # Any other `shared.*` module, or any other strategy's file, is strategy logic shared with someone else → FAIL.
 PLUMBING = {"core.base_strategy", "core.types", "core.strategy_context", "core", "storage", "shared.pip",
             "notifications", "charting", "data.tick_listeners"}
-STDLIB = {"__future__", "dataclasses", "statistics", "logging", "re", "time", "httpx"}   # httpx: the web library
+STDLIB = {"__future__", "dataclasses", "statistics", "logging", "re", "time", "functools", "httpx"}   # httpx: the web library
 IMPORT = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import\s+([\w, ]+)|import\s+([\w.]+))", re.M)
 PACKAGES = {"strategies", "data", "shared"}     # `from strategies import x` imports the MODULE strategies.x
 

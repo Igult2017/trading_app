@@ -96,7 +96,7 @@ def zone_plan(h4, h1, m5, m1, price: float, spread: float, d1, flow=None) -> tup
         if tap is None or tap < bz.reached_at + TF_S[bz.tf]:
             continue
         sl = z.bottom if bull else z.top + spread                   # beyond the zone actually traded
-        e = entry_1m(m1, bull, sl, price + (spread / 2 if bull else -spread / 2))   # a buy fills on the ask
+        e = entry_1m(m1, bull, sl, price + (spread / 2 if bull else -spread / 2), spread)   # a buy fills on the ask
         if e is None:
             continue
         ok, flow_why = _flow(flow, m5, m1, bull, tap)
@@ -116,7 +116,7 @@ def zone_plan(h4, h1, m5, m1, price: float, spread: float, d1, flow=None) -> tup
                + (f" — {'/'.join(touching(prof, z.bottom, z.top))} AT THIS ZONE (confluence)"
                   if touching(prof, z.bottom, z.top) else ""),
                *flow_why,
-               f"1M stop order at the last closed candle's {'high' if bull else 'low'}; stop beyond the zone; 3R"]
+               f"1M stop order at the last closed candle's {'high + the spread' if bull else 'low'}; stop beyond the zone; 3R"]
         return Plan("buy" if bull else "sell", "zone", bz.tf, z.top, z.bottom, e, sl, tp, TARGET_R,
                     bz.time, tap, why), ""
     if refused:
@@ -144,7 +144,7 @@ def range_plan(h4, m5, m1, price: float, spread: float, flow=None, h1=None) -> t
             if tap is None:
                 continue
             sl = bot if bull else top + spread
-            e = entry_1m(m1, bull, sl, price + (spread / 2 if bull else -spread / 2))   # a buy fills on the ask
+            e = entry_1m(m1, bull, sl, price + (spread / 2 if bull else -spread / 2), spread)   # a buy fills on the ask
             if e is None:
                 continue
             risk = abs(e - sl)
@@ -161,7 +161,7 @@ def range_plan(h4, m5, m1, price: float, spread: float, flow=None, h1=None) -> t
                    f"{'support' if bull else 'resistance'} {round(p, 5)} respected before, respected again now",
                    f"Room to the opposite level {min(room) / risk:.1f}R (needs {RANGE_MIN_R:.0f}R)",
                    *flow_why,
-                   f"1M stop order at the last closed candle's {'high' if bull else 'low'}; target {rr:.1f}R"]
+                   f"1M stop order at the last closed candle's {'high + the spread' if bull else 'low'}; target {rr:.1f}R"]
             return Plan("buy" if bull else "sell", "range", "5M", top, bot, e, sl, tp, round(rr, 2),
                         t, tap, why), ""
     if refused:

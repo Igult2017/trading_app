@@ -62,10 +62,12 @@ short = h4_series(157.0)
 check("the SAME demand, rally stops at 157 (never reaches the supply) → refused — and the pullback's own supply, "
       "formed AFTER the peak, does not count", demand_of(B.big_zones(short, "4H", "demand", short[-1].close, 30)), [])
 real_travel = B.travelled_to
+B._cache.clear()                     # the zone search remembers each window — clear it so the broken rule is used
 B.travelled_to = lambda closed, z, others: (z, len(closed) - 1)
 teeth("the travel rule (every zone treated as having travelled)",
       len(demand_of(B.big_zones(short, "4H", "demand", short[-1].close, 30))) == 1)
 B.travelled_to = real_travel
+B._cache.clear()
 o = B.Zone("supply", 161.5, 160.0, 160.0, 161.5, 160.75, 5, 6)
 d = B.Zone("demand", 141.5, 140.0, 141.5, 140.0, 140.75, 18, 19)
 check("travelled_to on the tapping series → the supply, tapped by the rally candle (index 21)",
@@ -120,15 +122,21 @@ now = int(time.time()) // 60 * 60
 m1 = [Candle(now - 120, 101.5, 102.0, 101.4, 101.8, 1, "M1"), Candle(now, 101.8, 109.0, 101.7, 101.9, 1, "M1")]
 check("buy stop = the last CLOSED 1M high (the forming bar's 109 is ignored)", S.entry_1m(m1, True, 100.0, 101.9), 102.0)
 check("market already through the entry → no order", S.entry_1m(m1, True, 100.0, 102.1), None)
+check("WITH a 0.3 spread a buy stop sits at the high + spread (102.3): the ASK must break the high, as the BID does "
+      "for a sell", S.entry_1m(m1, True, 100.0, 102.05, 0.3), 102.3)
+check("THE FIX (19 Nov): a candle that closed within a spread of its high (ask 102.05 > the bare 102.0 high) no longer "
+      "kills the buy", S.entry_1m(m1, True, 100.0, 102.05, 0.3) is not None, True)
+check("...and the sell is unchanged: a sell stop at the bare low", S.entry_1m(
+    [Candle(now - 120, 99.6, 99.7, 99.0, 99.2, 1, "M1")], False, 101.0, 99.1, 0.3), 99.0)
 GO = lambda m5, m1, bull, tap: (True, ["order flow: GO (stub)"])
 zone = B.Zone("demand", 101.0, 100.0, 101.0, 100.0, 100.5, 40, 41)
 S.direction, S.daily_atr = (lambda h4, h1: (1, "4H")), (lambda d1: 50.0)
 S.candidates = lambda h4, h1, m5, want, price, reach, **k: [(B.BigZone("4H", zone, 1, zone, 2, 0.9), None)] if want == "demand" else []
 plan, _ = S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [], flow=GO)
-check("...but with the ASK (101.9 + half the 0.3 spread = 102.05) already past the 102.0 entry → no order",
-      S.zone_plan([], [], m5(above + [tap, out]), m1, 101.9, 0.3, [], flow=GO)[0], None)
-check("BUY: entry 102.0, stop 100.0 (zone bottom), target 102 + 3×2 = 108.0", (plan.entry, plan.sl, plan.tp, plan.rr),
-      (102.0, 100.0, 108.0, 3.0))
+check("...but with the ASK (102.2 + half the 0.3 spread = 102.35) already past the 102.3 entry → no order",
+      S.zone_plan([], [], m5(above + [tap, out]), m1, 102.2, 0.3, [], flow=GO)[0], None)
+check("BUY: entry 102.3 (high 102.0 + 0.3 spread), stop 100.0 (zone bottom), target 102.3 + 3×2.3 = 109.2",
+      (plan.entry, plan.sl, round(plan.tp, 6), plan.rr), (102.3, 100.0, 109.2, 3.0))
 check("NO ORDER-FLOW CHECK → no plan (no order flow, no trade)",
       S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [])[0], None)
 check("ORDER FLOW SAYS NO → no plan, and the reason is given",
@@ -215,7 +223,7 @@ print("\nTHE SIGNAL — what reaches the channel")
 from strategies.pix import build_signal  # noqa: E402
 sig = build_signal("XAU/USD", plan, 2, "pix", "PIX")
 check("entry / stop / target / RR carried exactly", (sig.entry_price, sig.stop_loss, sig.take_profit, sig.risk_reward),
-      (102.0, 100.0, 108.0, 3.0))
+      (102.3, 100.0, 109.2, 3.0))
 check("a real monitored signal, not an alert", (sig.alert_only, sig.strategy_id), (False, "pix"))
 
 print(f"\n{'ALL PASS' if not BAD else f'{len(BAD)} of {N[0]} FAILED: {BAD}'} ({N[0]} checks)")

@@ -5423,6 +5423,12 @@ BTC spread $33.82 on 18 Nov. PIX keeps `spread_cap = False`.
 Gold 13-17 Nov: one ~$79-tall supply zone gave a ~$68 stop from a 1M entry (target $200+ away at 3R). That is the rule
 as written (stop beyond the zone's far edge). If he wants the 1M entry to refine the stop, that is his rule to give.
 
+### F8 — The 1M CVD reading on long visits, and how long a PIX entry stays valid — HIS DECISIONS (19 Nov 2026)
+(a) On a visit of up to an hour the 1M window is ~70 candles, so its two halves no longer compare the approach with the
+visit. Two fixes give OPPOSITE answers when sellers push into the zone and buyers win the touching candle (one reads
+it divergence, the other convergence) — his call which he means. (b) PIX sets no expiry, so a "last 1M high" stop
+order stays live 24 h; the 2-year backtest measures 15 min / 1 h / 4 h / 24 h (`docs/strategies/pix-backtest-2026-11.md`).
+
 ### F7 — PIX shares the PROGRAM with the other strategies (not their logic)
 Scanner, candle feed, Telegram, database: if the scanner or the broker connection stops, every strategy stops. Running
 PIX as its own program would separate that; not asked for yet.

@@ -291,6 +291,11 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 
 ## PROGRESS — what actually happened, newest first
 
+**2026-11-19 — PIX audited + 2-year backtest (his request).** Fixed: buys dropped whenever the 1M candle closed
+within a spread of its high (buy entry = high + spread); 25× faster decisions, same answers. Result: not profitable
+over 2 years (BTC −0.07R, EUR/USD −0.19R, gold +0.03R before commission; BTC with the order-flow gate −0.19R on 108
+trades); divergence does NOT predict direction. `docs/strategies/pix-backtest-2026-11.md`, OPEN F8.
+
 **2026-11-19 — Barchart gold-options Greeks & volatility scraper built, SWITCHED OFF.** Six fetches a day (Asia /
 London / New York open + 5 and + 20 min), the MyFXBook shape, no challenge solver. `docs/barchart.md`, OPEN G1.
 

@@ -59,6 +59,26 @@ def imbalance(buy: float, sell: float) -> float:
     return (buy - sell) / tot if tot > 0 else 0.0
 
 
+def cvd_state(span: list[Candle], flows: dict[int, tuple[float, float]], bull: bool) -> str:
+    """"divergence" | "convergence" | "neutral" over the approach + visit, split in halves (the rule as built).
+    Price made a new extreme into the zone in the later half: CVD did not → divergence; CVD did too → convergence."""
+    cvd, run = [], 0.0
+    for x in span:
+        b, s = flows[x.time]
+        run += b - s
+        cvd.append(run)
+    h = len(span) // 2
+    if bull:
+        new_price = min(x.low for x in span[h:]) < min(x.low for x in span[:h])
+        new_cvd = min(cvd[h:]) < min(cvd[:h])
+    else:
+        new_price = max(x.high for x in span[h:]) > max(x.high for x in span[:h])
+        new_cvd = max(cvd[h:]) > max(cvd[:h])
+    if not new_price:
+        return "neutral"
+    return "convergence" if new_cvd else "divergence"
+
+
 def verdict(candles: list[Candle], flows: dict[int, tuple[float, float]], bull: bool, tap_time: int,
             tf: str, prints: dict[int, dict[float, tuple[float, float]]] | None = None) -> Verdict:
     """Order-flow verdict for a visit that began at `tap_time`, on one timeframe (`tf` only labels the reasons).
@@ -112,19 +132,9 @@ def verdict(candles: list[Candle], flows: dict[int, tuple[float, float]], bull: 
     reasons.append(f"{tf} INITIATION: {'buyers' if bull else 'sellers'} {imb:.0%} one-sided as price left the zone, "
                    f"volume {vol / avg:.1f}× the average" + (f", {stacked} stacked imbalance(s)" if stacked else ""))
 
-    cvd, run = [], 0.0                                               # CVD DIVERGENCE / CONVERGENCE
-    for x in span:
-        b, s = flows[x.time]
-        run += b - s
-        cvd.append(run)
-    h = len(span) // 2
-    if bull:
-        new_price = min(x.low for x in span[h:]) < min(x.low for x in span[:h])
-        new_cvd = min(cvd[h:]) < min(cvd[:h])
-    else:
-        new_price = max(x.high for x in span[h:]) > max(x.high for x in span[:h])
-        new_cvd = max(cvd[h:]) > max(cvd[:h])
-    if new_price and new_cvd:
+    state = cvd_state(span, flows, bull)                             # CVD DIVERGENCE / CONVERGENCE
+    new_price = state != "neutral"
+    if state == "convergence":
         return Verdict(REFUSE, reasons + [f"{tf} CVD CONVERGENCE: CVD followed price to a new "
                                           f"{'low' if bull else 'high'} into the zone — may not respect"])
     reasons.append(f"{tf} CVD DIVERGENCE: price made a new {'low' if bull else 'high'} into the zone, CVD did not"

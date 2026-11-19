@@ -115,6 +115,18 @@ SAW = zig([1.200, 1.210] * 12)
 chk("a perfect sawtooth (every high and low EXACTLY equal) reads RANGING, not down", regime(SAW), 0)
 chk("a still-forming last candle is ignored (closed candles only)", regime(FORMING), regime(UP4[:-1]))
 
+import time as _t  # noqa: E402
+import strategies.pix_candles as PC  # noqa: E402
+old_rule = lambda cs, now: [c for c in cs if c.time + PC.bar_seconds(c.timeframe) <= now]  # noqa: E731 — the old way
+now = _t.time()
+mixed = UP4[:-3] + [Candle(time=int(now) - 3600 * k, open=1, high=1, low=1, close=1, volume=0, timeframe="H4")
+                    for k in (5, 2, 1)]                      # the last three: closed, forming, forming
+chk("FAST closed-candle check = the old one-by-one check on a series with forming candles at the end",
+    [c.time for c in PC.closed_only(mixed, now)], [c.time for c in old_rule(mixed, now)])
+chk("...and on a fully closed series", len(PC.closed_only(UP4, now)), len(old_rule(UP4, now)))
+chk("...it returns a COPY (changing the result never changes the caller's candles)",
+    PC.closed_only(UP4, now) is UP4, False)
+
 print()
 print(f"{'ALL PASS' if not F else str(len(F)) + ' FAILED: ' + str(F)}  ({N} checks)")
 sys.exit(1 if F else 0)
