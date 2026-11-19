@@ -48,7 +48,7 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
       {/* Header */}
       <div style={{ padding: "10px 16px 8px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: 9, color: C.dim, letterSpacing: "0.06em", fontFamily: "monospace" }}>SIGNAL PLATFORM STATUS</div>
+          <div style={{ fontSize: 11, color: C.dim, letterSpacing: "0.06em", fontFamily: "monospace" }}>SIGNAL PLATFORM STATUS</div>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
             <span title={connected ? "cTrader connected" : "cTrader NOT connected"}
               style={{ width: 9, height: 9, borderRadius: "50%", background: lightCtrader, boxShadow: `0 0 7px ${lightCtrader}`, animation: "sp-blink 1.4s ease-in-out infinite" }} />
@@ -60,18 +60,18 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
             It used to be a boolean sniffed out of the free-text market context, so it could only
             ever say CONFIRMED or NOT CONFIRMED and could not tell a setup being WATCHED from a
             live entry — the distinction the two-stage cards are built on. */}
-        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em",
+        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.04em",
           color: STATE_UI[state ?? "unknown"].color }}>
           {STATE_UI[state ?? "unknown"].label}
         </div>
-        <button style={{ background: C.bg3, border: `1px solid ${C.border2}`, color: C.text, fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", padding: "5px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+        <button style={{ background: C.bg3, border: `1px solid ${C.border2}`, color: C.text, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", padding: "5px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
           <Bell size={11} /> ALERT
         </button>
       </div>
 
       <div style={{ padding: "16px 24px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
         {isLoading ? (
-          <div style={{ textAlign: "center", color: C.muted, fontSize: 10, letterSpacing: "0.1em" }}>CHECKING STATUS…</div>
+          <div style={{ textAlign: "center", color: C.muted, fontSize: 12, letterSpacing: "0.1em" }}>CHECKING STATUS…</div>
         ) : (
           <>
             {/* Error box — only shown when Python reported a failure */}
@@ -79,9 +79,9 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
               <div style={{ background: "rgba(244,97,127,0.08)", border: "1px solid rgba(244,97,127,0.3)", borderRadius: 6, padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <AlertTriangle size={14} color="#f4617f" style={{ flexShrink: 0, marginTop: 1 }} />
                 <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#f4617f", letterSpacing: "0.08em", marginBottom: 6 }}>BOOT ERROR</div>
-                  <div style={{ fontSize: 10, color: "#f4617f", marginBottom: ps.hint ? 8 : 0, lineHeight: 1.5 }}>{ps.error}</div>
-                  {ps.hint && <div style={{ fontSize: 9, color: C.muted, lineHeight: 1.5 }}>{ps.hint}</div>}
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#f4617f", letterSpacing: "0.08em", marginBottom: 6 }}>BOOT ERROR</div>
+                  <div style={{ fontSize: 12, color: "#f4617f", marginBottom: ps.hint ? 8 : 0, lineHeight: 1.5 }}>{ps.error}</div>
+                  {ps.hint && <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{ps.hint}</div>}
                 </div>
               </div>
             )}
@@ -90,8 +90,8 @@ export default function SignalPlatformStatus({ darkMode = true, selectedSymbol =
             <div style={{ display: "flex", gap: 16 }}>
               {[{ label: "SIGNALS 24H", value: data?.signalsLast24h ?? 0 }, { label: "ACTIVE NOW", value: data?.activeSignalsLast24h ?? 0 }].map(({ label, value }) => (
                 <div key={label} style={{ flex: 1, background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 4, padding: "12px 16px" }}>
-                  <div style={{ fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.14em", marginBottom: 6 }}>{label}</div>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: value > 0 ? "#22d3a5" : C.muted }}>{value}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.dim, letterSpacing: "0.14em", marginBottom: 6 }}>{label}</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: value > 0 ? "#22d3a5" : C.muted }}>{value}</div>
                 </div>
               ))}
             </div>

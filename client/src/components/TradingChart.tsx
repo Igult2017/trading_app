@@ -897,7 +897,7 @@ export default function TradingChart({
       <div style={{
         position: "absolute", top: 6, left: 10, zIndex: 10,
         display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
-        fontSize: 9, fontWeight: 700, letterSpacing: "0.07em", pointerEvents: "none",
+        fontSize: 11, fontWeight: 700, letterSpacing: "0.07em", pointerEvents: "none",
       }}>
         {activeDefs.map(d => {
           const hasSubLabels = d.series.length > 1 && d.series.some(s => s.label);
@@ -938,7 +938,7 @@ export default function TradingChart({
         <div style={{
           position: "absolute", top: 6, right: 8, zIndex: 10,
           display: "flex", alignItems: "center", gap: 4,
-          fontSize: 9, fontWeight: 700, letterSpacing: "0.1em",
+          fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
           pointerEvents: "none",
         }}>
           <span style={{
@@ -983,7 +983,7 @@ export default function TradingChart({
           position: "absolute", inset: 0, display: "flex",
           alignItems: "center", justifyContent: "center",
           background: "rgba(8,12,16,0.85)",
-          fontSize: 11, color: "#4a6580", letterSpacing: "0.1em",
+          fontSize: 13, color: "#4a6580", letterSpacing: "0.1em",
         }}>
           LOADING CHART…
         </div>
@@ -995,10 +995,10 @@ export default function TradingChart({
           alignItems: "center", justifyContent: "center",
           background: "rgba(8,12,16,0.85)",
           flexDirection: "column", gap: 8,
-          fontSize: 11, color: "#ef5350", letterSpacing: "0.1em",
+          fontSize: 13, color: "#ef5350", letterSpacing: "0.1em",
         }}>
           <span>CHART UNAVAILABLE</span>
-          <span style={{ fontSize: 9, color: "#4a6580" }}>{error}</span>
+          <span style={{ fontSize: 11, color: "#4a6580" }}>{error}</span>
         </div>
       )}
     </div>
