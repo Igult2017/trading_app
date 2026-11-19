@@ -299,7 +299,10 @@ trades); divergence does NOT predict direction. `docs/strategies/pix-backtest-20
 **2026-11-19 — those numbers measured the OLD entry; the 1M entry is REBUILT to his sequence.** A zone must prove
 itself: touch → 2+ 1M candles our way → the first opposite candle → stop order off it, stop behind the pullback.
 Absorption refuses; divergence + delta only confirm, and the card says whether they agree. The tick-count estimate is
-per symbol (`pix_tickflow`). Not backtested (his "Don't run that test"); kit rebuild = OPEN F9. `pix.md` rule 5.
+per symbol (`pix_tickflow`). `pix.md` rule 5.
+
+**2026-11-19 — 2-year win rate of the 1M entry (his request):** BTC 18.2%, gold 22.8%, EUR/USD 16.6% — all under
+the 25% break-even of a 3R target. `docs/strategies/pix-backtest-1m-entry.md`; the stop-size question is OPEN F10.
 
 **2026-11-19 — Barchart gold-options Greeks & volatility scraper built, SWITCHED OFF.** Six fetches a day (Asia /
 London / New York open + 5 and + 20 min), the MyFXBook shape, no challenge solver. `docs/barchart.md`, OPEN G1.

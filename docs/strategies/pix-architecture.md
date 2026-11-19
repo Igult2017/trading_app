@@ -47,6 +47,6 @@ platform also holds back a repeat while one is open (one active signal per strat
 ## Known open defects
 - Rule 7 (his management) is not built. Gold's order flow is an ESTIMATE (price ticks, not money) and has no figures
   for about an hour after every restart — the card then says "not available yet" (it no longer blocks the signal).
-- The new entry has NOT been backtested (his "Don't run that test"); the 2-year report measured the old entry.
-  The backtest kit (`trading_app_data/tools/pix_bt.py`) calls the deleted functions and must be rebuilt before any
-  re-run (`OPEN.md` F9).
+- The 1M entry was backtested over 2 years on his request (`pix-backtest-1m-entry.md`): BTC 18.2%, gold 22.8%,
+  EUR/USD 16.6% wins, all under the 25% a 3R target needs. The stop behind the pullback is only ~3x the spread on BTC
+  and EUR/USD (`OPEN.md` F10, his decision).

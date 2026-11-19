@@ -5427,12 +5427,13 @@ as written (stop beyond the zone's far edge). If he wants the 1M entry to refine
 (a) On a visit of up to an hour the 1M window is ~70 candles, so its two halves no longer compare the approach with the
 visit (still true after the 19 Nov entry rebuild — the divergence on the card reads the same halves). Two fixes give OPPOSITE answers when sellers push into the zone and buyers win the touching candle (one reads
 it divergence, the other convergence) — his call which he means. (b) PIX sets no expiry, so a "last 1M high" stop
-order stays live 24 h; the 2-year backtest measures 15 min / 1 h / 4 h / 24 h (`docs/strategies/pix-backtest-2026-11.md`).
+order stays live 24 h. With the 1M entry it does not matter: 90% fill within 3 minutes and 15 min vs 24 h differ by under 0.001R (`docs/strategies/pix-backtest-1m-entry.md`) — (b) is answered by measurement; still his to set.
 
-### F9 — PIX's backtest kit measures the OLD entry (19 Nov 2026)
-`trading_app_data/tools/pix_bt.py` calls `respected_5m` / `entry_1m` / `verdict`, deleted when the 1M entry was rebuilt
-to his sequence. Rebuilding it (and proving it again under the 10 test-kit rules) is the first step of any backtest of
-the new entry — which needs his yes; he said *"Don't run that test"* for now.
+### ~~F9 — PIX's backtest kit measures the OLD entry~~ — CLOSED 19 Nov 2026
+Rebuilt for the 1M entry (`pix_bt.py` asks PIX at every 1M close; proven by `pix_bt_test.py`, 15 checks with teeth; 30 trades re-derived by `pix_bt_handcheck.py`) and run on his request. Result: `docs/strategies/pix-backtest-1m-entry.md` — BTC 18.2%, gold 22.8%, EUR/USD 16.6% wins against a 25% break-even.
+
+### F10 — PIX's stop behind the pullback is 3x the spread on BTC and EUR/USD — HIS DECISION (19 Nov 2026)
+Median stop $108 on Bitcoin (3.2x its spread), 3.0 pips on EUR/USD (3.0x its cost), $2.69 on gold (9.0x). The pair with the roomiest stop is closest to break-even — an observation, not a proven cause. Whether to test a wider stop (e.g. the zone's far edge, his option (a) this morning) is his call. Also: the 1M "last hour" window counts 60 CANDLES, so after the Sunday open it reaches back to Friday (live PIX does the same).
 
 ### F7 — PIX shares the PROGRAM with the other strategies (not their logic)
 Scanner, candle feed, Telegram, database: if the scanner or the broker connection stops, every strategy stops. Running
