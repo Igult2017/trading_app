@@ -13,6 +13,7 @@ import logging
 import os
 
 from config.settings import settings
+from notifications import copy_dm   # PIX (for now) → his DM via the copy bot, 19 Nov 2026
 from core import event_bus
 from core.types import Signal
 from notifications.telegram_formatter import format_setup_alert, format_signal_watch
@@ -46,21 +47,22 @@ def _get_bot():
 
 
 async def _send_text(message: str, chat_id: str | None = None, reply_markup=None,
-                     sent_ids: list | None = None) -> bool:
+                     sent_ids: list | None = None, bot=None, retries: int = _MAX_RETRIES) -> bool:
     """Default target is the public signal channel; pass chat_id to route elsewhere
     (e.g. the admin DM for system telemetry). Returns True iff the message was delivered.
 
     `reply_markup` (buttons) and `sent_ids` (the sent message's id is appended) were added 16 Nov 2026
     for the Tradeable / Untradeable buttons (`notifications/mark_buttons`). Both default to nothing,
-    so every existing caller is unchanged."""
-    bot = _get_bot()
+    so every existing caller is unchanged. `bot` / `retries` (19 Nov 2026) let the copy-bot route send once
+    through a second bot; left out, the usual bot and 3 attempts are used exactly as before."""
+    bot = bot or _get_bot()
     target = chat_id or settings.telegram_chat_id
     if not bot or not target:
         # WARNING: every message the platform produces is being thrown away. Silent at DEBUG.
         log.warning("[dispatcher] Telegram NOT CONFIGURED — message discarded, nothing will be sent")
         return False
 
-    for attempt in range(1, _MAX_RETRIES + 1):
+    for attempt in range(1, retries + 1):
         try:
             msg = await bot.send_message(
                 chat_id=target,
@@ -73,8 +75,8 @@ async def _send_text(message: str, chat_id: str | None = None, reply_markup=None
             log.info("[dispatcher] message sent")
             return True
         except Exception as exc:
-            log.warning(f"[dispatcher] send attempt {attempt}/{_MAX_RETRIES} failed: {exc}")
-            if attempt < _MAX_RETRIES:
+            log.warning(f"[dispatcher] send attempt {attempt}/{retries} failed: {exc}")
+            if attempt < retries:
                 await asyncio.sleep(_RETRY_DELAY)
 
     log.error("[dispatcher] all Telegram retries exhausted — message lost")
@@ -118,13 +120,13 @@ def _fit_caption(text: str) -> str:
 
 
 async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None, reply_markup=None,
-                      sent_ids: list | None = None) -> bool:
+                      sent_ids: list | None = None, bot=None, retries: int = _MAX_RETRIES) -> bool:
     """Returns whether the card actually went out — by photo or by the text fallback.
 
     Returned `None` unconditionally until 2026-07-27, so every caller treated a total send failure
     as success. A signal that was never delivered looked exactly like one that was.
     """
-    bot = _get_bot()
+    bot = bot or _get_bot()
     target = chat_id or settings.telegram_chat_id
     if not bot or not target:
         log.error("[dispatcher] cannot send chart — %s",
@@ -146,7 +148,8 @@ async def _send_photo(chart_path: str, caption: str, chat_id: str | None = None,
         return True
     except Exception as exc:
         log.warning(f"[dispatcher] photo send failed ({exc}) — falling back to text")
-        return await _send_text(caption, chat_id=chat_id, reply_markup=reply_markup, sent_ids=sent_ids)
+        return await _send_text(caption, chat_id=chat_id, reply_markup=reply_markup, sent_ids=sent_ids, bot=bot,
+                                retries=retries)
 
 
 def _channel_all(strategy_id: str | None) -> bool:
@@ -213,7 +216,9 @@ async def on_setup_alert(signal: Signal) -> None:
     # CHANNEL_ALL forces the channel regardless of `to_channel` or the kill-switch — his
     # *"send everything for BX on the channel"*. It cannot be reached by a strategy that is not
     # named in the setting, so nothing else is republished.
-    if _channel_all(_sid) or (signal.to_channel and (not settings.signals_dm_only or _exempt)):
+    if copy_dm.route(_sid):
+        ok = await copy_dm.send(caption, chart if has_chart else None)   # his DM via the copy bot (19 Nov)
+    elif _channel_all(_sid) or (signal.to_channel and (not settings.signals_dm_only or _exempt)):
         ok = (await _send_photo(chart, caption) if has_chart          # public signal channel
               else await _send_text(caption))
     else:
@@ -308,7 +313,11 @@ async def on_signal_confirmed(signal: Signal) -> None:
         target = settings.watchdog_chat_id
     else:
         target = settings.telegram_chat_id
-    if not target:
+    via_copy = copy_dm.route(signal.strategy_id) and not getattr(signal, "manual", False)
+    if via_copy:
+        # HIS DM THROUGH THE COPY BOT (his request, 19 Nov 2026) — checked before the channel rules, never the channel.
+        sent = await copy_dm.send(message, chart if chart and os.path.isfile(chart) else None)
+    elif not target:
         # ERROR, not DEBUG. This branch DISCARDS a fully-formed, already-saved signal because of a
         # missing config value, and at DEBUG it was invisible at production log level — a signal
         # could vanish here without leaving a single line. It is a misconfiguration, and it must be
@@ -500,7 +509,9 @@ async def on_signal_closed(signal_id: str) -> None:
         # card, because before that was fixed a DM-held strategy's outcome leaked to subscribers who
         # had never seen its entry.
         exempt = strategy in {s.strip() for s in settings.dm_only_exempt.split(",") if s.strip()}
-        if _channel_all(strategy):
+        if copy_dm.route(strategy):
+            await copy_dm.send(message)  # his DM via the copy bot, like its entry card (19 Nov 2026)
+        elif _channel_all(strategy):
             await _send_text(message)          # his "everything on the channel"
         elif settings.channel_entries_only or (settings.signals_dm_only and not exempt):
             await _send_private(message)

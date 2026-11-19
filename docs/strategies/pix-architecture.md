@@ -29,7 +29,9 @@ H4 + H1 ── direction ┬── trending ── candidates: 5M inside 1H/4H �
                      │                     closed candle; live ask/bid) + no 5M close through → ORDER FLOW: absorption
                      │                     (5M/1M) refuses; divergence + delta (1M) → card line → 3R
                      └── ranging / no zone plan ── range_plan(M5 swing levels; 2nd respect = the same 1M proof; ≥2R)
-Plan → build_signal → dispatcher → CHANNEL (dm_only_exempt). autotrade: refused (not in autotrade_strategies).
+Plan → build_signal → dispatcher → HIS DM via the COPY bot @tandjournal_copybot (`notifications/copy_dm`, setting
+COPY_BOT_DM_STRATEGIES="pix", his "for now" of 19 Nov; usual bot's DM if the copy bot is refused). Emptying that
+setting puts PIX back on the CHANNEL (dm_only_exempt). autotrade: refused (not in autotrade_strategies).
 ```
 Dedup key: `{symbol}_pix_{path}_{tf}_{level time}_{pullback candle time}` — one signal per proven pullback, committed on delivery; the
 platform also holds back a repeat while one is open (one active signal per strategy + pair + direction).

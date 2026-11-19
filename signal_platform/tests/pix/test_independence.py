@@ -106,6 +106,9 @@ D._send_text, D._record_delivery = _text, _nothing
 object.__setattr__(settings, "telegram_chat_id", "CHANNEL")
 object.__setattr__(settings, "watchdog_chat_id", "HIS-DM")
 plan = Plan("buy", "zone", "4H", 101.0, 100.0, 102.0, 100.0, 108.0, 3.0, 1, 2, 3, ["test"])
+# 19 Nov 2026: PIX goes to his DM through the copy bot "for now" (`tests/test_copy_bot_route.py` proves that route).
+# This block tests the CHANNEL ALLOWLIST underneath it, so that route is set aside here.
+object.__setattr__(settings, "copy_bot_dm_strategies", "")
 asyncio.new_event_loop().run_until_complete(D.on_signal_confirmed(build_signal("XAU/USD", plan, 2, "pix", "PIX")))
 check("a confirmed PIX entry is sent to the CHANNEL", sent, ["CHANNEL"])
 sent.clear()

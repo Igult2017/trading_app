@@ -100,6 +100,15 @@ class Settings(BaseSettings):
     # messages, not a strategy's, so they have no strategy id to match and stay on their own routing.
     channel_all: str = "bx_sd"
 
+    # ── Strategies whose cards go to HIS DM through the COPY bot (19 Nov 2026) ─────────────────────
+    # His words: *"can we direct PIX signals to DM of @tandjournal_copybot for now"*. Entry, heads-up
+    # and outcome cards of a strategy named here go to WATCHDOG_CHAT_ID sent by TELEGRAM_COPY_BOT_TOKEN
+    # — never the channel — and fall back to the usual bot's DM if the copy bot cannot deliver (it can
+    # only message him after he has pressed Start on it). "For now": COPY_BOT_DM_STRATEGIES="" puts the
+    # strategy back on its normal routing with no code change.
+    telegram_copy_bot_token: str = ""
+    copy_bot_dm_strategies: str = "pix"
+
     # ── Data source 1: cTrader Open API (primary, run auth_setup.py once) ────
     # Credentials: https://ctrader.com/your-app-portal → Applications
     # Account ID: cTrader platform → Settings → Account Info
@@ -233,7 +242,8 @@ class Settings(BaseSettings):
     autotrade_fixed_lots:  float = 0.0     # >0 pins the size and IGNORES risk_pct — for diagnostics,
                                            # where the point is observing fills, not sizing exposure
 
-    @field_validator("telegram_bot_token", "telegram_chat_id", "watchdog_chat_id", mode="after")
+    @field_validator("telegram_bot_token", "telegram_chat_id", "watchdog_chat_id", "telegram_copy_bot_token",
+                     mode="after")
     @classmethod
     def _clean_ids(cls, v: str) -> str:
         """Strip surrounding quotes and whitespace from Telegram credentials.
