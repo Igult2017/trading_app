@@ -197,9 +197,16 @@ from notifications.telegram_tap_alert import format_tap_alert, _SIGNOFFS   # noq
 msg = format_tap_alert(sig)
 chk("never calls itself a signal", "SIGNAL" in msg.upper().replace("SIGNAL PLATFORM", ""), False)
 chk("says plainly it is not an entry", "Not an entry" in msg, True)
-chk("shows what is there", "WHAT'S THERE" in msg, True)
-chk("says the setup already qualifies by the method", "ALREADY QUALIFIES" in msg, True)
-chk("explains why we still stand aside", "WHY WE STILL WAIT" in msg, True)
+# THE HEADINGS WENT ON 20 NOV 2026 (his ask: "tick it with green, no explanation ... like a checklist"). The same
+# facts must still be on the card: what is there and why the method takes it as ticks, why we wait as hourglasses.
+chk("shows what is there (each fact ticked)",
+    all(f"✅ {f}" in msg for f in sig.technical_reasons), True)
+chk("says the setup already qualifies by the method (each reason ticked)",
+    all(f"✅ {w}" in msg for w in sig.smc_factors), True)
+chk("explains why we still stand aside (each reason marked to wait)",
+    bool(sig.disqualifiers) and all(f"⏳ {m}" in msg for m in sig.disqualifiers), True)
+chk("and the three old headings are gone", any(h in msg for h in ("WHAT'S THERE", "ALREADY QUALIFIES",
+                                                                   "WHY WE STILL WAIT")), False)
 chk("  and names the reason, not just the absence",
     "DECISIONAL zone" in msg, True)
 # THE WARNING IS THE POINT OF THIS CARD (2026-08-15). His rule: *"for decisional, you can send a
@@ -266,8 +273,9 @@ older_sig = tap_alert_signal(z, "EUR/USD", "CHoCH", "5M", 5, "BX-S/D", "bx_sd", 
 older_sig.dedup_key = "k"
 chk("the rendered card omits the claim when it is not true",
     "most recent valid zone" in format_tap_alert(older_sig), False)
-chk("  but still says the setup qualifies",
-    "ALREADY QUALIFIES" in format_tap_alert(older_sig), True)
+chk("  but still says the setup qualifies (its method reasons are ticked)",
+    bool(older_sig.smc_factors) and all(f"✅ {w}" in format_tap_alert(older_sig) for w in older_sig.smc_factors),
+    True)
 
 # THE CAPTION CAP. This card always ships with a chart, and Telegram REJECTS a photo caption over
 # 1024 chars — it does not truncate. Over the line and the send fails, the reader gets text with no

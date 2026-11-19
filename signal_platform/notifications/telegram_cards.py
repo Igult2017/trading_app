@@ -101,41 +101,36 @@ def format_signal_confirmed(signal: Signal) -> str:
     head = titles.for_signal(signal, titles.CONFIRMED_ENTRY if not signal.headline else "")
     when = _stamp(signal.created_at)          # when the SETUP fired, not when the message was built
     lines = [head]
-    if signal.label or when:
-        chips = "  ·  ".join([c for c in (_h(signal.label) if signal.label else "", when) if c])
-        lines.append(f"<i>{chips}</i>")
+    if when:
+        lines.append(f"<i>{when}</i>")
     lines.append(rule)
 
-    # 2. THE THREE PRICES — the only things you type into a broker. Kept adjacent and uninterrupted.
-    if signal.entry_price:
-        lines.append(f"📍 Entry    <code>{signal.entry_price:.{d}f}</code>")
-    if signal.stop_loss:
-        lines.append(f"🛑 Stop     <code>{signal.stop_loss:.{d}f}</code>")
-    if signal.take_profit:
-        lines.append(f"🎯 Target   <code>{signal.take_profit:.{d}f}</code>")
+    # 2. THE THREE PRICES ON ONE LINE — the only things you type into a broker (his ask, 20 Nov 2026: "less wordy").
+    prices = [f"{tag} <code>{v:.{d}f}</code>" for tag, v in
+              (("📍 Entry", signal.entry_price), ("🛑 Stop", signal.stop_loss), ("🎯 Target", signal.take_profit)) if v]
+    if prices:
+        lines.append("  ·  ".join(prices))
 
-    # 3. THE MATHS — one line, not four. Risk in pips is what sizes the trade, so it earns its place.
+    # 3. THE ORDER AND THE MATHS — one line. Risk in pips is what sizes the trade.
     bits = []
+    if getattr(signal, "order_type", ""):
+        bits.append(_h(signal.order_type))
     if signal.risk_reward:
         bits.append(f"<b>1:{signal.risk_reward:.1f}</b>")
     risk = _risk_pips(signal)
     if risk is not None:
         bits.append(f"{risk:.1f} pips risk")
-    if signal.confidence:
-        bits.append(f"{signal.confidence * 100:.0f}%")
     if bits:
-        lines += [rule, "⚖️ " + "  ·  ".join(bits)]
+        lines.append("⚖️ " + "  ·  ".join(bits))
 
-    # 4. WHY — ticks, no heading. A heading called "Reasons:" above a list of reasons is a wasted line.
-    if signal.technical_reasons:
-        lines.append("")
-        lines += [_tick(_h(r)) for r in signal.technical_reasons[:5]]
-
-    # market_context is a prose restatement of the reasons above — dropped rather than repeated.
-    if signal.zone_notes:
-        lines += [""] + [f"📌 {_h(z)}" for z in signal.zone_notes[:4]]
-    if signal.news_note:
-        lines += ["", f"📰 {_h(signal.news_note)}"]
+    # 4. THE CHECKLIST — HIS FORMAT, 20 Nov 2026: *"Just write the reason for qualifying the signal and tick it with
+    # green, no explanation … like a checklist."* One `✅ name` per rule the signal passed, set by the strategy
+    # (`Signal.checklist`). A ⚠️ item (a late entry, a correlated pair) keeps its own marker and gets no tick.
+    # NO PROSE FALLBACK: a strategy without a checklist shows no reason lines, never the old sentences — they stay on
+    # the signal (`technical_reasons`) for the Assets page and the log.
+    ticks = [_tick(_h(c)) for c in (getattr(signal, "checklist", None) or [])]
+    if ticks:
+        lines += [rule] + ticks
 
     return "\n".join(lines)
 
@@ -148,7 +143,8 @@ def format_signal_closed(symbol: str, direction: str, status: str,
                           take_profit: float | None = None,
                           stop_loss: float | None = None,
                           closed_at=None,
-                          opened_at=None) -> str:
+                          opened_at=None,
+                          order_note: str | None = None) -> str:
     """The outcome card — the other half of an entry the channel already saw. Same shape as the
     entry card so the pair reads as one story, and it leads with the ONE thing a follower wants:
     did it win, and by how much."""
@@ -188,6 +184,11 @@ def format_signal_closed(symbol: str, direction: str, status: str,
         sub += f"  (opened {opened})"
     if sub:
         lines.append(f"<i>{_h(sub)}</i>")
+    # NO REAL TRADE BEHIND IT (his report, 20 Nov 2026: "TP hit … and the order had been withdrawn long ago or was not
+    # placed"). `order_note` comes from `notifications/order_memory`: it says the outcome is the SIGNAL's, and what
+    # happened to the order. Only on a target or a stop — an expired setup never claimed a trade.
+    if order_note and status in (SignalStatus.EXECUTED.value, SignalStatus.INVALIDATED.value):
+        lines.append(f"📄 <b>Signal only</b> — {_h(order_note)}")
     lines.append("━━━━━━━━━━━━━━━━━━━")
     if entry:
         lines.append(f"📍 Entry    <code>{entry:.{d}f}</code>")

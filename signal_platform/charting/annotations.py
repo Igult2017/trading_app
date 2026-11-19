@@ -118,17 +118,29 @@ def mark_candles(ax, candles: list[Candle], marks: list[tuple] | None) -> None:
         if i is None:                       # older than the window — nothing to point at
             continue
         c = candles[i]
-        pad = (c.high - c.low) * 0.16 or 0.0002
-        # A SOFT FILLED COLUMN, not an outline. The reference card highlights its key candle with a
-        # tinted band behind it; a dashed ring competes with the candle it is pointing at, and all
-        # but disappears once Telegram scales the card down.
-        box = ((i - 0.58, c.low - pad * 1.6), 1.16, (c.high - c.low) + pad * 3.2)
-        ax.add_patch(Rectangle(*box, facecolor=theme.MARK_WASH, edgecolor="none", zorder=2))
-        ax.add_patch(Rectangle(*box, facecolor="none", edgecolor=theme.MARK,
-                               linewidth=1.1, zorder=6))
+        # THE CANDLE ITSELF, MADE HEAVIER — NO BOX (his report, 20 Nov 2026: *"the volume candles are poorly printed,
+        # they look like they are not volume candles"*). Reproduced on the 19 Nov 21:00 gold candle (347-pip body): a
+        # pale box wider than the body framed a thin bar, so the eye read a highlighted SLOT, not a big candle. Now the
+        # real candle is redrawn on top in its own colour, wider than its neighbours and outlined in dark ink.
+        up = c.close >= c.open
+        col = theme.UP if up else theme.DOWN
+        lo, hi = (c.open, c.close) if up else (c.close, c.open)
+        ax.plot([i, i], [c.low, c.high], color=theme.INK, linewidth=2.6, solid_capstyle="round", zorder=6)
+        ax.add_patch(Rectangle((i - 0.45, lo), 0.90, max(hi - lo, 1e-9), facecolor=col,
+                               edgecolor=theme.INK, linewidth=2.0, zorder=7))
         if label:
-            ax.text(i, c.high + pad * 1.9, label, va="bottom", ha="center", color=theme.INK,
-                    fontproperties=theme.font(11, bold=True), zorder=7)
+            # ABOVE EVERYTHING NEAR IT, never across it: the label used to sit just over this candle's own high and so
+            # ran across the taller candles beside it. It goes above the highest of its neighbours, on a paper
+            # background — and below the lowest of them if there is no room at the top of the chart.
+            near = candles[max(0, i - 4): i + 5]
+            top_, bot_ = ax.get_ylim()[1], ax.get_ylim()[0]
+            gap = (top_ - bot_) * 0.03
+            y_hi = max(x.high for x in near) + gap
+            above = y_hi + gap * 1.5 < top_
+            ax.text(i, y_hi if above else min(x.low for x in near) - gap, label,
+                    va="bottom" if above else "top", ha="center", color=theme.INK,
+                    fontproperties=theme.font(11, bold=True), zorder=8,
+                    bbox=dict(facecolor=theme.PAPER, edgecolor="none", pad=1.5))
 
 
 def projection(ax, n: int, entry: float, target: float, buy: bool) -> None:

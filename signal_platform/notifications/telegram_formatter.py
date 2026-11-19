@@ -34,6 +34,15 @@ def format_setup_alert(signal: Signal) -> str:
     # a heads-up and a zone reaction. `headline` already existed and the card already drew it; only
     # this side ignored it, which is why the picture and the text disagreed.
     lines = [titles.for_signal(signal)]
+    # THE CHECKLIST FORM (his ask, 20 Nov 2026: "tick it with green, no explanation"). When the strategy hands over the
+    # rules this heads-up passed, the card is the title, the time, one status line and the ticks — no paragraphs.
+    # Heads-ups WITHOUT a checklist (an invalidation, the momentum announcement's test verdicts) keep their lines,
+    # because there the sentence IS the information.
+    if getattr(signal, "checklist", None):
+        lines += [f"<i>{_stamp(signal.created_at)}</i>", "──────────────────────────", status]
+        lines += [("✅ " if c[:1].isascii() else "") + _h(c) for c in signal.checklist]
+        lines += ["──────────────────────────", "👁 <i>Heads-up only — trade at your discretion</i>", SIGNATURE_HTML]
+        return "\n".join(lines)
     if signal.label:
         lines.append(f"🏷 <b>{_h(signal.label)}</b>")
     lines += [
@@ -78,6 +87,12 @@ def format_signal_watch(signal: Signal) -> str:
     # Same story as above: this was a flat "⚠️ WATCH SIGNAL", used for an invalidation and a watch
     # alike. The strategy, the symbol, the side and the timeframe are all in the title now.
     lines = [titles.for_signal(signal)]
+    # THE CHECKLIST FORM — same rule as `format_setup_alert` above (his ask, 20 Nov 2026).
+    if getattr(signal, "checklist", None):
+        lines += [f"<i>{_stamp(signal.created_at)}</i>", "──────────────────────────"]
+        lines += [("✅ " if c[:1].isascii() else "") + _h(c) for c in signal.checklist]
+        lines += ["──────────────────────────", "👁 <i>Monitor only — trade at your discretion</i>"]
+        return "\n".join(lines)
     if signal.label:
         lines.append(f"🏷 <b>{_h(signal.label)}</b>")
     lines += [

@@ -490,17 +490,21 @@ async def on_signal_closed(signal_id: str) -> None:
                 # closed_at is whichever stamp this outcome wrote; opened_at is the fill, which
                 # is NULL for a pending order that expired without ever filling.
                 closed_at = row.executed_at or row.invalidated_at
-                return (row.symbol, row.type, row.status, f(row.entry_price),
-                        row.strategy or "", f(row.take_profit), f(row.stop_loss),
-                        closed_at, row.triggered_at)
+                result = (row.symbol, row.type, row.status, f(row.entry_price),
+                          row.strategy or "", f(row.take_profit), f(row.stop_loss),
+                          closed_at, row.triggered_at)
+            # WAS THERE A REAL ORDER BEHIND IT? (his report, 20 Nov 2026 — `notifications/order_memory`). Read here, on
+            # the worker thread, with the row; None = a real order (or unknown) and the card is as it always was.
+            from notifications import order_memory
+            return result + (order_memory.note_for(signal_id),)
 
         data = await loop.run_in_executor(None, _load_row)
         if data is None:
             return
-        symbol, direction, status, entry, strategy, tp, sl, closed_at, opened_at = data
+        symbol, direction, status, entry, strategy, tp, sl, closed_at, opened_at, order_note = data
         message = format_signal_closed(
             symbol=symbol, direction=direction, status=status, entry=entry, strategy=strategy,
-            take_profit=tp, stop_loss=sl, closed_at=closed_at, opened_at=opened_at,
+            take_profit=tp, stop_loss=sl, closed_at=closed_at, opened_at=opened_at, order_note=order_note,
         )
         # OUTCOME CARDS GO TO THE DM (user, 2026-07-27: "take those TP HIT and other unnecessary
         # messages to DM for now. Only send BX entry signals to the channel"). The channel is a feed

@@ -216,6 +216,11 @@ class Signal:
     confidence:         float = 0.0          # 0.0 – 1.0
     primary_timeframe:  str = ""
     technical_reasons:  list[str] = field(default_factory=list)
+    # THE TELEGRAM CARD'S CHECKLIST (his ask, 20 Nov 2026): *"Just write the reason for qualifying the signal and tick
+    # it with green, no explanation … like a checklist."* Short names of the rules this signal PASSED, set by each
+    # strategy on its own path. The card prints `✅ name` per item and nothing else; `technical_reasons` keeps the
+    # full sentences for the Assets page and the log.
+    checklist:          list[str] = field(default_factory=list)
     smc_factors:        list[str] = field(default_factory=list)
     market_context:     str = ""
     status:             SignalStatus = SignalStatus.ACTIVE

@@ -135,10 +135,9 @@ def build_signal(symbol: str, plan: Plan, digits: int, strategy_id: str, strateg
     side = "BUY" if buy else "SELL"
     what = f"{plan.tf} {'demand' if buy else 'supply'} zone" if plan.path == "zone" else \
         f"5M {'support' if buy else 'resistance'}"
-    reasons = plan.why + [
-        f"STOP ORDER {side} {plan.entry:.{digits}f} — fills only if price turns back our way after the pullback",
-        f"SL {plan.sl:.{digits}f} | TP {plan.tp:.{digits}f} | RR {plan.rr}:1",
-    ]
+    # The two lines that repeated the entry, stop, target and R:R are GONE (his ask, 20 Nov 2026: the PIX card is
+    # wordy) — the card already prints all four, on one line.
+    reasons = list(plan.why)
     return Signal(
         symbol            = symbol,
         direction         = Direction.BUY if buy else Direction.SELL,
@@ -156,6 +155,7 @@ def build_signal(symbol: str, plan: Plan, digits: int, strategy_id: str, strateg
         stage             = "ready",
         headline          = titles.CONFIRMED_ENTRY,
         technical_reasons = reasons,
+        checklist         = list(plan.ticks),      # the card's ticks (`pix_skeleton`, his ask 20 Nov 2026)
         smc_factors       = list(plan.factors),     # the Assets page's three panels (pix_factors)
         market_context    = f"PIX — {side} {symbol} off a {what}, {plan.rr}R stop-order entry {plan.entry:.{digits}f}",
     )

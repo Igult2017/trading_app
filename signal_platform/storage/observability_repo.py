@@ -177,6 +177,18 @@ def recent_events(limit: int = 100) -> list:
         return []
 
 
+def last_event(signal_id: str, stage: str) -> tuple[datetime, str] | None:
+    """(when, detail) of the newest `stage` row for one signal, or None. Used by the outcome message to say WHEN and
+    WHY an order was withdrawn (`notifications/order_memory`). Raises on a database fault — the caller decides."""
+    if not signal_id:
+        return None
+    with get_session() as s:
+        row = (s.query(SignalEventModel)
+                .filter(SignalEventModel.signal_id == str(signal_id), SignalEventModel.stage == stage)
+                .order_by(SignalEventModel.created_at.desc()).first())
+        return (row.created_at, row.detail or "") if row else None
+
+
 def purge_older_than(days: int = 30) -> int:
     """Keep the trail bounded. Append-only tables grow without this."""
     try:

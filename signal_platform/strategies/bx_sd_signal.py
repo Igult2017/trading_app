@@ -127,6 +127,18 @@ def build_signal(symbol: str, setup: SetupResult, conf: LTFConfluence, trig: Ent
         stage             = "ready",   # STAGE 2 — a placeable entry with a stop and a target
         headline          = titles.CONFIRMED_ENTRY,          # signal 2, in his own label
         technical_reasons = reasons,
+        # THE CARD'S CHECKLIST (his ask, 20 Nov 2026: *"tick it with green, no explanation"*). Only what this path
+        # REQUIRES (a valid 4H zone, tapped — the extreme one when it is a stack — a lower-timeframe confirmation,
+        # the reward) plus the two confluences ONLY WHEN PRESENT: the comment above says they are pluses, never
+        # requirements, so ticking them on every card would claim something untrue.
+        checklist         = [
+            "4H zone: imbalance + break + liquidity",
+            "Extreme zone tapped" if _role == "extreme" else "Zone tapped",
+            f"{trig.details.get('method', 'CHoCH')} confirmation",
+            *(["Double zone breakout"] if _through >= 2 else []),
+            *(["Liquidity taken on the way in"] if setup.confluences.get("swept") else []),
+            f"Reward {trig.rr}R",
+        ],
         smc_factors       = smc,
         # THIS LINE HAS NOW BEEN WRONG TWICE, both times because the entry model moved and the
         # sentence did not. It said "off a fresh 4H zone" until 2026-08-01 (when `respected` became

@@ -91,19 +91,12 @@ def format_tap_alert(signal: Signal) -> str:
         # This line was a full sentence AND it duplicated the first fact below it ("4H supply zone
         # tapped ... 5M CHoCH"). Dropped rather than shortened: the bullets already say it, with the
         # actual prices attached.
-        "✅ <b>WHAT'S THERE</b>",
     ]
-    lines += [f"   · {_h(f)}" for f in facts] or ["   · —"]
-    # THE POINT OF THIS CARD, added 2026-08-05 on the user's instruction: say that what is present is
-    # already a complete setup by the book, instead of only listing what is absent. The lines are
-    # built in `bx_sd_tap_alert._viability` and are conditioned on real state — "most recent valid
-    # zone" is computed, "first touch" only when the zone is genuinely unspent.
-    if why:
-        lines += ["", "📘 <b>BY THE METHOD, THIS ALREADY QUALIFIES</b>"]
-        lines += [f"   · {_h(w)}" for w in why]
-    if miss:
-        lines += ["", "⏳ <b>WHY WE STILL WAIT</b>"]
-        lines += [f"   · {_h(m)}" for m in miss]
+    # A CHECKLIST, NO HEADINGS (his ask, 20 Nov 2026: *"tick it with green, no explanation … like a checklist"*).
+    # The same notes as before — what is there and why the method would take it get a ✅, why we still wait gets a ⏳ —
+    # but the three section headings are gone. `_viability` still conditions each note on real state.
+    lines += [f"✅ {_h(f)}" for f in facts + why]
+    lines += [f"⏳ {_h(m)}" for m in miss]
     lines += [
         "",
         # "we take this zone one step later" was true of the pre-2026-08-15 model, where the card

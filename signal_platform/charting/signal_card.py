@@ -39,7 +39,7 @@ from shared.pip import pip_size
 
 log = logging.getLogger(__name__)
 
-_MAX_CANDLES = 55        # fewer, fatter candles. At 90 the bodies were hairlines once Telegram
+_MAX_CANDLES = 30        # fewer, fatter candles (55 until 20 Nov 2026 — his "volume candles are poorly printed"). At 90 the bodies were hairlines once Telegram
                          # scaled the card to a phone bubble, which is the only size that matters.
 _DPI = 200               # HD. Costs ~0.2s of render time (in an executor, off the scan loop) and
                          # a few hundred KB against Telegram's 10MB ceiling. Note it does NOT by

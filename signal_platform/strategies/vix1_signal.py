@@ -49,6 +49,48 @@ def _origin_reason(origin: str, bullish: bool, mlabel: str, side: str) -> str:
             f"from the 1st ({side})")
 
 
+# THE CARD'S CHECKLIST (his ask, 20 Nov 2026: *"just write the reason for qualifying the signal and tick it with
+# green, no explanation"*). One name per check that REFUSES on that route — so a signal that exists passed every one
+# of them, and every tick is true. Where each lives:
+#   Momentum candle + Stomach rule   vix1_momentum.qualifies_for_trade (via momentum_run / vix1_choch)
+#   Not ranging                      vix1_chop.not_tradeable (before both routes, vix1_bias)
+#   Market state: TREND              regime.tradeable                 } the trend route's veto list,
+#   Ran and pulled back              vix1_tradeable.trend_reproven    } vix1_bias.detect_bias
+#   Pullback ended                   vix1_pullback_end.refusal        (both routes)
+#   Pullback count                   vix1_retracement.entry_timing    (trend route; the change-of-character route waives it)
+#   Break candle rule                vix1_break_candle.refusal        (both routes; his 19 Nov rule)
+#   Market awake                     vix1_tradeable.market_awake
+#   No liquidity void                vix1_void.not_filling
+#   News clear · Spacing             vix1.analyze (news calendar known + 10/10 window; vix1_spacing)
+#   1M entry                         vix1_entry (the entry itself)
+# NOT listed: the chaotic-market check — information only since 18 Nov, it refuses nothing.
+_TICKS = {
+    "trend":  ["Momentum candle", "Stomach rule", "Not ranging", "Market state: TREND", "Ran and pulled back",
+               "Pullback ended", "Pullback count", "Break candle rule", "Market awake", "No liquidity void",
+               "News clear", "Spacing", "1M entry"],
+    "choch":  ["Change of character", "Momentum candle", "Stomach rule", "Not ranging", "Pullback ended",
+               "Break candle rule", "News clear", "Spacing", "1M entry"],
+    # HIS TRADEABLE MARK (`vix1_marked`, origin "marked"): his press overrides the setup checks, so they are NOT
+    # ticked — only what still runs after the mark (vix1.analyze: news, spacing, then the entry).
+    "marked": ["Your Tradeable mark", "News clear", "Spacing", "1M entry"],
+    # Switched off (`vix1_bias._ALLOW_H4 = False`); listed so the day it is switched on the card is not blank.
+    "trend4": ["Momentum candle", "Stomach rule", "Not ranging", "4H trend agrees", "News clear", "Spacing",
+               "1M entry"],
+}
+
+
+def checklist(origin: str, late: bool = False, corr: list | None = None) -> list[str]:
+    """The ticks for this signal's route, plus a WARNING line when the entry is late or a correlated pair is already
+    open — those are not passed rules, they are things to know, so they keep their own ⚠️ and no tick."""
+    # AN UNKNOWN ROUTE GETS NO TICKS, never another route's: a tick for a check that did not run is a false claim.
+    out = list(_TICKS.get(origin, []))
+    if late:
+        out.append("⚠️ Late entry — past the recommended price")
+    if corr:
+        out.append(f"⚠️ Correlated: {', '.join(corr)} already open")
+    return out
+
+
 def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
                  risk, pip, digits, corr, news_context, strategy_id, strategy_name,
                  grade, confidence, alert_only=False, sl_note="",
@@ -167,6 +209,7 @@ def build_signal(kind, symbol, bullish, origin, vol_count, entry, sl, tp,
         stage             = "ready",
                                           # The param is a passthrough; only the invalidation DM sets it True.
         technical_reasons = reasons,
+        checklist         = checklist(origin, late, corr),
         smc_factors       = smc,
         # NOT "(validating)" — this builder is only ever called for a resolved entry that ships to
         # the public channel as a full signal card (strategy_id `vix1`, alert_only False). The

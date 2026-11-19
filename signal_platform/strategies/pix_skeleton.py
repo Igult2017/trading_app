@@ -55,6 +55,7 @@ class Plan:
     pullback_at: int     # the 1M pullback candle the order is placed off — one signal per pullback
     why:       list[str]
     factors:   list[str] = field(default_factory=list)   # the Assets page's three panels (pix_factors)
+    ticks:     list[str] = field(default_factory=list)   # the Telegram card's checklist (his ask, 20 Nov 2026)
 
 
 def _atr(c: list[Candle], n: int = 14) -> float:
@@ -87,6 +88,16 @@ def _proved(m5, m1, top, bottom, bull, price, spread) -> tuple[Entry | None, str
 def _entry_why(e: Entry, bull: bool) -> str:
     return (f"1M: touched the zone, {len(e.reaction)} candles {'up' if bull else 'down'}, then a pullback candle — "
             f"the zone proved itself")
+
+
+def _flow_tick(flow_line: str) -> str:
+    """The order-flow item of the card's checklist. Absorption REFUSES (no plan at all); agreement only CONFIRMS, and
+    his rule is that a disagreement is shown, not hidden — so it is a tick only when the flow really agrees."""
+    if flow_line.startswith("Order flow CONFIRMS"):
+        return "Order flow agrees"
+    if "does NOT agree" in flow_line:
+        return "⚠️ Order flow disagrees"
+    return "⚠️ Order flow not available"
 
 
 def _levels(m5c: list[Candle], bull: bool):
@@ -145,7 +156,11 @@ def zone_plan(h4, h1, m5, m1, price: float, spread: float, d1, flow=None) -> tup
         facts = pix_factors.zone(src, bull, bz, outer, want, e, flow_line, prof,
                                  poc_role(day, prof.poc) if prof else "", TARGET_R)
         return Plan("buy" if bull else "sell", "zone", bz.tf, z.top, z.bottom, entry, sl, tp, TARGET_R,
-                    bz.time, e.first_touch_at, e.pullback.time, why, facts), ""
+                    bz.time, e.first_touch_at, e.pullback.time, why, facts,
+                    # Each item is a check that REFUSES above (trend, a real zone, proved on 1M and not broken on
+                    # 5M, came back after travelling, not absorbed), then the flow reading and the target.
+                    [f"{src} trend", f"Real {bz.tf} {want} zone", "Came back after travelling",
+                     "Zone proved on 1M", "Not absorbed", _flow_tick(flow_line), f"{TARGET_R:g}R"]), ""
     return None, (f"{len(zones)} real {want} zone(s) near price — "
                   + ("; ".join(waiting[:2]) or "none touched since price travelled away"))
 
@@ -189,7 +204,9 @@ def range_plan(h4, m5, m1, price: float, spread: float, flow=None, h1=None) -> t
                    *flow_more]
             facts = pix_factors.level(trend, bull, p, min(room) / risk, e, flow_line, round(rr, 2))
             return Plan("buy" if bull else "sell", "range", "5M", top, bot, e.entry, e.sl, tp, round(rr, 2),
-                        t, e.first_touch_at, e.pullback.time, why, facts), ""
+                        t, e.first_touch_at, e.pullback.time, why, facts,
+                        [f"5M {'support' if bull else 'resistance'} respected before", "Respected again on 1M",
+                         "Not absorbed", _flow_tick(flow_line), f"Room {min(room) / risk:.1f}R"]), ""
     if waiting:
         return None, waiting[0]
     return None, "no 5M support/resistance proved on 1M with 2R of room"

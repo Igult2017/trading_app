@@ -337,4 +337,13 @@ def build_signal1(symbol: str, setup, conf, trig, legs: list[str], ext: MarkedZo
         f"That reaction pulled back into a {' + '.join(legs)} zone",
         *sig.technical_reasons,
     ]
+    # ITS OWN CHECKLIST (20 Nov 2026). The one `build_signal` set ticks a confirmation — on THIS card the change of
+    # character has NOT completed, so inheriting it would tick the one thing that did not happen.
+    sig.checklist = [
+        "⚠️ Unconfirmed — change of character not complete",
+        "Extreme zone tapped",
+        f"Stayed clear for {REACT_BARS} candles",
+        f"Pulled back into a {' + '.join(legs)} zone",
+        f"Reward {trig.rr}R",
+    ]
     return sig

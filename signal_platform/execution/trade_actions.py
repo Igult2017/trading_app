@@ -96,8 +96,13 @@ async def _cancel(row: dict) -> tuple[bool, str]:
             return False, f"⚠️ <b>NOT CANCELLED</b> — the broker refused: {res.error}"
         from execution.intents import _intent
         from storage import autotrade_repo
+        intent = autotrade_repo.intent_for(str(it)) or {}
         autotrade_repo.record_closed(str(it), "cancelled")
         _intent.pop(str(it), None)
+        # LOGGED LIKE EVERY OTHER WITHDRAWAL (20 Nov 2026). This was the one path that wrote nothing, so the outcome
+        # message could not say when or why his order went (`notifications/order_memory`).
+        from execution import decision_log
+        await decision_log.cancelled(intent.get("signal_id"), row["symbol"], it, "you cancelled it")
         return True, f"✅ <b>CANCELLED</b> — the waiting {row['symbol']} order {it} is withdrawn."
     res = await client.close_part(it.position_id, int(it.volume))
     if not res.ok:

@@ -117,6 +117,21 @@ def intent_for(order_id: str) -> dict | None:
         return None
 
 
+def latest_for_signal(signal_id: str) -> dict | None:
+    """The newest order this platform placed for a signal, IN ANY STATUS — {"status", "order_id", "placed_at"} — or
+    None when no order was ever placed for it. For the outcome message (`notifications/order_memory`), which must know
+    whether a real order stood behind a "TP hit" (his report, 20 Nov 2026). Raises on a database fault: the caller
+    decides what an unknown means, and "unknown" must never be read as "no order"."""
+    if not signal_id:
+        return None
+    with get_session() as s:
+        row = (s.query(AutotradeOrderModel)
+                .filter(AutotradeOrderModel.signal_id == str(signal_id))
+                .order_by(AutotradeOrderModel.placed_at.desc()).first())
+        return (dict(status=row.status or STATUS_PLACED, order_id=row.order_id, placed_at=row.placed_at)
+                if row else None)
+
+
 def order_for_signal(signal_id: str) -> str | None:
     """The order id THIS PLATFORM placed for a signal, if it is still resting. Else None.
 

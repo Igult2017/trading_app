@@ -23,6 +23,7 @@ from strategies.vix1_lines import draw_line
 from strategies.vix1_retracement import Retracement
 from strategies.vix1_regime import Regime
 from strategies.vix1_state import state_line
+from strategies.vix1_signal import checklist as route_ticks
 
 
 def building_signal(symbol: str, buy: bool, vc: Candle, origin: str, vol_count: int,
@@ -71,6 +72,9 @@ def building_signal(symbol: str, buy: bool, vc: Candle, origin: str, vol_count: 
             "Waiting for the 1M pullback entry — no entry, stop or target until it confirms",
             "This is a HEADS-UP, not a trade. The ready card follows if the entry confirms.",
         ],
+        # THE CARD'S CHECKLIST (his ask, 20 Nov 2026). Sent after the bias, the news check and spacing
+        # (`vix1.analyze`), so every rule on this route is passed EXCEPT the entry, which is what it waits for.
+        checklist         = [t for t in route_ticks(origin) if t != "1M entry"] + ["⏳ Waiting for the 1M entry"],
         market_context    = (f"VIX.1 BUILDING — {symbol} {side} bias confirmed on the 1H "
                              f"momentum candle; waiting for the 1M entry"),
     )
