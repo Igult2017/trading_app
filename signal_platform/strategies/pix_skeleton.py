@@ -19,7 +19,7 @@ half the spread), a sell stop below the bid.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from core.types import Candle
 from strategies.pix_candles import closed_only
@@ -28,6 +28,7 @@ from strategies.pix_entry import Entry, reaction_entry
 from strategies.pix_bigzones import TF_S, candidates, daily_atr, NEAR_ATR_MULT
 from strategies.pix_profile import describe, from_candles, poc_role, touching
 from strategies.pix_trend import direction
+from strategies import pix_factors
 
 TARGET_R      = 3.0
 RANGE_MIN_R   = 2.0    # a support / resistance trade needs at least 2R of room to the opposite level
@@ -53,6 +54,7 @@ class Plan:
     tap_at:    int       # the visit's first 1M candle into the zone
     pullback_at: int     # the 1M pullback candle the order is placed off — one signal per pullback
     why:       list[str]
+    factors:   list[str] = field(default_factory=list)   # the Assets page's three panels (pix_factors)
 
 
 def _atr(c: list[Candle], n: int = 14) -> float:
@@ -140,8 +142,10 @@ def zone_plan(h4, h1, m5, m1, price: float, spread: float, d1, flow=None) -> tup
                + (f" — {'/'.join(touching(prof, z.bottom, z.top))} AT THIS ZONE (confluence)"
                   if touching(prof, z.bottom, z.top) else ""),
                *flow_more]
+        facts = pix_factors.zone(src, bull, bz, outer, want, e, flow_line, prof,
+                                 poc_role(day, prof.poc) if prof else "", TARGET_R)
         return Plan("buy" if bull else "sell", "zone", bz.tf, z.top, z.bottom, entry, sl, tp, TARGET_R,
-                    bz.time, e.first_touch_at, e.pullback.time, why), ""
+                    bz.time, e.first_touch_at, e.pullback.time, why, facts), ""
     return None, (f"{len(zones)} real {want} zone(s) near price — "
                   + ("; ".join(waiting[:2]) or "none touched since price travelled away"))
 
@@ -183,8 +187,9 @@ def range_plan(h4, m5, m1, price: float, spread: float, flow=None, h1=None) -> t
                    f"1M stop order at the pullback's {'high + the spread' if bull else 'low'}; {e.note}; "
                    f"target {rr:.1f}R",
                    *flow_more]
+            facts = pix_factors.level(trend, bull, p, min(room) / risk, e, flow_line, round(rr, 2))
             return Plan("buy" if bull else "sell", "range", "5M", top, bot, e.entry, e.sl, tp, round(rr, 2),
-                        t, e.first_touch_at, e.pullback.time, why), ""
+                        t, e.first_touch_at, e.pullback.time, why, facts), ""
     if waiting:
         return None, waiting[0]
     return None, "no 5M support/resistance proved on 1M with 2R of room"

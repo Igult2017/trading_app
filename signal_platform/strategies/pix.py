@@ -156,5 +156,6 @@ def build_signal(symbol: str, plan: Plan, digits: int, strategy_id: str, strateg
         stage             = "ready",
         headline          = titles.CONFIRMED_ENTRY,
         technical_reasons = reasons,
+        smc_factors       = list(plan.factors),     # the Assets page's three panels (pix_factors)
         market_context    = f"PIX — {side} {symbol} off a {what}, {plan.rr}R stop-order entry {plan.entry:.{digits}f}",
     )

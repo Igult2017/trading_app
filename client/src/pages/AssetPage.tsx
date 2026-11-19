@@ -639,17 +639,17 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
         .asset-scroll::-webkit-scrollbar { width: 0; height: 0; }
         .asset-scroll { scrollbar-width: none; -ms-overflow-style: none; }
         .inst-card:hover { background: ${C.bg3} !important; cursor: pointer; }
-        .chart-btn { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.muted}; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; }
+        .chart-btn { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.muted}; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; }
         .chart-btn:hover { border-color: #3b82f6; color: ${C.text}; }
-        .chart-btn-alert { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.text}; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
+        .chart-btn-alert { background: ${C.bg3}; border: 1px solid ${C.border2}; color: ${C.text}; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; padding: 5px 12px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px; }
         .chart-btn-alert:hover { border-color: #f59e0b; color: #f59e0b; }
-        .set-alert-btn { background: ${darkMode ? '#100d04' : '#fffbec'}; border: 1.5px solid #c8a84b; color: #c8a84b; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
+        .set-alert-btn { background: ${darkMode ? '#100d04' : '#fffbec'}; border: 1.5px solid #c8a84b; color: #c8a84b; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 28px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
         .set-alert-btn:hover { background: rgba(200,168,75,0.12); border-color: #f0c040; color: #f0c040; }
         .set-alert-btn.active { background: rgba(200,168,75,0.18); border-color: #f0c040; color: #f0c040; }
-        .share-btn { background: #5b4fcf; border: none; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 32px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
+        .share-btn { background: #5b4fcf; border: none; color: #fff; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; padding: 13px 32px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 8px; border-radius: 3px; }
         .share-btn:hover { background: #6c63d9; }
         .ctx-row:hover { background: ${darkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.03)'}; }
-        .news-btn { background: ${darkMode ? '#1a0a0e' : '#fff0f3'}; border: 1px solid #f4617f; color: #f4617f; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+        .news-btn { background: ${darkMode ? '#1a0a0e' : '#fff0f3'}; border: 1px solid #f4617f; color: #f4617f; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; padding: 5px 14px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
         .mob-instruments-fab { display: none; }
         @media (max-width: 767px) {
           .entry-grid { grid-template-columns: 1fr 1fr !important; }
@@ -663,7 +663,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
           .set-alert-btn, .share-btn { width: 100%; justify-content: center; }
           .chart-row2 { flex-wrap: wrap; gap: 6px !important; }
           .chart-type-pills { overflow-x: auto; flex-shrink: 1 !important; min-width: 0; }
-          .mob-instruments-fab { display: flex !important; position: fixed; bottom: 24px; right: 20px; z-index: 40; background: #7c3aed; border: none; border-radius: 28px; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; padding: 11px 18px; cursor: pointer; align-items: center; gap: 6px; box-shadow: 0 4px 20px rgba(124,58,237,0.5); }
+          .mob-instruments-fab { display: flex !important; position: fixed; bottom: 24px; right: 20px; z-index: 40; background: #7c3aed; border: none; border-radius: 28px; color: #fff; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; padding: 11px 18px; cursor: pointer; align-items: center; gap: 6px; box-shadow: 0 4px 20px rgba(124,58,237,0.5); }
         }
       `}</style>
 
@@ -687,19 +687,19 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                         : <polygon points="6,1 11,10 1,10" />}
                     </svg>
                     {/* The signal's ENTRY LEVEL (real) — not the live price feed, which read 0. */}
-                    <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data?.entry ?? "—"}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{data?.entry ?? "—"}</span>
                   </div>
                 )
               },
-              { label: "TARGET (TP)", value: <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data?.tp ?? "—"}</span> },
-              { label: "PROTECT (SL)", value: <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data?.sl ?? "—"}</span> },
-              { label: "RISK : REWARD", value: <span style={{ fontSize: 9, fontWeight: 700, color: C.text }}>{data?.rr ?? "—"}</span> },
+              { label: "TARGET (TP)", value: <span style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{data?.tp ?? "—"}</span> },
+              { label: "PROTECT (SL)", value: <span style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{data?.sl ?? "—"}</span> },
+              { label: "RISK : REWARD", value: <span style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{data?.rr ?? "—"}</span> },
             ].map((col, i) => (
               <div key={i} style={{
                 padding: "20px 16px", textAlign: "center",
                 borderRight: i < 3 ? `1px solid ${C.border}` : undefined
               }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: C.muted2, letterSpacing: "0.12em", marginBottom: 12 }}>{col.label}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.muted2, letterSpacing: "0.12em", marginBottom: 12 }}>{col.label}</div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>{col.value}</div>
               </div>
             ))}
@@ -712,7 +712,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <div style={{ width: 10, height: 10, background: "#3b82f6" }} />
-                <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>CONTEXT ALIGNMENT</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>CONTEXT ALIGNMENT</span>
               </div>
               {displayContext.map((row, i) => {
                 const has = !!row.value && row.value !== "—";
@@ -722,9 +722,9 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                     {row.loading
                       ? <Loader2 size={10} color="#f59e0b" style={{ animation: "spin 1.5s linear infinite" }} />
                       : <ChevronRight size={10} color={C.dim} />}
-                    {has && <span style={{ fontSize: 11, fontWeight: 600, color: C.accent, letterSpacing: "0.01em" }}>{row.label}</span>}
+                    {has && <span style={{ fontSize: 13, fontWeight: 600, color: C.accent, letterSpacing: "0.01em" }}>{row.label}</span>}
                   </div>
-                  {has && <span style={{ fontSize: 11, fontWeight: 700, color: C.accent, letterSpacing: "0.01em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>}
+                  {has && <span style={{ fontSize: 13, fontWeight: 700, color: C.accent, letterSpacing: "0.01em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>}
                 </div>
                 );
               })}
@@ -734,7 +734,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <div style={{ width: 10, height: 10, background: "#22d3a5" }} />
-                <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>TECHNICAL CONFLUENCE</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>TECHNICAL CONFLUENCE</span>
               </div>
               {displayTech.map((row, i) => {
                 const has = !!row.value && row.value !== "—";
@@ -742,9 +742,9 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <div key={i} className="ctx-row" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 4px", borderRadius: 3, minHeight: 24 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <ChevronRight size={10} color={C.dim} />
-                    {has && <span style={{ fontSize: 11, fontWeight: 600, color: C.accent, letterSpacing: "0.01em" }}>{row.label}</span>}
+                    {has && <span style={{ fontSize: 13, fontWeight: 600, color: C.accent, letterSpacing: "0.01em" }}>{row.label}</span>}
                   </div>
-                  {has && <span style={{ fontSize: 11, fontWeight: 700, color: C.accent, letterSpacing: "0.01em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>}
+                  {has && <span style={{ fontSize: 13, fontWeight: 700, color: C.accent, letterSpacing: "0.01em", display: "inline-block", maxWidth: "62%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "right" }}>{row.value}</span>}
                 </div>
                 );
               })}
@@ -754,7 +754,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             <div style={{ background: C.bg2, border: `1px solid ${C.border}`, borderRadius: 4, padding: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
                 <div style={{ width: 10, height: 10, background: "#f59e0b" }} />
-                <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>PRICE ACTION</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: C.muted, letterSpacing: "0.14em" }}>PRICE ACTION</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {displayPriceAction.map((item, i) => {
@@ -766,7 +766,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                         ? <ZoomIcon color="#f59e0b" />
                         : <LayersIcon color={item.icon === "layers" ? "#3b82f6" : "#3b82f6"} />}
                     </div>
-                    {has && <p style={{ fontSize: 11, fontWeight: 500, color: C.accent, letterSpacing: "0.01em", lineHeight: 1.6, margin: 0 }}>
+                    {has && <p style={{ fontSize: 13, fontWeight: 500, color: C.accent, letterSpacing: "0.01em", lineHeight: 1.6, margin: 0 }}>
                       {boldify(item.text, item.bold)}
                     </p>}
                   </div>
@@ -800,7 +800,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <line x1="14" y1="58" x2="54" y2="10" stroke="#5b4fcf" strokeWidth="5" strokeLinecap="round" opacity="0.9" />
               </svg>
               <span style={{
-                fontSize: 10, fontWeight: 800, color: C.heroText,
+                fontSize: 12, fontWeight: 800, color: C.heroText,
                 position: "relative", letterSpacing: "0.02em",
               }}>{data?.probability ?? 0}%</span>
             </div>
@@ -808,13 +808,13 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             {/* Text */}
             <div style={{ flex: 1 }}>
               <div style={{
-                fontSize: 10, fontWeight: 800, color: C.heroText,
+                fontSize: 12, fontWeight: 800, color: C.heroText,
                 letterSpacing: "0.05em", marginBottom: 5,
               }}>
                 PROBABILITY: {data?.probability ?? 0}%
               </div>
               <div style={{
-                fontSize: 10, fontWeight: 600,
+                fontSize: 12, fontWeight: 600,
                 color: "#3d9fd3",
                 letterSpacing: "0.1em",
               }}>
@@ -843,19 +843,19 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setAlertModal(false)}>
               <div style={{ background: "#0a0f16", border: "1px solid #1e2d45", borderRadius: 8, padding: 24, width: 340, display: "flex", flexDirection: "column", gap: 16, maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: "#c8d8e8", letterSpacing: "0.08em" }}>PRICE ALERTS · {selected}</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: "#c8d8e8", letterSpacing: "0.08em" }}>PRICE ALERTS · {selected}</span>
                   <button onClick={() => setAlertModal(false)} style={{ background: "none", border: "none", color: "#4a6580", cursor: "pointer" }}><X size={16} /></button>
                 </div>
 
                 {/* Existing active alerts */}
                 {activeAlerts.length > 0 && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>ACTIVE ALERTS</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>ACTIVE ALERTS</div>
                     {activeAlerts.map((a: any) => (
                       <div key={a.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 6 }}>
-                        <span style={{ fontSize: 12, color: "#93c5fd", fontWeight: 600 }}>
+                        <span style={{ fontSize: 14, color: "#93c5fd", fontWeight: 600 }}>
                           {a.direction === "above" ? "▲" : "▼"} {parseFloat(a.targetPrice).toPrecision(6)}
-                          {parseFloat(a.proximityPct ?? "0") > 0 && <span style={{ fontSize: 10, color: "#4a6580", marginLeft: 6 }}>±{a.proximityPct}%</span>}
+                          {parseFloat(a.proximityPct ?? "0") > 0 && <span style={{ fontSize: 12, color: "#4a6580", marginLeft: 6 }}>±{a.proximityPct}%</span>}
                         </span>
                         <button onClick={() => deleteAlertMutation.mutate(a.id)} style={{ background: "none", border: "none", color: "#4a6580", cursor: "pointer", padding: 4 }} title="Remove alert"><X size={13} /></button>
                       </div>
@@ -865,7 +865,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 )}
 
                 {/* Add new alert */}
-                <div style={{ fontSize: 11, color: "#4a6580" }}>
+                <div style={{ fontSize: 13, color: "#4a6580" }}>
                   Add a new level — Telegram fires when price {parseFloat(alertProx) > 0 ? "nears or reaches" : "reaches"} the target.
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
@@ -877,27 +877,27 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                       style={{ flex: 1, padding: "9px 0",
                         background: sel ? (d === "above" ? "rgba(34,211,165,0.12)" : "rgba(244,97,127,0.12)") : "transparent",
                         border: `1px solid ${sel ? arrow : "#1e2d45"}`, borderRadius: 6,
-                        color: arrow, fontSize: 18, fontWeight: 800, lineHeight: 1, cursor: "pointer" }}>
+                        color: arrow, fontSize: 20, fontWeight: 800, lineHeight: 1, cursor: "pointer" }}>
                       {d === "above" ? "▲" : "▼"}
                     </button>
                     );
                   })}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <label style={{ fontSize: 9, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>TARGET PRICE</label>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>TARGET PRICE</label>
                   <input
                     type="number" step="any" value={alertTarget}
                     onChange={e => setAlertTarget(e.target.value)}
-                    style={{ background: "#070d1a", border: "1px solid #1e2d45", borderRadius: 6, padding: "10px 12px", color: "#c8d8e8", fontSize: 13, outline: "none", width: "100%" }}
+                    style={{ background: "#070d1a", border: "1px solid #1e2d45", borderRadius: 6, padding: "10px 12px", color: "#c8d8e8", fontSize: 15, outline: "none", width: "100%" }}
                     placeholder={entryTick.price ? String(entryTick.price) : "Enter price…"}
                     autoFocus
                   />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <label style={{ fontSize: 9, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>NOTIFY WHEN</label>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: "#4a6580", letterSpacing: "0.1em" }}>NOTIFY WHEN</label>
                   <div style={{ display: "flex", gap: 6 }}>
                     {[["0","At price"],["0.2","Within 0.2%"],["0.5","Within 0.5%"],["1","Within 1%"]].map(([v,lbl]) => (
-                      <button key={v} onClick={() => setAlertProx(v)} style={{ flex: 1, padding: "6px 4px", fontSize: 9, fontWeight: 700, background: alertProx === v ? "rgba(34,211,165,0.15)" : "transparent", border: `1px solid ${alertProx === v ? "#22d3a5" : "#1e2d45"}`, borderRadius: 6, color: alertProx === v ? "#22d3a5" : "#4a6580", cursor: "pointer", letterSpacing: "0.04em" }}>
+                      <button key={v} onClick={() => setAlertProx(v)} style={{ flex: 1, padding: "6px 4px", fontSize: 11, fontWeight: 700, background: alertProx === v ? "rgba(34,211,165,0.15)" : "transparent", border: `1px solid ${alertProx === v ? "#22d3a5" : "#1e2d45"}`, borderRadius: 6, color: alertProx === v ? "#22d3a5" : "#4a6580", cursor: "pointer", letterSpacing: "0.04em" }}>
                         {lbl}
                       </button>
                     ))}
@@ -906,7 +906,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                 <button
                   disabled={!alertTarget || createAlertMutation.isPending}
                   onClick={() => createAlertMutation.mutate({ targetPrice: alertTarget, direction: alertDir, proximityPct: alertProx })}
-                  style={{ padding: "10px 0", background: "#1e4db7", border: "none", borderRadius: 6, color: "#fff", fontSize: 12, fontWeight: 700, cursor: !alertTarget ? "not-allowed" : "pointer", opacity: !alertTarget ? 0.5 : 1, letterSpacing: "0.08em" }}
+                  style={{ padding: "10px 0", background: "#1e4db7", border: "none", borderRadius: 6, color: "#fff", fontSize: 14, fontWeight: 700, cursor: !alertTarget ? "not-allowed" : "pointer", opacity: !alertTarget ? 0.5 : 1, letterSpacing: "0.08em" }}
                 >
                   {createAlertMutation.isPending ? "SAVING…" : "ADD ALERT"}
                 </button>
@@ -929,10 +929,10 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
             {/* Chart Header */}
             {/* ── Row 1: symbol + clock + alert ── */}
             <div style={{ padding: "10px 16px 8px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontSize: 9, color: C.dim, letterSpacing: "0.06em" }}>
+              <div style={{ fontSize: 11, color: C.dim, letterSpacing: "0.06em" }}>
                 <LiveClock />
               </div>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.textB, fontFamily: "monospace" }}>
+              <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.12em", color: C.textB, fontFamily: "monospace" }}>
                 {selected}
               </div>
               <button className="chart-btn-alert" style={{ flexShrink: 0 }}>
@@ -955,7 +955,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                         background: active ? "rgba(59,130,246,0.18)" : "transparent",
                         border: `1px solid ${active ? "#3b82f6" : "transparent"}`,
                         borderRadius: 3, color: active ? "#60a5fa" : C.dim,
-                        fontSize: 9, fontWeight: 800, letterSpacing: "0.07em",
+                        fontSize: 11, fontWeight: 800, letterSpacing: "0.07em",
                         padding: "4px 8px", cursor: "pointer", transition: "all 0.12s",
                       }}
                       onMouseEnter={e => { if (!active) e.currentTarget.style.color = C.muted; }}
@@ -996,7 +996,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                               background: isActive ? "rgba(34,211,165,0.15)" : "transparent",
                               border: `1px solid ${isActive ? "#22d3a5" : C.border2}`,
                               borderRadius: 4, color: isActive ? "#22d3a5" : C.muted,
-                              fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                              fontSize: 12, fontWeight: 800, letterSpacing: "0.06em",
                               padding: "6px 0", cursor: "pointer",
                               transition: "all 0.1s",
                             }}
@@ -1022,7 +1022,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                     {activeIndicators.size > 0 && (
                       <span style={{
                         marginLeft: 5, background: "#7c3aed", color: "#fff",
-                        borderRadius: 9, fontSize: 8, fontWeight: 800,
+                        borderRadius: 9, fontSize: 10, fontWeight: 800,
                         padding: "1px 5px", letterSpacing: 0,
                       }}>{activeIndicators.size}</span>
                     )}
@@ -1038,7 +1038,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                       boxShadow: darkMode ? "0 8px 32px rgba(0,0,0,0.6)" : "0 8px 32px rgba(0,0,0,0.15)",
                     }}>
                       {/* Header */}
-                      <div style={{ padding: "8px 14px", fontSize: 9, fontWeight: 800, color: C.dim, letterSpacing: "0.12em", borderBottom: `1px solid ${C.border}`, flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ padding: "8px 14px", fontSize: 11, fontWeight: 800, color: C.dim, letterSpacing: "0.12em", borderBottom: `1px solid ${C.border}`, flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span>INDICATORS ({INDICATOR_DEFS.length})</span>
                         <span style={{ color: "#7c3aed" }}>{activeIndicators.size} ON</span>
                       </div>
@@ -1052,7 +1052,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                                   scoped to borders — it targets 3:1, the standard for an interface
                                   element carrying no text, so it is not bright enough to read at
                                   8px. `dim` is 4.85:1. */}
-                              <div style={{ padding: "6px 14px 4px", fontSize: 8, fontWeight: 800, color: C.dim, letterSpacing: "0.14em", background: C.catHdr }}>
+                              <div style={{ padding: "6px 14px 4px", fontSize: 10, fontWeight: 800, color: C.dim, letterSpacing: "0.14em", background: C.catHdr }}>
                                 {cat.toUpperCase()}
                               </div>
                               {catDefs.map(ind => {
@@ -1070,7 +1070,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                                     onMouseLeave={e => (e.currentTarget.style.background = on ? "rgba(124,58,237,0.08)" : "transparent")}
                                   >
                                     <span style={{ width: 10, height: 3, borderRadius: 2, background: ind.color, flexShrink: 0 }} />
-                                    <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: on ? C.text : C.muted, letterSpacing: "0.05em" }}>
+                                    <span style={{ flex: 1, fontSize: 12, fontWeight: 700, color: on ? C.text : C.muted, letterSpacing: "0.05em" }}>
                                       {ind.label}
                                     </span>
                                     <span style={{
@@ -1151,8 +1151,8 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
         {/* Mobile close button */}
         {isMobile && (
           <div style={{ padding: "10px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 9, fontWeight: 800, color: C.muted, letterSpacing: "0.12em" }}>INSTRUMENTS</span>
-            <button onClick={() => setMobileShowSidebar(false)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4 }}>×</button>
+            <span style={{ fontSize: 11, fontWeight: 800, color: C.muted, letterSpacing: "0.12em" }}>INSTRUMENTS</span>
+            <button onClick={() => setMobileShowSidebar(false)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 4 }}>×</button>
           </div>
         )}
 
@@ -1165,7 +1165,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
               placeholder="SEARCH INSTRUMENTS..."
               style={{
                 width: "100%", background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 4,
-                color: C.muted, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
+                color: C.muted, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em",
                 padding: "8px 10px 8px 30px", outline: "none", fontFamily: "inherit"
               }}
             />
@@ -1175,10 +1175,10 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
         {/* Instrument List */}
         <div className="asset-scroll" style={{ flex: 1, overflowY: "auto" }}>
           {filtered.length === 0 && (
-            <div style={{ padding: "32px 16px", textAlign: "center", color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", lineHeight: 1.8 }}>
+            <div style={{ padding: "32px 16px", textAlign: "center", color: C.dim, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", lineHeight: 1.8 }}>
               {search ? "NO MATCH" : signalsFailed ? "COULD NOT LOAD SIGNALS" : "NO CONFIRMED ENTRIES THIS MONTH"}
-              {!search && signalsFailed && <div role="alert" style={{ fontSize: 9, fontWeight: 500, marginTop: 6, color: C.muted2 }}>The server returned an error. Retrying every minute.</div>}
-              {!search && !signalsFailed && <div style={{ fontSize: 9, fontWeight: 500, marginTop: 6, color: C.muted2 }}>A signal appears here once its entry is actually taken. The list clears on the 1st.</div>}
+              {!search && signalsFailed && <div role="alert" style={{ fontSize: 11, fontWeight: 500, marginTop: 6, color: C.muted2 }}>The server returned an error. Retrying every minute.</div>}
+              {!search && !signalsFailed && <div style={{ fontSize: 11, fontWeight: 500, marginTop: 6, color: C.muted2 }}>A signal appears here once its entry is actually taken. The list clears on the 1st.</div>}
             </div>
           )}
           {filtered.map(card => {
@@ -1200,7 +1200,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
               >
                 {/* Row 1: Symbol + Category badge (sidebar stays a clean pair list) */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#7c6ff7" : C.muted, letterSpacing: "0.04em" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: isActive ? "#7c6ff7" : C.muted, letterSpacing: "0.04em" }}>
                     {card.symbol}
                   </span>
                   {card.state && (() => {
@@ -1213,7 +1213,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                     }[card.state];
                     return (
                       <span style={{
-                        fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", padding: "2px 6px",
+                        fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", padding: "2px 6px",
                         borderRadius: 3, whiteSpace: "nowrap",
                         color: S.c, background: `${S.c}18`, border: `1px solid ${S.c}40`,
                       }}>{S.text}</span>
@@ -1222,7 +1222,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                   {/* No PENDING branch any more — every row here has a confirmed entry, so the
                       badge could only ever read the asset class. */}
                   {sidebarWidth >= 200 && (
-                    <span style={{ fontSize: 8, fontWeight: 700, color: C.dim, letterSpacing: "0.08em",
+                    <span style={{ fontSize: 10, fontWeight: 700, color: C.dim, letterSpacing: "0.08em",
                       background: C.bg3, border: `1px solid ${C.border2}`, borderRadius: 3, padding: "2px 6px" }}>
                       {card.category.toUpperCase()}
                     </span>
@@ -1238,7 +1238,7 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                     unreadable whatever colour it is. */}
                 {(card.createdAt || card.strategy) && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
-                                marginBottom: 8, fontSize: 10, fontWeight: 700, letterSpacing: "0.05em" }}>
+                                marginBottom: 8, fontSize: 12, fontWeight: 700, letterSpacing: "0.05em" }}>
                     {/* BOTH: relative answers "how fresh", absolute answers "which candle" — a
                         signal you are checking against a chart needs the second. The absolute is a
                         step dimmer so the pair reads as one field, not two competing ones, but it
@@ -1300,11 +1300,11 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
                           price={tp?.price ?? null}
                           prevPrice={tp?.prevPrice ?? null}
                           direction={dir}
-                          fontSize={11}
+                          fontSize={13}
                         />
                       </div>
                       {chg != null && sidebarWidth >= 200 && (
-                        <span style={{ fontSize: 10, fontWeight: 700,
+                        <span style={{ fontSize: 12, fontWeight: 700,
                           color: chg >= 0 ? "#22d3a5" : "#f4617f", letterSpacing: "0.04em" }}>
                           {chg >= 0 ? "+" : ""}{chg.toFixed(2)}%
                         </span>

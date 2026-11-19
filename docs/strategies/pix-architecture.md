@@ -15,6 +15,7 @@
 | `strategies/pix_profile.py` | volume profile: POC, VAH, VAL, the POC's role, which levels touch a zone |
 | `strategies/pix_footprint.py` | footprint: buy / sell per price inside a candle, diagonal imbalances, stacks |
 | `strategies/pix_entry.py` | `reaction_entry`: the 1M touch → 2+ candles our way → pullback → stop order off it, stop behind the pullback |
+| `strategies/pix_factors.py` | what the Assets page's three panels show for a PIX signal (`smc_factors`: CTX::/IND::/PA::) |
 | `strategies/pix_zones.py` | marks every zone: the candle before a 3-candle gap, wick / engulfed / institutional (`find_fvgs`, `find_zones`, `break_index`) |
 
 Allowed imports (enforced by `tests/pix/test_independence.py`): PIX's own modules, the standard library, and plumbing —

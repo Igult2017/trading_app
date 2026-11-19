@@ -182,6 +182,18 @@ dsig = build_signal("XAU/USD", dp, 2, "pix", "PIX")
 check("a DISAGREEING order flow shows its warning inside the first five", any("does NOT agree" in r for r in
                                                                                  dsig.technical_reasons[:5]), True)
 
+print("\nTHE ASSETS PAGE'S THREE PANELS (19 Nov: 'not displaying anything here in this columns')")
+check("the signal carries all three panels' entries (CTX:: context, IND:: technical, PA:: price action; details in "
+      "test_factors.py)", {x.split("::")[0] for x in sig.smc_factors} >= {"CTX", "IND", "PA"}, True)
+import strategies.pix_factors as PF  # noqa: E402
+real_zone = PF.zone
+S.candidates = lambda *a, **k: [(old, None)]            # a zone that DOES make a plan (the fresh one is refused)
+check("...and a real zone plan carries them (control for the teeth below)",
+      bool(S.zone_plan([], [], M5OK, GOOD, 102.0, 0.1, [], flow=GO)[0].factors), True)
+PF.zone = lambda *a, **k: []
+broken = S.zone_plan([], [], M5OK, GOOD, 102.0, 0.1, [], flow=GO)[0]
+PF.zone = real_zone
+teeth("the panels' entries (builder emptied)", broken is not None and build_signal("XAU/USD", broken, 2, "pix", "PIX").smc_factors == [])
 
 print(f"\n{'ALL PASS' if not BAD else f'{len(BAD)} of {N[0]} FAILED: {BAD}'} ({N[0]} checks)")
 sys.exit(1 if BAD else 0)
