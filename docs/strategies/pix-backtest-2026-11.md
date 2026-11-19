@@ -1,5 +1,9 @@
 # PIX — 2-year backtest and divergence study (19 Nov 2026)
 
+> ⚠ **THESE NUMBERS MEASURED THE OLD ENTRY** (one 5M close back out of the zone, then a stop order on the next 1M
+> candle — no reaction, no pullback). He rejected it the same day (*"You tested gabbage"*) and the entry was rebuilt
+> to his 1M sequence (`pix.md` rule 5). Nothing here describes PIX as it now trades.
+
 His request: *"run a backtest of PIX on BTCUSD, XAUUSD, EURUSD, Zones at 5mins, trend at 1HR and 4HR and then entry at
 1M. Use the tools, and also run a test on how many divergences do we have a month and are they profitable as in do they
 really predict price action. Data is 2 yrs."*

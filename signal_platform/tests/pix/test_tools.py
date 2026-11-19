@@ -1,4 +1,4 @@
-"""PIX's THREE TOOLS — volume profile, footprint, and the upgraded absorption / initiation — proved on hand-built data
+"""PIX's THREE TOOLS — volume profile, footprint, and absorption and the reaction volume — proved on hand-built data
 with known answers (18 Nov 2026). Every key rule has TEETH, and the tools are shown to be MARKET-AGNOSTIC: multiplying
 every volume by 1000 (a different market's scale) gives the same answer. Run: python tests/pix/test_tools.py
 """
@@ -15,7 +15,7 @@ import strategies.pix_profile as P  # noqa: E402
 import strategies.pix_footprint as FP  # noqa: E402
 import strategies.pix_flow as F  # noqa: E402
 import strategies.pix_btcflow as BT  # noqa: E402
-import strategies.pix_goldflow as GF  # noqa: E402
+import strategies.pix_tickflow as TK  # noqa: E402
 
 BAD, N = [], [0]
 
@@ -75,7 +75,7 @@ same = FP.build({100.0: (10, 10), 101.0: (40, 39), 102.0: (40, 38), 103.0: (40, 
 check("buyers ≈ sellers at every price → no stacked imbalance (the SAME-price comparison is not used)",
       same.buy_stacks, [])
 
-print("\nABSORPTION (footprint) and INITIATION (volume) — CVD is NOT used for either")
+print("\nABSORPTION (footprint) refuses; the reaction VOLUME is shown only — CVD is NOT used for either")
 
 
 def market():
@@ -87,45 +87,45 @@ def market():
 TAP = T0 + 12 * 300
 flows = {T0 + i * 300: v for i, v in enumerate([(10, 30)] * 7 + [(20, 20)] * 5 + [(22, 18), (40, 10)])}
 flat = {t: {100.0: (1.0, 1.0)} for t in flows}
-check("baseline: GO", F.verdict(market(), flows, True, TAP, "5M", prints=flat).kind, F.GO)
+check("baseline: no absorption", F.absorbed(market(), flows, True, TAP, "5M", prints=flat), None)
 trap = dict(flat)
 trap[TAP + 300] = {102.6: (1, 9), 102.8: (40, 2), 103.0: (40, 2), 103.2: (40, 2), 103.4: (40, 2), 103.6: (1, 1)}
-v = F.verdict(market(), flows, True, TAP, "5M", prints=trap)
-check("buyers STACKED at 102.8-103.4 but the candle closed BELOW them (102.2) → REFUSE (footprint absorption)",
-      (v.kind, "footprint" in v.reasons[0]), (F.REFUSE, True))
-miss = dict(flat)
-miss.pop(TAP)
-check("a visit candle with no footprint → UNKNOWN", F.verdict(market(), flows, True, TAP, "5M", prints=miss).kind,
-      F.UNKNOWN)
+check("buyers STACKED at 102.8-103.4 but the candle closed BELOW them (102.2) → footprint ABSORPTION",
+      "footprint" in (F.absorbed(market(), flows, True, TAP, "5M", prints=trap) or ""), True)
+miss = dict(trap)
+miss.pop(TAP + 300)
+check("a visit candle with no footprint is simply not footprint-judged (never invented)",
+      F.absorbed(market(), flows, True, TAP, "5M", prints=miss), None)
+REACT = [TAP + 300]
 quiet = dict(flows)
-quiet[TAP + 300] = (8, 2)                                     # 80% one-sided, but only 10 traded vs ~40 average
-v = F.verdict(market(), quiet, True, TAP, "5M")
-check("leaving with 80% buying but only 25% of the usual volume → REFUSE (no initiation)",
-      (v.kind, "average volume" in v.reasons[0]), (F.REFUSE, True))
+quiet[TAP + 300] = (8, 2)                                     # 80% one-sided, but only 10 traded vs 40 average
+check("reaction volume shown, never a gate: 10 traded vs an average of 40 → 0.25×",
+      round(F.confirm(market(), quiet, True, TAP, REACT).volume_x, 3), 0.25)
 F.VOL_AVG_N = 0
-teeth("the volume rule (no earlier candles counted)", F.verdict(market(), quiet, True, TAP, "5M").kind != F.REFUSE)
+teeth("the average (no earlier candles counted → no figure)", F.confirm(market(), quiet, True, TAP, REACT).volume_x is None)
 F.VOL_AVG_N = 20
 huge = dict(flows)
-huge[TAP + 300] = (4000, 1000)                                # a giant leaving candle must not lift its own average
+huge[TAP + 300] = (4000, 1000)                                # a giant reaction candle must not lift its own average
 check("the candle judged is NOT in its own average (5000 vs an average of 40 → 125×)",
-      "125.0×" in F.verdict(market(), huge, True, TAP, "5M").reasons[0], True)
+      round(F.confirm(market(), huge, True, TAP, REACT).volume_x, 3), 125.0)
 x1000 = {t: (b * 1000, s * 1000) for t, (b, s) in flows.items()}
-check("MARKET-AGNOSTIC: every volume ×1000 → the same verdict",
-      F.verdict(market(), x1000, True, TAP, "5M").kind, F.verdict(market(), flows, True, TAP, "5M").kind)
+check("MARKET-AGNOSTIC: every volume ×1000 → the same absorption answer",
+      F.absorbed(market(), x1000, True, TAP, "5M"), F.absorbed(market(), flows, True, TAP, "5M"))
 
-print("\nTHE DATA ADAPTERS — Bitcoin trades and the gold tick count, per price")
+print("\nTHE DATA ADAPTERS — Bitcoin trades and the broker tick count, per price")
 rows = [{"a": 1, "p": "100.5", "q": "0.25", "T": T0 * 1000 + 10, "m": False},
         {"a": 2, "p": "100.5", "q": "0.10", "T": T0 * 1000 + 20, "m": True},
         {"a": 3, "p": "101.0", "q": "1.00", "T": (T0 + 60) * 1000, "m": False}]
 check("a Binance trade with m=false is a BUY, m=true a SELL; decimals kept; out-of-minute trades dropped",
       BT.parse_trades(rows, T0, T0 + 59), {100.5: (0.25, 0.10)})
-GF.reset()
-GF.on_tick("XAU/USD", 4000.0, T0 + 30)
+TK.reset()
+TK.on_tick("XAU/USD", 4000.0, T0 + 30)
 for i, b in enumerate([4000.1, 4000.2, 4000.1]):
-    GF.on_tick("XAU/USD", b, T0 + 60 + i)
+    TK.on_tick("XAU/USD", b, T0 + 60 + i)
 check("gold: the up / down ticks are counted AT the price they moved to",
-      GF.prints("M1", now=T0 + 400).get(T0 + 60), {4000.1: (1.0, 1.0), 4000.2: (1.0, 0.0)})
-GF.reset()
+      TK.prints("XAU/USD", "M1", now=T0 + 400).get(T0 + 60), {4000.1: (1.0, 1.0), 4000.2: (1.0, 0.0)})
+check("...and another market's footprint stays empty", TK.prints("EUR/USD", "M1", now=T0 + 400), {})
+TK.reset()
 
 print(f"\n{'ALL PASS' if not BAD else f'{len(BAD)} of {N[0]} FAILED: {BAD}'} ({N[0]} checks)")
 sys.exit(1 if BAD else 0)

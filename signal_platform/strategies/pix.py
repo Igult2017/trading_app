@@ -1,9 +1,10 @@
 """
 PIX — BTC/USD and XAU/USD. HIS SKELETON (18 Nov 2026). READ docs/strategies/pix.md FIRST — his rules in his words.
 
-  4H trending? → REAL zones (4H + 1H) in its direction, near the money → 5M tap + respect + ORDER FLOW on 5M and 1M
-                → 1M stop order, 3R.
-  4H ranging   → 5M support / resistance on its 2nd respect → 1M stop order, only with ≥2R of room.
+  4H (else 1H) trending? → REAL zones (5M first, then 1H / 4H) in its direction, near the money → on 1M the zone
+                PROVES itself: touch, 2+ candles our way, one opposite candle → stop order off that pullback, 3R.
+                Order flow: absorption refuses; divergence + delta are shown on the card as agreeing or not.
+  both ranging → 5M support / resistance on its 2nd respect (the same 1M proof) → stop order, only with ≥2R of room.
 
 The rules live in `pix_bigzones` and `pix_skeleton`; this file only feeds them candles and turns a plan into a signal.
 SIGNALS ONLY — to the public channel (`dm_only_exempt`). PIX is NOT in `autotrade_strategies`, so it places nothing:
@@ -21,45 +22,45 @@ from shared.pip import price_digits
 from notifications import titles
 from charting import theme
 from data import tick_listeners
-from strategies import pix_btcflow, pix_goldflow
-from strategies.pix_flow import verdict
+from strategies import pix_btcflow, pix_tickflow
+from strategies.pix_flow import absorbed, confirm
 from strategies.pix_skeleton import Plan, range_plan, zone_plan
 
 log = logging.getLogger(__name__)
 
 _STATE_TTL = 14 * 24 * 3600   # forget a delivered setup after 2 weeks
 
-# GOLD'S ORDER FLOW is counted from the live price stream as it arrives (`pix_goldflow`); the stream's watcher hands
-# every tick to the registered listeners, each inside its own try, so this can never disturb the stream.
-tick_listeners.register(pix_goldflow.on_tick)
+# BROKER-STREAMED MARKETS' ORDER FLOW (gold, any forex pair) is counted per symbol from the live price stream as it
+# arrives (`pix_tickflow`); the stream's watcher hands every tick to the registered listeners, each inside its own try,
+# so this can never disturb the stream.
+tick_listeners.register(pix_tickflow.on_tick)
 
 
 async def flow_data(symbol: str):
     """{"M5": (source, candle flows, footprints), "M1": (...)} — the adapter per market; the tools never see a symbol.
-    Crypto: Binance (candle buy/sell + per-price trades). Broker-streamed markets (gold): our live tick count, an
-    ESTIMATE. Any other market (e.g. a stock, once a feed is wired): nothing → UNKNOWN → no signal."""
+    Crypto: Binance (real candle buy/sell + per-price trades). Every broker-streamed market (gold, forex): our live tick
+    count, an ESTIMATE (*"forex has no centralized data"*). No figures → the card says "not available"."""
     if symbol.startswith("BTC"):
         await pix_btcflow.refresh_prints()
         m5, m1 = await pix_btcflow.flows("M5", 60), await pix_btcflow.flows("M1", 90)
         return {"M5": (*m5, pix_btcflow.prints("M5")), "M1": (*m1, pix_btcflow.prints("M1"))}
-    if symbol.startswith("XAU"):
-        return {"M5": (*pix_goldflow.flows("M5"), pix_goldflow.prints("M5")),
-                "M1": (*pix_goldflow.flows("M1"), pix_goldflow.prints("M1"))}
-    return {"M5": ("", {}, {}), "M1": ("", {}, {})}
+    return {tf: (*pix_tickflow.flows(symbol, tf), pix_tickflow.prints(symbol, tf)) for tf in ("M5", "M1")}
 
 
 def make_check(data):
-    """The order-flow check the skeleton calls at a respected tap: 5M AND 1M must both say GO (footprint included)."""
-    def check(m5, m1, bull, tap):
-        reasons = []
-        for tf, candles in (("M5", m5), ("M1", m1)):
+    """The order-flow check the skeleton calls once the zone has proved itself on 1M (`pix_entry.Entry`).
+    Returns (absorption reason or None, the card's agree / disagree line, extra details).
+    ABSORPTION on any 5M or 1M candle of the visit refuses (his 18 Nov rule). DIVERGENCE + DELTA (1M) only confirm."""
+    def check(m5, m1, bull, e):
+        for tf, candles, since in (("M5", m5, e.first_touch_at // 300 * 300), ("M1", m1, e.first_touch_at)):
             source, fl, fp = data[tf]
-            v = verdict(candles, fl, bull, tap, tf.replace("M", "") + "M", prints=fp)
-            tag = f" ({source})" if source else ""
-            if not v.go:
-                return False, reasons + [r + tag for r in v.reasons]
-            reasons += [r + tag for r in v.reasons]
-        return True, reasons
+            why = absorbed(candles, fl, bull, since, tf.replace("M", "") + "M", prints=fp)
+            if why:
+                return why + (f" ({source})" if source else ""), "", []
+        source, fl, _ = data["M1"]
+        c = confirm(m1, fl, bull, e.touch_at, [x.time for x in e.reaction], source=source)
+        more = [f"1M reaction volume {c.volume_x:.1f}× the average before the touch"] if c.volume_x else []
+        return None, c.line(bull), more
     return check
 
 
@@ -110,7 +111,7 @@ class PIXStrategy(BaseStrategy):
         if plan is None:
             self._log(sym, "SCANNING", f"{why_zone}; {why_range}")
             return StrategyResult.empty()
-        key = f"{sym}_pix_{plan.path}_{plan.tf}_{plan.level_at}_{plan.tap_at}"
+        key = f"{sym}_pix_{plan.path}_{plan.tf}_{plan.level_at}_{plan.pullback_at}"   # one signal per proven pullback
         delivery_ledger.cleanup(_STATE_TTL)
         if delivery_ledger.is_delivered(key):
             return StrategyResult.empty()
@@ -135,7 +136,7 @@ def build_signal(symbol: str, plan: Plan, digits: int, strategy_id: str, strateg
     what = f"{plan.tf} {'demand' if buy else 'supply'} zone" if plan.path == "zone" else \
         f"5M {'support' if buy else 'resistance'}"
     reasons = plan.why + [
-        f"STOP ORDER {side} {plan.entry:.{digits}f} — fills only if price carries on",
+        f"STOP ORDER {side} {plan.entry:.{digits}f} — fills only if price turns back our way after the pullback",
         f"SL {plan.sl:.{digits}f} | TP {plan.tp:.{digits}f} | RR {plan.rr}:1",
     ]
     return Signal(

@@ -4,7 +4,7 @@
 as `(symbol, bid, broker_epoch)` for every tick. The stream calls each listener inside its own try (`data/fix_book.py`),
 so a listener that fails is logged and can never stop the stream or the other listeners.
 
-First user: PIX's gold buy/sell estimate (`strategies/pix_goldflow.py`). Nothing strategy-specific lives here — it is a
+First user: PIX's per-market buy/sell estimate (`strategies/pix_tickflow.py`). Nothing strategy-specific lives here — it is a
 list, so the watcher never has to import a strategy.
 """
 LISTENERS: list = []

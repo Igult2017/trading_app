@@ -5425,9 +5425,14 @@ as written (stop beyond the zone's far edge). If he wants the 1M entry to refine
 
 ### F8 — The 1M CVD reading on long visits, and how long a PIX entry stays valid — HIS DECISIONS (19 Nov 2026)
 (a) On a visit of up to an hour the 1M window is ~70 candles, so its two halves no longer compare the approach with the
-visit. Two fixes give OPPOSITE answers when sellers push into the zone and buyers win the touching candle (one reads
+visit (still true after the 19 Nov entry rebuild — the divergence on the card reads the same halves). Two fixes give OPPOSITE answers when sellers push into the zone and buyers win the touching candle (one reads
 it divergence, the other convergence) — his call which he means. (b) PIX sets no expiry, so a "last 1M high" stop
 order stays live 24 h; the 2-year backtest measures 15 min / 1 h / 4 h / 24 h (`docs/strategies/pix-backtest-2026-11.md`).
+
+### F9 — PIX's backtest kit measures the OLD entry (19 Nov 2026)
+`trading_app_data/tools/pix_bt.py` calls `respected_5m` / `entry_1m` / `verdict`, deleted when the 1M entry was rebuilt
+to his sequence. Rebuilding it (and proving it again under the 10 test-kit rules) is the first step of any backtest of
+the new entry — which needs his yes; he said *"Don't run that test"* for now.
 
 ### F7 — PIX shares the PROGRAM with the other strategies (not their logic)
 Scanner, candle feed, Telegram, database: if the scanner or the broker connection stops, every strategy stops. Running

@@ -1,14 +1,17 @@
-"""PIX — HIS SKELETON, top to bottom (18 Nov 2026). Pure functions on candles; `pix.py` only feeds them.
+"""PIX — HIS SKELETON, top to bottom (18 Nov 2026; the 1M entry rebuilt to his sequence 19 Nov). Pure functions on
+candles; `pix.py` only feeds them.
 
-  4H  is the market trending? (`pix_trend.regime`). Trending → zones in the trend's direction only.
-  4H + 1H  the REAL zones (price travelled from them to another zone) near the money, the trend's side (`pix_bigzones`).
-  5M  price taps one of them and is RESPECTED: a 5M candle closes back out of the zone the trade's way — AND the
-      ORDER FLOW agrees on 5M and on 1M (`pix_flow.verdict`: no absorption, initiation on the way out, CVD not
-      converging), checked by the `flow` callable `pix.py` supplies. No check supplied = no plan.
-  1M  a STOP ORDER at the last closed 1M candle's high (buy) / low (sell); stop beyond the zone's far edge
-      (plus the spread on a sell); target 3R — *"Let's target 3R"*.
-  RANGING 4H → 5M support / resistance: *"wait for it being respected once then when it respects it again, we take
-      trade but we use stop order"*, and only *"when they can give use 2R and above"*.
+  4H  is the market trending? (`pix_trend.direction`: 4H, else 1H). Trending → zones in the trend's direction only.
+  5M first, then 1H / 4H  the REAL zones (price travelled from them to another zone) near the money (`pix_bigzones`).
+  1M  the zone must PROVE itself (`pix_entry.reaction_entry`): price touches it without closing through, at least 2
+      candles close our way, then ONE candle closes the opposite way (the pullback) → a STOP ORDER at the pullback's
+      high + the spread (buy) / low (sell); stop behind the pullback; target 3R — *"Let's target 3R"*. No 5M candle may
+      close through the zone during the visit either.
+      ORDER FLOW (`flow` callable from `pix.py`): ABSORPTION refuses; DIVERGENCE + DELTA only CONFIRM, and the card
+      says whether they agree — his rule, *"Both must agree but if they don't indicate so in the signal card"*.
+  RANGING 4H + 1H → 5M support / resistance: *"wait for it being respected once then when it respects it again, we take
+      trade but we use stop order"* — the second respect is the same 1M reaction — only *"when they can give use 2R and
+      above"*.
 
 Nothing here reads the still-forming candle as a level. `price` is the CURRENT MID price (the live quote, else the
 last 1M close) and is used only as a trigger: near-the-money distance, and a buy stop must sit above the ask (mid +
@@ -21,7 +24,7 @@ from dataclasses import dataclass
 from core.types import Candle
 from strategies.pix_candles import closed_only
 from strategies.pix_swings import find_swings
-from strategies.pix_entry import TAP_WINDOW_M5, entry_1m, respected_5m
+from strategies.pix_entry import Entry, reaction_entry
 from strategies.pix_bigzones import TF_S, candidates, daily_atr, NEAR_ATR_MULT
 from strategies.pix_profile import describe, from_candles, poc_role, touching
 from strategies.pix_trend import direction
@@ -32,6 +35,7 @@ SR_PIVOT      = 3      # a 5M swing high/low = the highest/lowest of 3 candles e
 SR_LOOKBACK   = 200    # 5M candles searched for those levels (~16 hours)
 SR_TOL_ATR    = 0.25   # a level is a band ± a quarter of the 5M average range
 PROFILE_M5    = 288    # the volume profile's window: 288 5M candles = the last day (24 1H candles)
+SR_FRESH_M5   = 12     # a support/resistance level must have formed before the last hour (its FIRST respect)
 
 
 @dataclass
@@ -46,7 +50,8 @@ class Plan:
     tp:        float
     rr:        float
     level_at:  int       # time of the zone's gap candle / the S/R pivot
-    tap_at:    int       # time of the 5M candle that tapped it
+    tap_at:    int       # the visit's first 1M candle into the zone
+    pullback_at: int     # the 1M pullback candle the order is placed off — one signal per pullback
     why:       list[str]
 
 
@@ -58,11 +63,28 @@ def _atr(c: list[Candle], n: int = 14) -> float:
                for k in range(1, len(c))) / (len(c) - 1)
 
 
-def _flow(flow, m5, m1, bull: bool, tap: int) -> tuple[bool, list[str]]:
-    """The order-flow check, or a refusal when there is none — a plan is never made without it."""
+def _flow(flow, m5, m1, bull: bool, e: Entry) -> tuple[str | None, str, list[str]]:
+    """(absorption reason or None, the card's agree / disagree line, extra details). No check supplied → no figures."""
     if flow is None:
-        return False, ["no order-flow check supplied"]
-    return flow(m5, m1, bull, tap)
+        return None, "Order flow not available yet — no order-flow feed", []
+    return flow(m5, m1, bull, e)
+
+
+def _broken_5m(m5c: list[Candle], top: float, bottom: float, bull: bool, since: int) -> bool:
+    """A 5M candle overlapping the visit (from the first 1M touch on) CLOSED through the zone's far edge."""
+    return any((x.close < bottom if bull else x.close > top) for x in m5c if x.time + 300 > since)
+
+
+def _proved(m5, m1, top, bottom, bull, price, spread) -> tuple[Entry | None, str]:
+    e, why = reaction_entry(m1, top, bottom, bull, price + (spread / 2 if bull else -spread / 2), spread)
+    if e is not None and _broken_5m(closed_only(m5), top, bottom, bull, e.first_touch_at):
+        return None, "5M: a candle closed THROUGH the zone during the visit — broken"
+    return e, why
+
+
+def _entry_why(e: Entry, bull: bool) -> str:
+    return (f"1M: touched the zone, {len(e.reaction)} candles {'up' if bull else 'down'}, then a pullback candle — "
+            f"the zone proved itself")
 
 
 def _levels(m5c: list[Candle], bull: bool):
@@ -87,41 +109,41 @@ def zone_plan(h4, h1, m5, m1, price: float, spread: float, d1, flow=None) -> tup
     zones = candidates(h4, h1, m5, want, price, atr * NEAR_ATR_MULT, profile=prof)
     if not zones:
         return None, f"{src} {'up' if bull else 'down'}trend — no real {want} zone (5M, 1H or 4H) within a day's range"
-    refused: list[str] = []
+    waiting: list[str] = []
     for bz, outer in zones:
         z = bz.zone
-        tap = respected_5m(m5, z.top, z.bottom, bull)
-        # THE TAP MUST COME AFTER PRICE TRAVELLED AWAY (his rule: "tapped another zone BEFORE coming back"). A 5M zone
-        # can be minutes old, and its own formation candles must never count as price coming back to it.
-        if tap is None or tap < bz.reached_at + TF_S[bz.tf]:
-            continue
-        sl = z.bottom if bull else z.top + spread                   # beyond the zone actually traded
-        e = entry_1m(m1, bull, sl, price + (spread / 2 if bull else -spread / 2), spread)   # a buy fills on the ask
+        e, why_not = _proved(m5, m1, z.top, z.bottom, bull, price, spread)
         if e is None:
+            waiting.append(f"{bz.tf} {round(z.bottom, 5)}–{round(z.top, 5)}: {why_not}")
             continue
-        ok, flow_why = _flow(flow, m5, m1, bull, tap)
-        if not ok:
-            refused.append(flow_why[-1] if flow_why else "order flow refused")
+        # THE TOUCH MUST COME AFTER PRICE TRAVELLED AWAY (his rule: "tapped another zone BEFORE coming back"). A 5M zone
+        # can be minutes old, and its own formation candles must never count as price coming back to it.
+        if e.first_touch_at < bz.reached_at + TF_S[bz.tf]:
             continue
-        risk = abs(e - sl)
-        tp = e + TARGET_R * risk if bull else e - TARGET_R * risk
+        absorbed, flow_line, flow_more = _flow(flow, m5, m1, bull, e)
+        if absorbed:
+            waiting.append(f"{bz.tf}: {absorbed} — not entering")
+            continue
+        sl, entry = e.sl, e.entry
+        risk = abs(entry - sl)
+        tp = entry + TARGET_R * risk if bull else entry - TARGET_R * risk
         where = (f" — INSIDE the {outer.tf} {want} zone {round(outer.zone.bottom, 5)}–{round(outer.zone.top, 5)}"
                  if outer else "")
         why = [f"{src} {'UP' if bull else 'DOWN'}TREND — trading with it only",
                f"REAL {bz.tf} {want} zone {round(z.bottom, 5)}–{round(z.top, 5)}{where}: price left it and travelled "
                f"to the {bz.reached.direction} zone {round(bz.reached.bottom, 5)}–{round(bz.reached.top, 5)} "
                f"before coming back",
-               "5M: tapped and closed back out of the zone",
+               _entry_why(e, bull),
+               flow_line,
+               f"1M stop order at the pullback's {'high + the spread' if bull else 'low'}; {e.note}; 3R",
                describe(prof, poc_role(day, prof.poc) if prof else "")
                + (f" — {'/'.join(touching(prof, z.bottom, z.top))} AT THIS ZONE (confluence)"
                   if touching(prof, z.bottom, z.top) else ""),
-               *flow_why,
-               f"1M stop order at the last closed candle's {'high + the spread' if bull else 'low'}; stop beyond the zone; 3R"]
-        return Plan("buy" if bull else "sell", "zone", bz.tf, z.top, z.bottom, e, sl, tp, TARGET_R,
-                    bz.time, tap, why), ""
-    if refused:
-        return None, f"order flow said no: {refused[0]}"
-    return None, f"{len(zones)} real {want} zone(s) near price — none tapped and respected on 5M yet"
+               *flow_more]
+        return Plan("buy" if bull else "sell", "zone", bz.tf, z.top, z.bottom, entry, sl, tp, TARGET_R,
+                    bz.time, e.first_touch_at, e.pullback.time, why), ""
+    return None, (f"{len(zones)} real {want} zone(s) near price — "
+                  + ("; ".join(waiting[:2]) or "none touched since price travelled away"))
 
 
 def range_plan(h4, m5, m1, price: float, spread: float, flow=None, h1=None) -> tuple[Plan | None, str]:
@@ -132,38 +154,37 @@ def range_plan(h4, m5, m1, price: float, spread: float, flow=None, h1=None) -> t
     tol = _atr(m5c) * SR_TOL_ATR
     if len(m5c) < 4 * SR_PIVOT or tol <= 0:
         return None, "not enough 5M candles for support/resistance"
-    # the level must have been CONFIRMED (its 3 candles after) before the tap window opened
-    recent = m5c[-TAP_WINDOW_M5 - SR_PIVOT].time
-    refused: list[str] = []
+    # the level must have been CONFIRMED (its 3 candles after) before the last hour — that was its FIRST respect
+    recent = m5c[-SR_FRESH_M5 - SR_PIVOT].time
+    waiting: list[str] = []
     for bull in sides:
-        lv = [(p, t) for p, t in _levels(m5c, bull) if t < recent]          # respected once, BEFORE this tap
+        lv = [(p, t) for p, t in _levels(m5c, bull) if t < recent]          # respected once, BEFORE this visit
         opp = [p for p, _ in _levels(m5c, not bull)]
         for p, t in sorted(lv, key=lambda x: abs(price - x[0])):
             top, bot = p + tol, p - tol
-            tap = respected_5m(m5c, top, bot, bull)
-            if tap is None:
-                continue
-            sl = bot if bull else top + spread
-            e = entry_1m(m1, bull, sl, price + (spread / 2 if bull else -spread / 2), spread)   # a buy fills on the ask
+            e, _ = _proved(m5c, m1, top, bot, bull, price, spread)
             if e is None:
                 continue
-            risk = abs(e - sl)
-            room = [q - e for q in opp if q > e] if bull else [e - q for q in opp if q < e]
+            risk = abs(e.entry - e.sl)
+            room = [q - e.entry for q in opp if q > e.entry] if bull else [e.entry - q for q in opp if q < e.entry]
             if not room or min(room) < RANGE_MIN_R * risk:
                 continue
-            ok, flow_why = _flow(flow, m5c, m1, bull, tap)
-            if not ok:
-                refused.append(flow_why[-1] if flow_why else "order flow refused")
+            absorbed, flow_line, flow_more = _flow(flow, m5c, m1, bull, e)
+            if absorbed:
+                waiting.append(f"{absorbed} — not entering")
                 continue
             rr = min(TARGET_R, min(room) / risk)
-            tp = e + rr * risk if bull else e - rr * risk
+            tp = e.entry + rr * risk if bull else e.entry - rr * risk
             why = [f"{'RANGING' if trend == 0 else ('UPTREND' if trend > 0 else 'DOWNTREND')} — 5M "
                    f"{'support' if bull else 'resistance'} {round(p, 5)} respected before, respected again now",
+                   _entry_why(e, bull),
+                   flow_line,
                    f"Room to the opposite level {min(room) / risk:.1f}R (needs {RANGE_MIN_R:.0f}R)",
-                   *flow_why,
-                   f"1M stop order at the last closed candle's {'high + the spread' if bull else 'low'}; target {rr:.1f}R"]
-            return Plan("buy" if bull else "sell", "range", "5M", top, bot, e, sl, tp, round(rr, 2),
-                        t, tap, why), ""
-    if refused:
-        return None, f"order flow said no: {refused[0]}"
-    return None, "no 5M support/resistance on its 2nd respect with 2R of room"
+                   f"1M stop order at the pullback's {'high + the spread' if bull else 'low'}; {e.note}; "
+                   f"target {rr:.1f}R",
+                   *flow_more]
+            return Plan("buy" if bull else "sell", "range", "5M", top, bot, e.entry, e.sl, tp, round(rr, 2),
+                        t, e.first_touch_at, e.pullback.time, why), ""
+    if waiting:
+        return None, waiting[0]
+    return None, "no 5M support/resistance proved on 1M with 2R of room"

@@ -39,7 +39,7 @@ so.
 ### "Why did PIX send this?" / anything about BTC/USD or XAU/USD on PIX (named OVP until 18 Nov)
 
 Read [strategies/pix.md](./strategies/pix.md) (his rules in his words, the constants, what is not built) and
-[strategies/pix-architecture.md](./strategies/pix-architecture.md) (7 files, one flow, NO shared logic). PIX is his own skeleton since
+[strategies/pix-architecture.md](./strategies/pix-architecture.md) (13 files, one flow, NO shared logic). PIX is his own skeleton since
 18 Nov 2026 — the BX copy it started as is deleted. Signals to the channel; it places NO orders yet.
 
 ### "Why did BX send me this signal?" / anything about supply & demand zones
@@ -295,6 +295,11 @@ is wrong.** Full wording lives in the linked doc; this is the index so you know 
 within a spread of its high (buy entry = high + spread); 25× faster decisions, same answers. Result: not profitable
 over 2 years (BTC −0.07R, EUR/USD −0.19R, gold +0.03R before commission; BTC with the order-flow gate −0.19R on 108
 trades); divergence does NOT predict direction. `docs/strategies/pix-backtest-2026-11.md`, OPEN F8.
+
+**2026-11-19 — those numbers measured the OLD entry; the 1M entry is REBUILT to his sequence.** A zone must prove
+itself: touch → 2+ 1M candles our way → the first opposite candle → stop order off it, stop behind the pullback.
+Absorption refuses; divergence + delta only confirm, and the card says whether they agree. The tick-count estimate is
+per symbol (`pix_tickflow`). Not backtested (his "Don't run that test"); kit rebuild = OPEN F9. `pix.md` rule 5.
 
 **2026-11-19 — Barchart gold-options Greeks & volatility scraper built, SWITCHED OFF.** Six fetches a day (Asia /
 London / New York open + 5 and + 20 min), the MyFXBook shape, no challenge solver. `docs/barchart.md`, OPEN G1.

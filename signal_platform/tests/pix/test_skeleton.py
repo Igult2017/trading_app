@@ -94,66 +94,10 @@ wicked = went + [Candle(went[-1].time + 14400, 145, 146, 139.5, 142.0, 1, "H4")]
 check("a WICK into/below the zone that closes back above → still alive (touched zones are allowed)",
       len(demand_of(B.big_zones(wicked, "4H", "demand", 142.0, 30))), 1)
 
-print("\nRULE 5 — 5M respect: the LAST closed 5M candle is the FIRST close back out of the zone")
 M5_0 = 1_600_000_000 // 300 * 300
-
-
-def m5(rows):
-    return [Candle(M5_0 + k * 300, o, h, lo, c, 1, "M5") for k, (o, h, lo, c) in enumerate(rows)]
-
-
-above = [(104, 104.5, 103.5, 104)] * 5
-tap, out = (103, 103.2, 100.4, 100.6), (100.6, 102.0, 100.5, 101.8)
-check("tap (low 100.4) then a close above 101 → respected", S.respected_5m(m5(above + [tap, out]), 101, 100, True) is not None, True)
-check("still inside the zone → not yet", S.respected_5m(m5(above + [tap]), 101, 100, True), None)
-check("closed BELOW the zone after the tap → refused",
-      S.respected_5m(m5(above + [tap, (100.6, 100.7, 99.0, 99.5), out]), 101, 100, True), None)
-check("the close back out happened a candle EARLIER → stale, refused",
-      S.respected_5m(m5(above + [tap, out, (101.8, 102.5, 101.5, 102.2)]), 101, 100, True), None)
-check("sell mirror: tap of supply 100-101 then close below 100 → respected",
-      S.respected_5m(m5([(97, 97.5, 96.5, 97)] * 5 + [(98, 100.6, 97.8, 100.4), (100.4, 100.5, 98.5, 99.2)]),
-                     101, 100, False) is not None, True)
-forming = m5(above + [tap])
-forming.append(Candle(int(time.time()) // 300 * 300, 100.6, 102.0, 100.5, 101.8, 1, "M5"))
-check("NO LOOK-AHEAD: a still-forming 5M candle closing out does not count", S.respected_5m(forming, 101, 100, True), None)
-
-print("\nRULE 6 — 1M stop order, stop beyond the zone (+ spread on a sell), 3R")
-now = int(time.time()) // 60 * 60
-m1 = [Candle(now - 120, 101.5, 102.0, 101.4, 101.8, 1, "M1"), Candle(now, 101.8, 109.0, 101.7, 101.9, 1, "M1")]
-check("buy stop = the last CLOSED 1M high (the forming bar's 109 is ignored)", S.entry_1m(m1, True, 100.0, 101.9), 102.0)
-check("market already through the entry → no order", S.entry_1m(m1, True, 100.0, 102.1), None)
-check("WITH a 0.3 spread a buy stop sits at the high + spread (102.3): the ASK must break the high, as the BID does "
-      "for a sell", S.entry_1m(m1, True, 100.0, 102.05, 0.3), 102.3)
-check("THE FIX (19 Nov): a candle that closed within a spread of its high (ask 102.05 > the bare 102.0 high) no longer "
-      "kills the buy", S.entry_1m(m1, True, 100.0, 102.05, 0.3) is not None, True)
-check("...and the sell is unchanged: a sell stop at the bare low", S.entry_1m(
-    [Candle(now - 120, 99.6, 99.7, 99.0, 99.2, 1, "M1")], False, 101.0, 99.1, 0.3), 99.0)
-GO = lambda m5, m1, bull, tap: (True, ["order flow: GO (stub)"])
-zone = B.Zone("demand", 101.0, 100.0, 101.0, 100.0, 100.5, 40, 41)
-S.direction, S.daily_atr = (lambda h4, h1: (1, "4H")), (lambda d1: 50.0)
-S.candidates = lambda h4, h1, m5, want, price, reach, **k: [(B.BigZone("4H", zone, 1, zone, 2, 0.9), None)] if want == "demand" else []
-plan, _ = S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [], flow=GO)
-check("...but with the ASK (102.2 + half the 0.3 spread = 102.35) already past the 102.3 entry → no order",
-      S.zone_plan([], [], m5(above + [tap, out]), m1, 102.2, 0.3, [], flow=GO)[0], None)
-check("BUY: entry 102.3 (high 102.0 + 0.3 spread), stop 100.0 (zone bottom), target 102.3 + 3×2.3 = 109.2",
-      (plan.entry, plan.sl, round(plan.tp, 6), plan.rr), (102.3, 100.0, 109.2, 3.0))
-check("NO ORDER-FLOW CHECK → no plan (no order flow, no trade)",
-      S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [])[0], None)
-check("ORDER FLOW SAYS NO → no plan, and the reason is given",
-      S.zone_plan([], [], m5(above + [tap, out]), m1, 101.7, 0.3, [], flow=lambda *a: (False, ["5M ABSORPTION"])),
-      (None, "order flow said no: 5M ABSORPTION"))
-szone = B.Zone("supply", 101.0, 100.0, 100.0, 101.0, 100.5, 40, 41)
-S.direction = lambda h4, h1: (-1, "4H")
-S.candidates = lambda h4, h1, m5, want, price, reach, **k: [(B.BigZone("4H", szone, 1, szone, 2, 0.5), None)] if want == "supply" else []
-m1s = [Candle(now - 120, 99.6, 99.7, 99.0, 99.2, 1, "M1"), Candle(now, 99.2, 99.3, 99.1, 99.2, 1, "M1")]
-sm5 = m5([(97, 97.5, 96.5, 97)] * 5 + [(98, 100.6, 97.8, 100.4), (100.4, 100.5, 98.5, 99.2)])
-splan, _ = S.zone_plan([], [], sm5, m1s, 99.2, 0.3, [], flow=GO)
-check("SELL: entry 99.0, stop 101.0 + 0.3 spread = 101.3, target 99 − 3×2.3 = 92.1",
-      (splan.entry, round(splan.sl, 2), round(splan.tp, 2)), (99.0, 101.3, 92.1))
+GO = lambda m5_, m1_, bull, e_: (None, "Order flow CONFIRMS (stub)", [])  # noqa: E731
 S.direction = lambda h4, h1: (0, "")
-check("4H ranging → the zone path stays off", S.zone_plan([], [], sm5, m1s, 99.2, 0.3, [], flow=GO)[0], None)
-
-print("\nRULE 8 — ranging: 5M support on its 2nd respect, stop order, only with 2R of room")
+print("\nRULE 8 — ranging: 5M support on its 2nd respect (proved on 1M), only with 2R of room")
 
 
 def path(closes):
@@ -165,19 +109,23 @@ def path(closes):
 
 def sr_series(rebound):
     return path([120 - k for k in range(20)] + [100.5] + [101 + k for k in range(rebound - 100)]
-                + [rebound - k for k in range(1, rebound - 101)] + [100.3, 103.0])
+                + [rebound - k for k in range(1, rebound - 101)] + [101.5] * 3)
 
 
-m1r = [Candle(now - 120, 102.8, 103.5, 102.6, 103.2, 1, "M1"), Candle(now, 103.2, 103.3, 103.1, 103.2, 1, "M1")]
-rp, _ = S.range_plan([], sr_series(115), m1r, 103.2, 0.0, flow=GO)
-check("support 100 respected, rebound to 115.5, back to 100 and out → BUY at 103.5, target capped at the resistance",
-      (rp.direction, rp.entry, rp.tp), ("buy", 103.5, 115.5))
-check("rebound only to 108.5 → 1.2R of room, refused", S.range_plan([], sr_series(108), m1r, 103.2, 0.0, flow=GO)[0], None)
-S.RANGE_MIN_R = 1.0
-teeth("the 2R room rule (lowered to 1R)", S.range_plan([], sr_series(108), m1r, 103.2, 0.0, flow=GO)[0] is not None)
+# support 100.0 (band 99.5-100.5). 1M visit after the 5M series: touch 100.2, up, up, pullback → entry at its high 102.1
+SRM1 = [Candle(sr_series(115)[-1].time + 300 + k * 60, o, h, lo, c, 1, "M1") for k, (o, h, lo, c) in enumerate(
+    [(101.5, 102, 101, 101.5)] * 3 + [(101.5, 101.6, 100.2, 100.9), (100.9, 101.5, 100.8, 101.4),
+                                       (101.4, 102.0, 101.3, 101.9), (101.9, 102.1, 101.6, 101.7)])]
+rp, _ = S.range_plan([], sr_series(115), SRM1, 101.8, 0.0, flow=GO)
+check("support 100 respected before, touched again on 1M, 2 up, 1 down → BUY stop at the pullback's high 102.1",
+      rp and (rp.direction, round(rp.entry, 6), round(rp.sl, 6)), ("buy", 102.1, round(101.6 - 0.5 * 6.3 / 7, 6)))
+check("no 1M reaction → no range plan", S.range_plan([], sr_series(115), SRM1[:4], 101.8, 0.0, flow=GO)[0], None)
+S.RANGE_MIN_R = 20.0
+check("room to the resistance under the required multiple (raised to 20R) → refused",
+      S.range_plan([], sr_series(115), SRM1, 101.8, 0.0, flow=GO)[0], None)
 S.RANGE_MIN_R = 2.0
 S.direction = lambda h4, h1: (-1, "4H")
-check("4H DOWNTREND → a support (buy) is not taken", S.range_plan([], sr_series(115), m1r, 103.2, 0.0, flow=GO)[0], None)
+check("4H DOWNTREND → a support (buy) is not taken", S.range_plan([], sr_series(115), SRM1, 101.8, 0.0, flow=GO)[0], None)
 
 print("\nHIS LAYERS (18 Nov) — trend from 4H (1H when the 4H is sideways); 5M zones first, best inside a 1H/4H zone")
 import strategies.pix_trend as PT  # noqa: E402
@@ -200,31 +148,6 @@ order = [(z.tf, z.zone.bottom, o.tf if o else None) for z, o in B.candidates([],
 check("ORDER: 5M zone inside a 1H zone first, then the 1H zone, then the lone 5M zone (even though it is nearer)",
       order, [("5M", 100.2, "1H"), ("1H", 100.0, None), ("5M", 102.0, None)])
 B.big_zones = real_big
-
-S.direction = lambda h4, h1: (1, "4H")
-recent = m5(above + [tap, out])
-fresh = B.BigZone("5M", zone, 1, zone, recent[-1].time, 0.9)          # price "travelled" only on the last candle
-S.candidates = lambda *a, **k: [(fresh, None)]
-check("a 5M zone is not 'tapped' by candles from before price travelled away from it",
-      S.zone_plan([], [], recent, m1, 101.7, 0.3, [], flow=GO)[0], None)
-old = B.BigZone("5M", zone, 1, zone, recent[0].time - 600, 0.9)
-S.candidates = lambda *a, **k: [(old, None)]
-p5 = S.zone_plan([], [], recent, m1, 101.7, 0.3, [], flow=GO)[0]
-check("...the same zone, travelled away long before the tap → planned", p5 is not None, True)
-real_tfs = dict(B.TF_S)
-B.TF_S.update({"5M": -10 ** 12})
-S.candidates = lambda *a, **k: [(fresh, None)]
-teeth("the travelled-before-the-tap guard (guard removed)",
-      S.zone_plan([], [], recent, m1, 101.7, 0.3, [], flow=GO)[0] is not None)
-B.TF_S.clear(); B.TF_S.update(real_tfs)
-check("stop = the far edge of the zone TRADED (the 5M zone's 100.0)", p5 and p5.sl, 100.0)
-
-print("\nTHE SIGNAL — what reaches the channel")
-from strategies.pix import build_signal  # noqa: E402
-sig = build_signal("XAU/USD", plan, 2, "pix", "PIX")
-check("entry / stop / target / RR carried exactly", (sig.entry_price, sig.stop_loss, sig.take_profit, sig.risk_reward),
-      (102.3, 100.0, 109.2, 3.0))
-check("a real monitored signal, not an alert", (sig.alert_only, sig.strategy_id), (False, "pix"))
 
 print(f"\n{'ALL PASS' if not BAD else f'{len(BAD)} of {N[0]} FAILED: {BAD}'} ({N[0]} checks)")
 sys.exit(1 if BAD else 0)

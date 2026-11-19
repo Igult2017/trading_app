@@ -1,8 +1,8 @@
 """PIX ORDER FLOW — proved on hand-built candles with known answers (18 Nov 2026). docs/strategies/pix.md.
 
-Runs the REAL functions: `pix_flow.verdict` (absorption / initiation / CVD), `pix_btcflow` (Binance parsing, the
-forming candle, the fallback source, never raising), `pix_goldflow` (the tick rule and its coverage), `pix.make_check`
-(5M AND 1M). Every key rule has a TEETH case: the rule is broken on purpose and the check must then fail.
+Runs the REAL functions: `pix_flow.absorbed` (the one refusal), `pix_flow.confirm` (divergence + reaction delta, shown
+on the card — his 19 Nov rule), `pix_btcflow` (Binance parsing, the forming candle, the fallback source, never raising),
+`pix.make_check`. Every key rule has a TEETH case: the rule is broken on purpose and the check must then fail.
 Run: python tests/pix/test_flow.py
 """
 import asyncio
@@ -18,7 +18,6 @@ _obs.record = lambda *a, **k: None
 from core.types import Candle  # noqa: E402
 import strategies.pix_flow as F  # noqa: E402
 import strategies.pix_btcflow as BT  # noqa: E402
-import strategies.pix_goldflow as GF  # noqa: E402
 
 BAD, N = [], [0]
 
@@ -59,50 +58,71 @@ def flows(early, late, tap, respect):
     return {T0 + i * 300: v for i, v in enumerate([early] * 7 + [late] * 5 + [tap, respect])}
 
 
-print("THE VERDICT — buy at demand")
+print("ABSORPTION — the one order-flow reading that still refuses (his 18 Nov rule)")
 DIV = flows((10, 30), (20, 20), (22, 18), (40, 10))      # selling dries up as price makes its new low
-v = F.verdict(market(), DIV, True, TAP, "5M")
-check("selling dried up while price made a new low, buyers 60% one-sided leaving → GO", v.kind, F.GO)
-check("...called a CVD DIVERGENCE", any("DIVERGENCE" in r for r in v.reasons), True)
 CONV = flows((10, 30), (10, 30), (22, 18), (40, 10))     # selling keeps pace with price into the zone
-v = F.verdict(market(), CONV, True, TAP, "5M")
-check("CVD followed price to a new low → REFUSE (convergence)", (v.kind, "CONVERGENCE" in v.reasons[-1]),
-      (F.REFUSE, True))
 ABS = flows((10, 30), (20, 20), (40, 10), (40, 10))      # the TAP candle: buyers 60% one-sided yet it closed down
-v = F.verdict(market(), ABS, True, TAP, "5M")
-check("buyers pushing but the candle closed DOWN at the zone → REFUSE (absorption)",
-      (v.kind, "ABSORPTION" in v.reasons[0]), (F.REFUSE, True))
+check("buyers pushing but the candle closed DOWN at the zone → ABSORPTION",
+      "ABSORPTION" in (F.absorbed(market(), ABS, True, TAP, "5M") or ""), True)
+check("ordinary flow → no absorption", F.absorbed(market(), DIV, True, TAP, "5M"), None)
+check("a candle BEFORE the visit is never judged (visit starts after the absorbing candle)",
+      F.absorbed(market(), ABS, True, TAP + 300, "5M"), None)
 F.ABSORB_MIN = 2.0
-teeth("absorption (threshold made unreachable)", F.verdict(market(), ABS, True, TAP, "5M").kind == F.GO)
+teeth("absorption (threshold made unreachable)", F.absorbed(market(), ABS, True, TAP, "5M") is None)
 F.ABSORB_MIN = 0.25
-WEAK = flows((10, 30), (20, 20), (22, 18), (21, 19))     # leaving the zone with only 5% buying
-v = F.verdict(market(), WEAK, True, TAP, "5M")
-check("price left the zone with only +5% buying → REFUSE (no initiation)", (v.kind, "initiation" in v.reasons[0]),
-      (F.REFUSE, True))
-F.INIT_MIN = 0.0
-teeth("initiation (minimum set to 0)", F.verdict(market(), WEAK, True, TAP, "5M").kind == F.GO)
-F.INIT_MIN = 0.10
+
+print("\nDIVERGENCE + DELTA — confirm, never refuse (his 19 Nov rule: 'indicate so in the signal card')")
+REACT = [TAP + 300]                                      # the reaction candle(s)
+c = F.confirm(market(), DIV, True, TAP, REACT, "Binance futures")
+check("selling dried up into the zone (DIVERGENCE) and the reaction was 60% buying → AGREE",
+      (c.divergence, round(c.delta, 2), c.agree), ("divergence", 0.6, True))
+check("...the card line says CONFIRMS and names the source",
+      c.line(True).startswith("Order flow CONFIRMS (Binance futures)"), True)
+c = F.confirm(market(), CONV, True, TAP, REACT)
+check("CVD followed price to a new low (CONVERGENCE) → does NOT agree, and says which",
+      (c.agree, "CVD convergence ✗" in c.line(True), "does NOT agree" in c.line(True)), (False, True, True))
+real_state = F.cvd_state
+F.cvd_state = lambda *a: "divergence"
+teeth("divergence is really read (forced to 'divergence')", F.confirm(market(), CONV, True, TAP, REACT).agree)
+F.cvd_state = real_state
+# heavy selling early, then a reaction candle that is mildly SELLING (−10%) yet not enough to take CVD to a new low
+SELLR = flows((0, 60), (20, 20), (22, 18), (18, 22))
+c = F.confirm(market(), SELLR, True, TAP, REACT)
+check("divergence but the reaction's delta is SELLING → does NOT agree (both must agree)",
+      (c.divergence, c.agree, "delta -10% buying on the reaction ✗" in c.line(True)), ("divergence", False, True))
+# a market that never makes a new low into the zone (every low 100.2) → the CVD reading is NEUTRAL
+level = [Candle(T0 + i * 300, 100.6, 101.0, 100.2, 100.6, 1, "M5") for i in range(13)] +     [Candle(T0 + 13 * 300, 100.6, 102.4, 100.5, 102.2, 1, "M5")]
+cn = F.confirm(level, DIV, True, TAP, REACT)
+check("no new low into the zone (neutral) → no divergence → does NOT agree", (cn.divergence, cn.agree), ("neutral", False))
 miss = dict(DIV)
 miss.pop(T0 + 3 * 300)
-check("ONE candle with no buy/sell figure → UNKNOWN (and UNKNOWN never says go)",
-      (F.verdict(market(), miss, True, TAP, "5M").kind, F.Verdict(F.UNKNOWN).go), (F.UNKNOWN, False))
-check("too few candles before the tap → UNKNOWN", F.verdict(market()[8:], DIV, True, TAP, "5M").kind, F.UNKNOWN)
+c = F.confirm(market(), miss, True, TAP, REACT)
+check("one approach candle with no figure → divergence NOT AVAILABLE (never guessed); delta still read",
+      (c.divergence, round(c.delta, 2), "divergence not available" in c.line(True), c.agree), (None, 0.6, True, False))
+c = F.confirm(market(), {}, True, TAP, REACT)
+check("no figures at all → 'Order flow not available yet'", c.line(True).startswith("Order flow not available yet"),
+      True)
+check("reaction volume vs the average BEFORE the touch: 50 vs 40 → 1.25×",
+      round(F.confirm(market(), DIV, True, TAP, REACT).volume_x, 3), 1.25)
+x1000 = {t: (b * 1000, s * 1000) for t, (b, s) in DIV.items()}
+k1, k2 = F.confirm(market(), x1000, True, TAP, REACT), F.confirm(market(), DIV, True, TAP, REACT)
+check("MARKET-AGNOSTIC: every volume ×1000 → the same reading",
+      (k1.divergence, round(k1.delta, 6), round(k1.volume_x, 6)), (k2.divergence, round(k2.delta, 6), round(k2.volume_x, 6)))
 now = int(time.time()) // 300 * 300
-live = [Candle(now - (14 - i) * 300, c.open, c.high, c.low, c.close, 1, "M5") for i, c in enumerate(market())]
+live = [Candle(now - (14 - i) * 300, c_.open, c_.high, c_.low, c_.close, 1, "M5") for i, c_ in enumerate(market())]
 live[-1] = Candle(now, live[-1].open, live[-1].high, live[-1].low, live[-1].close, 1, "M5")   # still forming
-lf = {c.time: DIV[T0 + i * 300] for i, c in enumerate(live)}
-lv = F.verdict(live, lf, True, live[12].time, "5M")
-without = F.verdict(live[:-1], lf, True, live[12].time, "5M")
-as_closed = F.verdict(market(), DIV, True, TAP, "5M")
-check("NO LOOK-AHEAD: with a still-forming last candle the answer is exactly the answer WITHOUT that candle",
-      (lv.kind, lv.reasons), (without.kind, without.reasons))
-check("...and it is NOT the answer that candle would give once closed (so it really was ignored)",
-      (lv.kind, lv.reasons) != (as_closed.kind, as_closed.reasons), True)
+lf = {x.time: DIV[T0 + i * 300] for i, x in enumerate(live)}
+lv = F.confirm(live, lf, True, live[12].time, [live[12].time])
+without = F.confirm(live[:-1], lf, True, live[12].time, [live[12].time])
+check("NO LOOK-AHEAD: a still-forming candle changes nothing", (lv.divergence, lv.delta), (without.divergence, without.delta))
 
-print("\nTHE VERDICT — sell at supply (the mirror)")
+print("\nTHE SELL MIRROR")
 mir = lambda f: {t: (s, b) for t, (b, s) in f.items()}  # noqa: E731
-check("buying dries up as price makes a new high → GO", F.verdict(market(False), mir(DIV), False, TAP, "5M").kind, F.GO)
-check("buying keeps pace → REFUSE", F.verdict(market(False), mir(CONV), False, TAP, "5M").kind, F.REFUSE)
+check("buying dries up as price makes a new high, reaction selling → AGREE",
+      F.confirm(market(False), mir(DIV), False, TAP, REACT).agree, True)
+check("buying keeps pace → does NOT agree", F.confirm(market(False), mir(CONV), False, TAP, REACT).agree, False)
+check("sell absorption: sellers one-sided, candle closed UP", F.absorbed(market(False), mir(ABS), False, TAP, "5M") is not None,
+      True)
 
 print("\nBITCOIN — Binance's own buy/sell figures")
 k = lambda t, vol, buy: [t * 1000, "1", "2", "0.5", "1.5", str(vol), t * 1000 + 59999, "0", 5, str(buy), "0", "0"]  # noqa: E731
@@ -146,41 +166,22 @@ BT._cache.clear()
 check("both sources fail → ('', {}), never raises",
       run(BT.flows("M5", 2, client=FakeClient([TimeoutError("slow"), FakeResp(500, {})]), now=T0 + 1000)), ("", {}))
 
-print("\nGOLD — the price-tick estimate")
-GF.reset()
-base = T0 + 3600
-GF.on_tick("XAU/USD", 4000.00, base + 30)                         # first minute: we joined part-way
-for i, b in enumerate([4000.10, 4000.20, 4000.20, 4000.10]):     # next minute: up, up, unchanged, down
-    GF.on_tick("XAU/USD", b, base + 60 + i)
-GF.on_tick("EUR/USD", 1.1, base + 61)                             # not gold — ignored
-src, m1f = GF.flows("M1", now=base + 400)
-check("the minute we joined part-way is NOT used", base in m1f, False)
-check("up, up, unchanged, down → 2 buyer ticks, 1 seller tick (unchanged not counted)", m1f.get(base + 60), (2.0, 1.0))
-check("...labelled as an estimate", src, "price-tick estimate")
-GF.on_tick("XAU/USD", 4000.30, base + 300)                       # 4 minutes of silence → stream was down
-check("after a silence of over a minute, the minute where counting resumes is not used",
-      (base + 300) in GF.flows("M1", now=base + 1000)[1], False)
-GF.reset()
-s5 = (T0 // 300 + 20) * 300
-GF.on_tick("XAU/USD", 4000.0, s5 - 1)
-for m in range(5):
-    GF.on_tick("XAU/USD", 4000.0 + m + 0.1, s5 + m * 60 + 1)
-    GF.on_tick("XAU/USD", 4000.0 + m + 0.05, s5 + m * 60 + 30)
-check("a 5M candle = its five 1M counts added (5 up, 5 down)", GF.flows("M5", now=s5 + 400)[1].get(s5), (5.0, 5.0))
-check("a 5M candle missing one of its minutes is not given a figure", GF.flows("M5", now=s5 + 250)[1].get(s5), None)
-GF.reset()
-
-print("\nBOTH TIMEFRAMES MUST AGREE (pix.make_check)")
+print("\nTHE CHECK PIX RUNS ONCE THE ZONE HAS PROVED ITSELF (pix.make_check)")
 from strategies.pix import make_check  # noqa: E402
-m1c = [Candle(c.time, c.open, c.high, c.low, c.close, 1, "M1") for c in market()]
+from strategies.pix_entry import Entry  # noqa: E402
+m1c = [Candle(x.time, x.open, x.high, x.low, x.close, 1, "M1") for x in market()]
+ent = Entry(TAP, TAP, [m1c[-1]], m1c[-1], 102.5, 100.0, "")
 FLAT_FP = {t: {100.0: (1.0, 1.0)} for t in DIV}          # a footprint with no stacked imbalance anywhere
-ok = make_check({"M5": ("Binance futures", DIV, FLAT_FP), "M1": ("Binance futures", DIV, FLAT_FP)})(market(), m1c, True, TAP)
-check("5M GO and 1M GO → go, every reason names its source", (ok[0], all("(Binance futures)" in r for r in ok[1])),
-      (True, True))
-bad = make_check({"M5": ("Binance futures", DIV, FLAT_FP), "M1": ("Binance futures", ABS, FLAT_FP)})(market(), m1c, True, TAP)
-check("5M GO but 1M ABSORPTION → no", (bad[0], "1M ABSORPTION" in bad[1][-1]), (False, True))
-none = make_check({"M5": ("", {}, {}), "M1": ("", {}, {})})(market(), m1c, True, TAP)
-check("no figures at all (source down / gold warming up) → no", none[0], False)
+ok = make_check({"M5": ("Binance futures", DIV, FLAT_FP), "M1": ("Binance futures", DIV, FLAT_FP)})(market(), m1c, True, ent)
+check("no absorption, divergence + buying reaction → (no refusal, CONFIRMS line with its source)",
+      (ok[0], ok[1].startswith("Order flow CONFIRMS (Binance futures)")), (None, True))
+bad = make_check({"M5": ("Binance futures", DIV, FLAT_FP), "M1": ("Binance futures", ABS, FLAT_FP)})(market(), m1c, True, ent)
+check("1M ABSORPTION → refused, naming the timeframe and source", (bad[0] or "").startswith("1M ABSORPTION"), True)
+dis = make_check({"M5": ("x", CONV, {}), "M1": ("x", CONV, {})})(market(), m1c, True, ent)
+check("convergence → NOT refused, the line warns instead", (dis[0], "does NOT agree" in dis[1]), (None, True))
+none = make_check({"M5": ("", {}, {}), "M1": ("", {}, {})})(market(), m1c, True, ent)
+check("no figures at all (source down / gold warming up) → not refused, 'not available yet'",
+      (none[0], none[1].startswith("Order flow not available yet")), (None, True))
 
 print(f"\n{'ALL PASS' if not BAD else f'{len(BAD)} of {N[0]} FAILED: {BAD}'} ({N[0]} checks)")
 sys.exit(1 if BAD else 0)
