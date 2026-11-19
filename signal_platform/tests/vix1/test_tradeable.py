@@ -94,8 +94,22 @@ for w in ("2026-09-03 11:00", "2026-09-03 12:00", "2026-09-03 16:00"):
 # ⚠ THIS IS NOT THE GATE GOING AWAY. It moves: what may trade and when is now the TIMING rule
 # (`vix1_retracement.entry_timing`), which is where he put it — 1-3 candle pullback trades its first
 # momentum candle, a longer one waits three, no pullback at all waits three from the break.
-for w, want in (("2026-09-03 11:00", False), ("2026-09-03 12:00", False), ("2026-09-03 16:00", True)):
-    s.check(f"   {w} by default: {'TRADES' if want else 'silent'}", fires(w), want)
+# ⚠ AND ON 19 NOV 2026 HIS NEW RULE REPLACED THE NO-PULLBACK WAIT: *"the candle that breaks CHOCH or BOS to be a
+# qualifying volume candle that qualifies on its own not by memory or error margin."* 11:00 and 12:00 had no pullback
+# behind them and their break candle is a momentum candle on its own, so they now trade by default too.
+for w in ("2026-09-03 11:00", "2026-09-03 12:00", "2026-09-03 16:00"):
+    s.check(f"   {w} by default: TRADES (19 Nov rule)", fires(w), True)
+# PROOF IT IS THE NEW RULE: all three come through the SAME change of character (1.16097) with no pullback since its
+# break, so the break-candle rule decides all three — forced to refuse, all three go quiet (measured 19 Nov).
+import strategies.vix1_break_candle as _BC                          # noqa: E402
+_keep_bc = _BC.refusal
+_BC.refusal = lambda *a, **k: "forced"
+try:
+    _forced = {w: fires(w) for w in ("2026-09-03 11:00", "2026-09-03 12:00", "2026-09-03 16:00")}
+finally:
+    _BC.refusal = _keep_bc
+s.teeth("the break-candle rule is what lets all three trade (forced to refuse → all three silent)",
+        _forced == {"2026-09-03 11:00": False, "2026-09-03 12:00": False, "2026-09-03 16:00": False})
 
 
 # ── HIS RULE: A QUIET MARKET MUST PROVE ITSELF ────────────────────────────

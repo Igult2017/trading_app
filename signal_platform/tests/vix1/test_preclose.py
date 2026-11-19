@@ -92,15 +92,30 @@ tiny = body(base[-1].close, base[-1].close + 0.0002, tf="H1", t=120)
 s.check("a bar with no body does not fire, even inside the window",
         pc.check(base, base + [tiny], SYM, at(tiny, 300)), None)
 
-# A big bar going the OTHER way fires SELL, not BUY — ON A DOWNTREND BASE. In the UPtrend base
-# above a sell candle has no route to trade and is now correctly silent, which is asserted too.
+# A big bar going the OTHER way fires SELL, not BUY — ON A DOWNTREND BASE. (In the UPtrend base above, since
+# 19 Nov, a sell that closes through the protecting low is a tradeable change of character — asserted below.)
 dbase = trending(120, up=False)
 down  = body(dbase[-1].close, dbase[-1].close - 0.0060, tf="H1", t=120)
 got   = pc.check(dbase, dbase + [down], SYM, at(down, 300))
 s.check("a large bearish forming bar fires SELL", got is not None and got[1] is False, True)
-s.check("...and the SAME bar in an UPTREND is silent — it could not be traded",
-        pc.check(base, base + [body(base[-1].close, base[-1].close - 0.0060, tf="H1", t=120)],
-                 SYM, at(down, 300)), None)
+# HIS 19 NOV RULE: in the UPtrend base that 60-pip sell CLOSES THROUGH the trend's protecting low — a change of
+# character down whose break candle is a momentum candle on its own — so the ENTRY trades it at close (measured: "change
+# of character down: price closed through 1.11092"). The heads-up must therefore announce it, not stay silent.
+_up_sell = body(base[-1].close, base[-1].close - 0.0060, tf="H1", t=120)
+from strategies.vix1_bias import detect_bias as _db
+_got_us = pc.check(base, base + [_up_sell], SYM, at(down, 300))
+_bias_us = _db(base + [_up_sell], [], SYM)
+s.check("...and the SAME bar in an UPTREND breaks its protecting low: the entry trades it at close (19 Nov rule)",
+        _bias_us is not None and _bias_us.bullish is False, True)
+s.check("  ...so the heads-up AGREES and announces it, as a SELL", _got_us is not None and _got_us[1] is False, True)
+_keep_mc = pc.is_momentum_candle
+pc.is_momentum_candle = lambda *a, **k: False
+try:
+    _got_nq = pc.check(base, base + [_up_sell], SYM, at(down, 300))
+finally:
+    pc.is_momentum_candle = _keep_mc
+s.teeth("the heads-up announces that break only because the candle qualifies on its own (forced not to → silent)",
+        _got_us is not None and _got_nq is None)
 
 # Not enough history to judge against — silent rather than guessing.
 s.check("under 20 closed bars, no notification",

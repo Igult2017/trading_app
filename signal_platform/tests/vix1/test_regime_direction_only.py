@@ -144,13 +144,22 @@ s.check("five hours in this window carry a bias — his three 03 Sep buys and th
 # plainly there.
 #
 # `test_tradeable.py` holds the same three bars and agrees: 11:00 and 12:00 silent, 16:00 trades.
+# ⚠ AND ON 19 NOV 2026 HIS NEW RULE REPLACED THE NO-PULLBACK WAIT: the break candle must be a momentum candle on its
+# own. 11:00 and 12:00 have no pullback behind them and their break candle qualifies, so all three buys trade by default.
 fired_default = fired_with(False)
-s.check("by DEFAULT only the 16:00 BUY trades — the other two still have no pullback behind them",
-        [d.strftime("%H:%M") for d, bull in fired_default if bull], ["16:00"])
-s.check("...plus the two 02 Sep sells and nothing else", len(fired_default), 3)
+s.check("by DEFAULT all three 03 Sep BUYs trade (19 Nov rule)",
+        [d.strftime("%H:%M") for d, bull in fired_default if bull], ["11:00", "12:00", "16:00"])
+s.check("...plus the two 02 Sep sells and nothing else", len(fired_default), 5)
 _n_buys = lambda f: sum(1 for _, bull in f if bull)
-s.teeth("the shortcut switch still decides the other two BUYs",
-        _n_buys(fired) == 3 and _n_buys(fired_default) == 1)
+import strategies.vix1_break_candle as _BC                          # noqa: E402
+_keep_bc = _BC.refusal
+_BC.refusal = lambda *a, **k: "forced"
+try:
+    fired_forced = fired_with(False)
+finally:
+    _BC.refusal = _keep_bc
+s.teeth("the break-candle rule decides all three BUYs — one change of character, no pullback since its break "
+        "(forced to refuse → none trade)", _n_buys(fired_default) == 3 and _n_buys(fired_forced) == 0)
 
 
 # ── THE CONTROL: a market where the sides DISAGREE is still refused ────────
