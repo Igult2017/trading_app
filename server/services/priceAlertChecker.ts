@@ -26,6 +26,17 @@ function guessAssetClass(symbol: string, stored: string): string {
   return ASSET_CLASS_MAP[symbol] ?? stored ?? "stock";
 }
 
+/**
+ * WHERE A TRIGGERED WEBSITE PRICE ALERT GOES — the public CHANNEL, once (his ruling, 19 Nov 2026: "The one in the
+ * website should send alerts of price levels to the channel"). It used `broadcastMessage`, which sends to EVERY
+ * subscriber of the bot one by one (OPEN C16). His own /level watches in the DM go only to him — a separate feature
+ * (`levelWatchPress.ts` / `signal_platform/execution/level_watch.py`).
+ */
+export async function deliverAlert(msg: string, svc: { sendToChannel(m: string, o?: any): Promise<boolean> } | null | undefined): Promise<boolean> {
+  if (!svc) return false;
+  return svc.sendToChannel(msg, { parse_mode: "Markdown" });
+}
+
 async function runCheck(): Promise<void> {
   try {
     const active = await db
@@ -83,11 +94,10 @@ async function runCheck(): Promise<void> {
           `Current price: *${currentPrice.toPrecision(6)}*\n\n` +
           `_Alert set via FSD Zones_`;
 
-        if (telegramNotificationService) {
-          await telegramNotificationService.broadcastMessage(msg, { parse_mode: "Markdown" });
-          console.log(`[PriceAlert] ${symbol} triggered @ ${currentPrice} (target ${target} ${alert.direction})`);
+        if (await deliverAlert(msg, telegramNotificationService)) {
+          console.log(`[PriceAlert] ${symbol} triggered @ ${currentPrice} (target ${target} ${alert.direction}) — posted to the channel`);
         } else {
-          console.warn(`[PriceAlert] ${symbol} triggered @ ${currentPrice} but Telegram service is unavailable — alert not delivered`);
+          console.warn(`[PriceAlert] ${symbol} triggered @ ${currentPrice} but the channel post failed — alert not delivered`);
         }
       }
     }

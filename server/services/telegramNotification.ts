@@ -8,6 +8,7 @@ import { buildNewsSchedule, type NewsEventLike } from './newsAlerts';
 import { attachTradeConfirmPress } from './tradeConfirmPress';
 import { attachCandleMarkPress } from './candleMarkPress';
 import { attachTradeActionPress } from './tradeActionPress';
+import { attachLevelWatchPress } from './levelWatchPress';
 
 // Session definitions and the whole "what fires when" decision live in marketSessionAlerts so the
 // weekend rule is testable on any day of the week. The local HIGH_VOLUME_SESSIONS const that used
@@ -149,6 +150,8 @@ export class TelegramNotificationService {
       attachCandleMarkPress(this.bot);
       // His ❌ Cancel trade / ✏️ Adjust SL presses on order-placed / trade-filled messages (18 Nov 2026).
       attachTradeActionPress(this.bot);
+      // His /level price watches — the markets, his level, then Buy / Sell stop with his entry and stop (19 Nov 2026).
+      attachLevelWatchPress(this.bot);
       console.log('[Telegram] Bot ready with polling enabled');
 
     } catch (error: any) {

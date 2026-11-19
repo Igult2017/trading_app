@@ -5949,6 +5949,15 @@ database holding 13 'High' events that week. Fixed by comparing in lower case, a
 literally named "impact match is case-insensitive". It tested the in-memory filter, which was never
 the broken half. Nothing anywhere tested the query. A green suite beside a dead feature.
 
+### ~~C16 — The website's price alerts go to EVERY bot subscriber~~ — FIXED 2026-11-19 (his ruling)
+His ruling: *"The one in the website should send alerts of price levels to the channel. But this one for telegram DM
+should only send to me."* Website alerts now post ONCE to the channel (`priceAlertChecker.deliverAlert` →
+`sendToChannel`; `priceAlertChecker.test.ts`, 3 checks with teeth); /level alerts go only to his DM. What was found:
+`server/services/priceAlertChecker.ts:88` sends a triggered alert with `broadcastMessage` — every active subscriber of
+@TradeandJournal_Bot receives one user's private alert. It also checks only once a minute, on the website's own price
+feed (not the broker's). Not changed: who SHOULD receive an alert (the user who set it needs a Telegram link that
+`price_alerts` does not have) is HIS decision. His own Telegram level watches are `/level` (see `docs/MAP.md`).
+
 ### C15 — The admin Appearance picker draws its swatches from a SECOND, drifting colour table. Found 2026-10-12
 
 **What it is.** The admin panel has five themes. Which colours each one actually paints comes from

@@ -42,6 +42,15 @@ Read [strategies/pix.md](./strategies/pix.md) (his rules in his words, the const
 [strategies/pix-architecture.md](./strategies/pix-architecture.md) (13 files, one flow, NO shared logic). PIX is his own skeleton since
 18 Nov 2026 — the BX copy it started as is deleted. Signals to the channel; it places NO orders yet.
 
+### "/level" — his price watches in the Telegram DM (19 Nov 2026)
+The conversation (/level → the 6 live markets → his price or range → 📈 Buy stop / 📉 Sell stop → his entry, stop and
+optional target) is `server/services/levelWatchPress.ts`; the watching (broker live bid, every tick kept between
+1-second passes, fires once) and the placing (normal placement, MANUAL + CONFIRMED, saved as a "Manual level" signal
+so the monitor reports it) is `signal_platform/execution/level_watch.py`. They meet in the `level_watches` table.
+EVERY /level message goes to HIS DM only, wherever /level was typed (his ruling). The WEBSITE's price alerts are a
+different feature and post to the CHANNEL (`server/services/priceAlertChecker.ts`, OPEN C16).
+Tests: `server/services/levelWatchPress.test.ts` (19), `signal_platform/tests/test_level_watch.py` (20).
+
 ### "Why did BX send me this signal?" / anything about supply & demand zones
 
 **Read [strategies/bx-sd-architecture.md](./strategies/bx-sd-architecture.md) FIRST** — it holds the

@@ -203,6 +203,10 @@ async def _startup() -> None:
             # Measured cause — every stored signal arrived at or PAST its own entry, two of four
             # already through it. This only makes the existing scan happen sooner; if it dies, the
             # scheduled scan carries on and behaviour is exactly what it is today.
+            # HIS /level PRICE WATCHES (19 Nov 2026) — imported BEFORE the entry watcher creates the price stream,
+            # because the stream picks up its tick listeners when it connects.
+            from execution import level_watch
+            asyncio.create_task(level_watch.run_forever())
             _entry = EntryWatcher(_send_private)
             asyncio.create_task(_entry.run_forever())
             # AND the journal ticker's prices, 2026-10-11. It reads the quote book the two watchers

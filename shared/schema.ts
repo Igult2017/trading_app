@@ -1264,6 +1264,35 @@ export const tradeActions = pgTable("trade_actions", {
   updatedAt:  timestamp("updated_at"),
 }, (t) => [index("trade_actions_status_idx").on(t.status)]);
 
+/**
+ * HIS /level PRICE WATCHES in the Telegram DM (19 Nov 2026). The website server writes his typed level and his typed
+ * entry / stop / target (`server/services/levelWatchPress.ts`); the signal engine watches the live price, tells him
+ * when it is reached and places his stop order (`signal_platform/execution/level_watch.py`).
+ * status: awaiting_level -> new -> watching -> hit -> awaiting_order -> order_pending -> placing -> placed | refused;
+ *         cancelled (❌ Stop watching) at any point before placing.
+ */
+export const levelWatches = pgTable("level_watches", {
+  id:         varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chatId:     text("chat_id").notNull(),
+  symbol:     text("symbol").notNull(),
+  low:        doublePrecision("low"),
+  high:       doublePrecision("high"),                        // = low for a single price
+  side:       text("side"),                                   // above | below | inside — where price was when armed
+  status:     text("status").notNull().default("awaiting_level"),
+  promptId:   integer("prompt_id"),                           // the message his typed answer replies to
+  lastPrice:  doublePrecision("last_price"),
+  hitPrice:   doublePrecision("hit_price"),
+  hitAt:      timestamp("hit_at"),
+  orderSide:  text("order_side"),                             // buy | sell
+  entry:      doublePrecision("entry"),
+  sl:         doublePrecision("sl"),
+  tp:         doublePrecision("tp"),                          // optional — his to set
+  signalId:   text("signal_id"),
+  result:     text("result"),
+  createdAt:  timestamp("created_at").defaultNow().notNull(),
+  updatedAt:  timestamp("updated_at"),
+}, (t) => [index("level_watches_status_idx").on(t.status)]);
+
 export type SyncEvent = typeof syncEvents.$inferSelect;
 export type AutotradeOrder = typeof autotradeOrders.$inferSelect;
 export type SignalEvent = typeof signalEvents.$inferSelect;

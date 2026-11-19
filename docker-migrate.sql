@@ -980,6 +980,32 @@ CREATE TABLE IF NOT EXISTS trade_actions (
 );
 CREATE INDEX IF NOT EXISTS trade_actions_status_idx ON trade_actions (status);
 
+-- HIS /level PRICE WATCHES in the Telegram DM (19 Nov 2026) — see `shared/schema.ts` levelWatches.
+-- status: awaiting_level -> new -> watching -> hit -> awaiting_order -> order_pending -> placing -> placed | refused;
+--         cancelled at any point before placing.
+CREATE TABLE IF NOT EXISTS level_watches (
+  id          VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  chat_id     TEXT NOT NULL,
+  symbol      TEXT NOT NULL,
+  low         DOUBLE PRECISION,
+  high        DOUBLE PRECISION,
+  side        TEXT,
+  status      TEXT NOT NULL DEFAULT 'awaiting_level',
+  prompt_id   INTEGER,
+  last_price  DOUBLE PRECISION,
+  hit_price   DOUBLE PRECISION,
+  hit_at      TIMESTAMP,
+  order_side  TEXT,
+  entry       DOUBLE PRECISION,
+  sl          DOUBLE PRECISION,
+  tp          DOUBLE PRECISION,
+  signal_id   TEXT,
+  result      TEXT,
+  created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS level_watches_status_idx ON level_watches (status);
+
 -- ── B36 REPAIR (16 Nov 2026): signals given a broker price divided by 100,000 ──────────────────────
 -- Since 8 Nov the order-reading code divided ORDER prices by 100,000 (they are real prices), so a stop of
 -- 210.597 read as 0.00210597, looked hand-moved, and was ADOPTED into the saved signal. This puts back,
