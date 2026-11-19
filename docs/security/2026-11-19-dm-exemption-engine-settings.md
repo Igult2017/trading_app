@@ -24,4 +24,24 @@ move money, so they are the parts that matter.
 
 ## Passive baseline (production-safe)
 Plan `C:\Users\FSD\zap-tools\baseline-2026-11-19.yaml` — spider with form submission off, passive rules only, plus
-direct requests to the two admin endpoints. Result recorded below once run.
+direct requests to the two admin endpoints.
+
+**Run 19 Nov 2026, against https://app.dorixe.com after the deploy** (`docs/security/zap-baseline-2026-11-19.json`):
+
+| risk | finding | count |
+|---|---|---|
+| High / Critical | none | 0 |
+| Medium | No Content-Security-Policy header | 11 pages |
+| Medium | A CSP directive with no fallback | 1 |
+| Informational | suspicious comments, modern web app, cache-control | 25 |
+
+Both Medium items are the SAME as the 15 Nov baseline and stay deferred there with the reason and the plan
+(`2026-11-15-settings-privacy.md`, the CSP row: a wrong policy would block the app's own scripts, so it needs an
+origin inventory and a report-only rollout first). Nothing new came from this change; the 15 Nov Low item
+(cross-domain script) no longer appears.
+
+## Live check after deploy (19 Nov 2026)
+- The engine read the breakeven setting from the database at boot (`[live_settings] auto_breakeven_enabled = 'true'
+  (from the admin panel)`), both before and after the five Coolify variables were deleted.
+- After the deletion and a redeploy: scanning ran (`tick complete … 6/6 instruments scanned`), no errors in the log,
+  `/api/trading-signals` answered 200.
