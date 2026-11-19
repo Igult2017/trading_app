@@ -98,13 +98,13 @@ else:
 # rule of 2026-08-25 to a turn up. The BUY branch now opens only while `vix1_choch._EXEMPT_UP_TURNS`
 # is on, so both settings are traced here through the real `trend_state` and `choch_entry`:
 #
-#     a SELL closing through an UPtrend's protection  -> pending -1 -> choch_entry REFUSES, always
-#     a BUY  closing through a DOWNtrend's protection -> pending +1 -> REFUSED by default,
-#                                                        a BIAS only with the switch on
+#     a candle closing through a trend's protection, either way -> SINCE 19 NOV 2026 (his rule) it trades on its own
+#     close when it is a momentum candle ON ITS OWN (2.5x, no margin, no memory); otherwise it is refused, unless the
+#     old upward switch is on for a BUY.
 #
 # The notification must give the same answer as the entry, whichever way the switch is set.
 print()
-print("A BUY CANDLE BREAKING A DOWNTREND'S PROTECTION — announced only when a turn up may be traded")
+print("A BUY CANDLE BREAKING A DOWNTREND'S PROTECTION — announced exactly when the entry would trade it")
 
 
 def _bar(i, o, h, l, c):
@@ -155,10 +155,32 @@ if _ds.protected is not None:
     # SINCE 2026-09-14 A TURN UP HAS NO SHORTCUT EITHER — his instruction: "enable pullback to uptrend
     # the same way we have a pullback after first trend run in the downtrend". So by default this BUY
     # has no route and must stay SILENT, and the entry must agree. Notification follows entry.
+    # HIS 19 NOV RULE: a break candle that is a momentum candle ON ITS OWN may trade on its own close. This one is
+    # (26+ pips against ~4-pip candles), so the entry trades it at close — and the heads-up must announce it.
     _got_off = pc.check(_down, _h, "EUR/USD", _clock)
-    s.check("by default a BUY breaking the downtrend's protection is NOT announced", _got_off, None)
     _bias_off, _ = choch_entry(_w, _h, _t, structure_turns(_w, _H1_SWING_N), _H1_SWING_N, "EUR/USD")
-    s.check("  ...because by default the entry refuses it too", _bias_off, None)
+    s.check("a BUY whose break candle qualifies on its own: the entry TRADES it at close (19 Nov rule)",
+            _bias_off is not None and _bias_off.bullish, True)
+    s.check("  ...and the heads-up AGREES: it is announced, as a BUY", bool(_got_off) and _got_off[1] is True, True)
+    # THE SAME CANDLE FORCED NOT TO QUALIFY ON ITS OWN — both must go quiet together.
+    import strategies.vix1_break_candle as _BC
+    _real_pc_mc, _real_bc_mc = pc.is_momentum_candle, _BC.is_momentum_candle
+    pc.is_momentum_candle = _BC.is_momentum_candle = lambda *a, **k: False
+    try:
+        _got_nq = pc.check(_down, _h, "EUR/USD", _clock)
+        _bias_nq, _why_nq = choch_entry(_w, _h, _t, structure_turns(_w, _H1_SWING_N), _H1_SWING_N, "EUR/USD")
+        _choch._EXEMPT_UP_TURNS = True
+        _got_sw = pc.check(_down, _h, "EUR/USD", _clock)
+        _bias_sw, _ = choch_entry(_w, _h, _t, structure_turns(_w, _H1_SWING_N), _H1_SWING_N, "EUR/USD")
+    finally:
+        _choch._EXEMPT_UP_TURNS = False
+        pc.is_momentum_candle, _BC.is_momentum_candle = _real_pc_mc, _real_bc_mc
+    s.check("a break candle that does NOT qualify on its own: the entry refuses", _bias_nq, None)
+    s.check("  ...and the heads-up agrees: NOT announced", _got_nq, None)
+    s.teeth("the break-candle rule decides it — same candle, opposite answers in BOTH the entry and the heads-up",
+            _got_off is not None and _bias_off is not None and _got_nq is None and _bias_nq is None)
+    s.teeth("the old switch still opens a turn up whose break candle would be refused — in both",
+            _got_sw is not None and _bias_sw is not None)
 
     # WITH THE UPWARD EXEMPTION SWITCHED BACK ON, the 2026-08-29 behaviour must return intact.
     _choch._EXEMPT_UP_TURNS = True
@@ -186,14 +208,12 @@ if _ds.protected is not None:
                 _got is not None and _got_short is None)
     finally:
         _choch._EXEMPT_UP_TURNS = False
-    s.teeth("the switch is what decides it — same candle, opposite answers",
-            _got_off is None and _got is not None)
 
-# ── THE CONTROL: THE DOWNWARD BREAK STAYS SILENT ─────────────────────────────────────────────────
-# His rule of 2026-08-25 is one-sided, so this fix must be too. If this section ever passes as
-# "announced", the fix has re-opened what his 26 Aug instruction closed and must come out.
+# ── THE MIRROR: A SELL BREAKING AN UPTREND'S PROTECTION ──────────────────────────────────────────
+# Until 19 Nov 2026 this was silent by his 26 Aug ruling and the 3-candle count. His 19 Nov rule lets a break candle
+# that is a momentum candle on its own trade either way, so the heads-up must now announce it — the entry trades it.
 print()
-print("THE MIRROR — a SELL breaking an UPTREND's protection has NO route and must stay silent")
+print("THE MIRROR — a SELL breaking an UPTREND's protection, its break candle a momentum candle on its own")
 _up = []
 _leg(_up, 1.1000, 1.1050, 14); _leg(_up, 1.1050, 1.1025, 8)
 _leg(_up, 1.1025, 1.1100, 16); _leg(_up, 1.1100, 1.1070, 8)
@@ -205,7 +225,6 @@ s.check("the mirror fixture is an uptrend with a protecting level",
 if _us.protected is not None:
     _dn_brk = _break_down(_up, _us.protected)
     _got_dn = pc.check(_up, _up + [_dn_brk], "EUR/USD", _dn_brk.time + tf_seconds("H1") - 300)
-    s.check("a SELL breaking the uptrend's protection is NOT announced", _got_dn, None)
 
     # WHY it must not be: the entry refuses it. Proved here rather than asserted.
     _h2 = _up + [_dn_brk]
@@ -214,14 +233,13 @@ if _us.protected is not None:
     s.check("  ...because that break proposes a turn DOWN", _t2.pending, -1)
     _bias2, _why2 = choch_entry(_w2, _h2, _t2, structure_turns(_w2, _H1_SWING_N),
                                 _H1_SWING_N, "EUR/USD")
-    s.check("  ...and the entry still refuses it here", _bias2, None)
-    # NOT "outright" ANY MORE (2026-09-29). It used to refuse every turn down flatly — no exemption,
-    # no route. Now it refuses on his COUNT: the break candle is candle 1, so the 3rd is the earliest
-    # that may trade, and this bar is not it yet. The refusal is the same; the reason is a fact about
-    # the market rather than a switch.
-    s.check("  ...for his stated reason — the count, not a blanket refusal",
-            "3rd candle after the break" in _why2 or "no momentum candle that way yet" in _why2, True)
-    s.teeth("the fix is one-sided: the BUY break speaks and the SELL break does not",
-            _got is not None and _got_dn is None)
+    # HIS 19 NOV RULE reaches a turn DOWN too: this break candle is a momentum candle on its own, so it trades on its
+    # own close, and the heads-up must say so.
+    s.check("  ...whose break candle qualifies on its own: the entry TRADES it at close (19 Nov rule)",
+            _bias2 is not None and not _bias2.bullish, True)
+    s.check("  ...and the heads-up AGREES: it is announced, as a SELL", bool(_got_dn) and _got_dn[1] is False, True)
+    s.check("  ...and nothing waits on a 3rd candle", "3rd candle" in (_why2 or ""), False)
+    s.teeth("BUY and SELL breaks both announced exactly when the entry trades them",
+            _got is not None and _got_dn is not None and _bias2 is not None)
 
 s.done()

@@ -69,6 +69,7 @@ from core.types import Candle
 from shared.candle_math import atr
 from strategies import vix1_regime
 from strategies import vix1_retracement
+from strategies import vix1_break_candle
 from strategies.vix1_momentum import momentum_run
 from strategies.vix1_state import Bias, market_state
 from strategies.vix1_swings import structure_turns
@@ -168,11 +169,17 @@ def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState,
     # ⚠ `ignore_count` IS THE NOTIFICATION'S QUESTION, NEVER A TRADING PATH'S — see `detect_bias`.
     # It mutes this one refusal so `vix1_countwatch` can ask "would this trade but for the count?";
     # every check below it still runs, which is the whole point.
-    if not ignore_count and not exempts(bullish, void_break):
-        wait = vix1_retracement.entry_timing(window, 1 if bullish else -1,
-                                             break_time=window[ci].time)
-        if wait:
-            return None, f"change of character {way} at {broke:.5f} — {wait}"
+    if not exempts(bullish, void_break):
+        if not ignore_count:
+            wait = vix1_retracement.entry_timing(window, 1 if bullish else -1,
+                                                 break_time=window[ci].time)
+            if wait:
+                return None, f"change of character {way} at {broke:.5f} — {wait}"
+        # HIS 19 NOV RULE, replacing the 3-candle wait: with no pullback since the break, the BREAK candle must be
+        # a momentum candle on its own (2.5x, no margin, no memory). Not a count, so `ignore_count` does not mute it.
+        why = vix1_break_candle.refusal(window, h1, window[ci].time, bullish, symbol)
+        if why:
+            return None, f"change of character {way} at {broke:.5f} — {why}"
 
     # 2. MOMENTUM MUST HAVE DEVELOPED THE NEW WAY — "a CHOCH is not a qualification for momentum".
     run = momentum_run(h1, bullish, symbol)

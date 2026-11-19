@@ -24,6 +24,7 @@ from _harness import Suite
 
 from core.types import Candle
 from strategies import vix1_choch, vix1_preclose as pc, vix1_swings, vix1_trend
+import strategies.vix1_break_candle as BC
 from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
 from shared.mtf_utils import seconds as tf_seconds
 
@@ -93,7 +94,7 @@ def pending_of(closed):
 
 # ── BEFORE THE PROOF: the turn is only proposed ──────────────────────────────────────────────────
 print()
-print("JUST BROKEN — candle 1 of his count, so nothing should be announced")
+print("JUST BROKEN — the break candle decides (his 19 Nov rule replaced the 3-candle count)")
 
 
 def both(closed):
@@ -125,22 +126,34 @@ def both(closed):
 # So the hold is no longer "never", it is HIS COUNT — and the old fixture (break + 6 candles of run)
 # was on the trading side of it all along. What this file proves is unchanged and is the only thing
 # worth proving here: the notification and the entry answer the SAME WAY about the SAME BARS.
-# CANDLE 2 — the break candle is 1, the closed one is 2, so the bar now forming would be candle 3.
-# Wait: with `after=0` the forming bar IS candle 2, which is still short of his three.
+# HIS 19 NOV RULE REPLACED THAT COUNT: with no pullback, the BREAK candle must be a momentum candle on its own. This
+# fixture's break candle is 60 pips against ~4-pip candles, so it qualifies — the entry trades from the break on, and
+# the notification must say so too. What this file proves is unchanged: SAME BARS, SAME ANSWER.
 _fresh = uptrend_then_break(after=0)
 _spoke_1, _why_1 = both(_fresh)
 s.check("the fixture really is a proposed-but-unproved downturn", pending_of(_fresh), -1)
-s.check("the forming bar would be candle 2 — the count refuses it at close",
-        "3rd candle after the break" in _why_1, True)
-s.check("...and the notification agrees: NOTHING is announced", _spoke_1, False)
+s.check("the break candle qualifies on its own — the entry TRADES the forming bar at close (19 Nov rule)",
+        "traded without waiting for a pullback" in (_why_1 or ""), True)
+s.check("...and the notification agrees: it speaks", _spoke_1, True)
 
 print()
-print("ONE CANDLE LATER — the forming bar is his 3rd, so it may trade and must be announced")
+print("THE SAME BARS WITH THE BREAK CANDLE REFUSED — the entry says no, so the notification is silent")
+_real_bc = BC.refusal
+BC.refusal = lambda *a, **k: "the candle that made the break is not a momentum candle on its own (forced)"
+try:
+    _spoke_r, _why_r = both(_fresh)
+finally:
+    BC.refusal = _real_bc
+s.check("with the break candle refused, the entry refuses at close", "not a momentum candle on its own" in (_why_r or ""),
+        True)
+s.check("...and the notification agrees: NOTHING is announced", _spoke_r, False)
+
+print()
+print("LATER CANDLES, STILL NO PULLBACK — no count any more, so they trade and are announced")
 _before = uptrend_then_break(after=1)
 _spoke_b, _why_b = both(_before)
 s.check("it is still a proposed-but-unproved downturn", pending_of(_before), -1)
-s.check("the count no longer refuses it at close",
-        "3rd candle after the break" in _why_b, False)
+s.check("nothing waits on a 3rd candle", "3rd candle" in (_why_b or ""), False)
 s.check("...and the notification agrees: it speaks", _spoke_b, True)
 
 # ── AFTER THE PROOF: it pulled back and turned back down ─────────────────────────────────────────
@@ -165,23 +178,25 @@ s.check("...and it is a SELL", bool(_got_a) and _got_a[1] is False, True)
 # than it and the momentum test refuses before the route question is ever reached. That would make
 # this pass for the wrong reason. `_could_trade` IS the route question.
 _fresh_bar, _ = forming_sell(_fresh)
-_route_without = pc._could_trade(_fresh, False, SYM, _fresh_bar)
+BC.refusal = lambda *a, **k: "forced"
 _keep_ex = vix1_choch.exempts
 try:
+    _route_without = pc._could_trade(_fresh, False, SYM, _fresh_bar)
     vix1_choch.exempts = lambda bullish, void_break=False: True
     _route_with = pc._could_trade(_fresh, False, SYM, _fresh_bar)
 finally:
     vix1_choch.exempts = _keep_ex
-s.check("the count alone closes the route on this candle", _route_without, False)
+    BC.refusal = _real_bc
+s.check("the break-candle rule alone closes the route when it refuses", _route_without, False)
 s.check("...but a void break opens it, exactly as it opens the entry", _route_with, True)
 s.teeth("the void exemption is what does it — same bars, opposite answers",
         _route_with is True and _route_without is False)
 
-s.teeth("the count is doing real work — same candle, opposite answers either side of candle 3",
-        _spoke_1 is False and _spoke_b is True)
-s.teeth("...and the notification never announces a candle the count will refuse at close",
-        (_spoke_1 is False and "3rd candle after the break" in _why_1)
-        and (_spoke_b is True and "3rd candle after the break" not in _why_b))
+s.teeth("the break-candle rule is doing real work — same bars, opposite answers",
+        _spoke_1 is True and _spoke_r is False)
+s.teeth("...and the notification never announces a candle the entry will refuse at close",
+        (_spoke_r is False and "not a momentum candle on its own" in (_why_r or ""))
+        and (_spoke_1 is True and "traded without waiting" in (_why_1 or "")))
 
 # ── THE HOLD IS ABOUT THE UNPROVED TURN, NOT ABOUT SELLS ─────────────────────────────────────────
 print()
@@ -208,8 +223,8 @@ _got_up = pc.check(_up, _up + [_up_bar], SYM, _up_bar.time + tf_seconds("H1") - 
 s.check("the control fixture really is an uptrend", pending_of(_up) == -1, False)
 s.check("a BUY momentum candle in an uptrend notifies", _got_up is not None, True)
 s.check("...and it is a BUY", bool(_got_up) and _got_up[1] is True, True)
-s.teeth("the count does not silence bullish candles",
-        _spoke_1 is False and _got_up is not None)
+s.teeth("the break-candle refusal does not silence bullish candles in an uptrend",
+        _spoke_r is False and _got_up is not None)
 
 # ...AND THE SAME BUY CANDLE WHERE IT COULD NOT TRADE IS SILENT. Not the hold — the route test.
 _bad_up = Candle(time=_before[-1].time + 3600, open=_before[-1].close,

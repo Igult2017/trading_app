@@ -23,7 +23,12 @@ AND THE THIRD BRANCH, added 2026-09-29 in his words:
      applies in a CHOCH scenario if we have not had a pullback."
 
 THE BREAK CANDLE IS CANDLE 1 — his ruling when asked directly. So with nothing pulled back, the third
-candle counting the break as the first is the earliest that may trade.
+candle counting the break as the first was the earliest that could trade.
+
+⚠ THAT THIRD BRANCH WAS REPLACED ON 19 NOV 2026, in his words: *"Remove that rule. And replace with the candle
+that breaks CHOCH or BOS to be a qualifying volume candle that qualifies on its own not by memory or error
+margin."* It is not a count, so it is `vix1_break_candle` (proved in `test_break_candle.py`); with no pullback
+the count below now says NOTHING.
 
 Counted by `vix1_retracement`, which owns the pullback count, so the strategy has ONE timing rule
 rather than two that can disagree.
@@ -31,15 +36,16 @@ rather than two that can disagree.
 from _harness import Suite, body
 
 from strategies.vix1_retracement import (
-    _BREAK_CANDLES, _SHORT_PULLBACK, _WAIT_CANDLES, entry_timing, since_pullback,
+    _SHORT_PULLBACK, _WAIT_CANDLES, entry_timing, since_pullback,
 )
+import strategies.vix1_retracement as R
 
 s = Suite("VIX.1 — the wait after a long pullback")
 
 s.check("a short pullback is up to 3 candles (his number)", _SHORT_PULLBACK, 3)
 s.check("and the trade then comes from the 3rd candle on (his number)", _WAIT_CANDLES, 3)
-s.check("with NO pullback the trade comes from the 3rd candle after the break (his number, unchanged)",
-        _BREAK_CANDLES, 3)
+s.check("the 3-candle no-pullback count is GONE (his 19 Nov ruling) — no constant left behind",
+        hasattr(R, "_BREAK_CANDLES"), False)
 
 
 def market(down_candles, up_candles, start=1.1000, step=0.0010):
@@ -113,7 +119,7 @@ s.teeth("the wait", entry_timing(market(5, 1), 1) is not None
                     and entry_timing(market(5, 3), 1) is None)
 
 print()
-print("   THE BREAKOUT BRANCH (2026-09-29) — no pullback yet, so count from the break:")
+print("   NO PULLBACK SINCE THE BREAK — the count says nothing (his 19 Nov ruling replaced the 3-candle wait):")
 
 
 def run_only(n, start=1.1000, step=0.0010):
@@ -124,36 +130,25 @@ def run_only(n, start=1.1000, step=0.0010):
     return out
 
 
-# THE BREAK CANDLE IS CANDLE 1 — his ruling, asked directly on 2026-09-29. So a two-candle-old break
-# is still candle 2 and must wait; the third may go.
-_b = run_only(1)
-s.check("the break candle itself is candle 1 — refused",
-        entry_timing(_b, 1, break_time=_b[0].time) is not None, True)
-s.check("  ...and the refusal counts in candles, not price",
-        "1 candle ago" in (entry_timing(_b, 1, break_time=_b[0].time) or ""), True)
-_b2 = run_only(2)
-s.check("candle 2 is still refused", entry_timing(_b2, 1, break_time=_b2[0].time) is not None, True)
-_b3 = run_only(3)
-s.check("candle 3 MAY TRADE — his 3-candle rule", entry_timing(_b3, 1, break_time=_b3[0].time), None)
-_b6 = run_only(6)
-s.check("...and so may later ones while nothing pulls back",
-        entry_timing(_b6, 1, break_time=_b6[0].time), None)
+for n in (1, 2, 3, 6):
+    _b = run_only(n)
+    s.check(f"candle {n} after the break, nothing pulled back — no count refusal (the break candle rule decides)",
+            entry_timing(_b, 1, break_time=_b[0].time), None)
 
-# ...AND THE MOMENT SOMETHING PULLS BACK, THE PULLBACK BRANCHES OWN IT AGAIN — his Q2 answer,
-# 2026-09-29: "the moment a pullback starts the pullback rules take over".
+# ...AND THE MOMENT SOMETHING PULLS BACK, THE PULLBACK BRANCHES OWN IT — his Q2 answer, 2026-09-29.
 _pb = run_only(2) + [body(1.1020, 1.1010, tf="H1", t=2)] + [body(1.1010, 1.1020, tf="H1", t=3)]
-s.check("a 1-candle pullback inside the window hands over to the short-pullback rule",
+s.check("a 1-candle pullback after the break hands over to the short-pullback rule",
         entry_timing(_pb, 1, break_time=_pb[0].time), None)
 
-# A BREAK THAT IS NOT IN THIS WINDOW CANNOT BE COUNTED FROM. Guessing where it fell would be worse
-# than not applying the branch, so it degrades to the pullback branches alone rather than refusing.
-s.check("a break time that is not in the window is not a refusal",
+# THE BREAK TIME STILL MATTERS: the pullback is counted only FROM THE BREAK ON. Five falling candles of the OLD move
+# before a 1-candle break are not a pullback of this move.
+_old = [body(1.1050 - 0.0010 * k, 1.1040 - 0.0010 * k, tf="H1", t=k) for k in range(5)]
+_brk = _old + [body(1.1000, 1.1015, tf="H1", t=5)]
+s.check("the old move's 5 falling candles BEFORE the break are not counted as a pullback",
+        entry_timing(_brk, 1, break_time=_brk[5].time), None)
+s.teeth("counting from the break (no break time → the old move reads as a 5-candle pullback and refuses)",
+        entry_timing(_brk, 1) is not None)
+s.check("a break time that is not in the window degrades to the whole window (as before)",
         entry_timing(run_only(1), 1, break_time=999999999), None)
-s.check("no break time at all leaves today's behaviour",
-        entry_timing(run_only(1), 1), None)
-
-s.teeth("the breakout count — candle 2 and candle 3 give opposite answers",
-        entry_timing(_b2, 1, break_time=_b2[0].time) is not None
-        and entry_timing(_b3, 1, break_time=_b3[0].time) is None)
 
 s.done()

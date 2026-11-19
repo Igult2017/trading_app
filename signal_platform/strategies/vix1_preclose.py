@@ -44,7 +44,8 @@ import time
 from core.types import Candle, Signal, Direction, TF
 from notifications import titles
 from shared.mtf_utils import is_closed, seconds as tf_seconds
-from strategies.vix1_momentum import momentum_grade, qualifies_for_trade
+from strategies.vix1_momentum import is_momentum_candle, momentum_grade, qualifies_for_trade
+from strategies import vix1_break_candle
 
 # How long before the close to notify. MEASURED, not chosen — see the table above.
 LEAD_S = 5 * 60
@@ -216,12 +217,20 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
             and st.direction == -1
             and st.kill_level is not None and forming_bar.close > st.kill_level):
         return True
+    # HIS 19 NOV RULE: a candle that BREAKS the change of character may trade on its own close when it is a momentum
+    # candle ON ITS OWN (2.5x, no margin, no memory) — the entry asks `vix1_break_candle` with that bar as the break.
+    # Under the old 3-candle count it was always "candle 1" and refused, so silence here was right; now it is not.
+    if (forming_bar is not None and st.kill_level is not None
+            and ((bullish and st.direction == -1 and forming_bar.close > st.kill_level)
+                 or (not bullish and st.direction == 1 and forming_bar.close < st.kill_level))):
+        _with = h1_closed + [forming_bar]
+        return is_momentum_candle(_with, len(_with) - 1, bullish, symbol)
 
     # ── A PENDING TURN IS DECIDED BY THE TIMING RULE NOW, BOTH WAYS (2026-09-29) ────────────────
     #
     # It used to be `exempts(True, ...)` for a turn up and nothing at all for a turn down, so with
     # the shortcut off this went silent on every pending turn. Since his rule of 2026-09-29 the
-    # entry CAN take one — the 3rd candle after the break when nothing has pulled back, or the
+    # entry CAN take one — (since 19 Nov) its break candle when that qualifies on its own, or the
     # momentum candle that ends a short pullback — so staying silent would hide exactly the candle
     # he asked to be warned about.
     #
@@ -244,12 +253,25 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
         if vix1_choch.exempts(way == 1, void_break_pending):
             return True
         bars = w + ([forming_bar] if forming_bar is not None else [])
-        return vix1_retracement.entry_timing(
-            bars, way, break_time=w[st.choch_index].time) is None
+        # BOTH questions the entry asks (his 19 Nov rule replaced the 3-candle wait with the break candle having to
+        # qualify on its own — `vix1_break_candle`), so the heads-up and the trade cannot disagree.
+        return (vix1_retracement.entry_timing(bars, way, break_time=w[st.choch_index].time) is None
+                and vix1_break_candle.refusal(bars, h1_closed, w[st.choch_index].time, way == 1, symbol) is None)
+
+    def _trend_open(way: int) -> bool:
+        """The trend route, asked the same 19 Nov question the entry asks of its break of structure: with no
+        pullback since the BOS, the BOS candle must be a momentum candle on its own."""
+        if st.direction != way:
+            return False
+        bi = st.bos_index
+        if bi is None or not (0 <= bi < len(w)):
+            return True
+        bars = w + ([forming_bar] if forming_bar is not None else [])
+        return vix1_break_candle.refusal(bars, h1_closed, w[bi].time, way == 1, symbol) is None
 
     if bullish:
-        return st.direction == 1 or _turn_open(1)
-    return st.direction == -1 or _turn_open(-1)
+        return _trend_open(1) or _turn_open(1)
+    return _trend_open(-1) or _turn_open(-1)
 
 
 def preclose_signal(symbol: str, bullish: bool, bar: Candle, secs_left: float,

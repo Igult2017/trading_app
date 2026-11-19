@@ -146,11 +146,11 @@ bear = zigzag(UP) + [body(1.1108, 1.1083, tf="H1", t=200, wick_up=0.00005, wick_
 _, t_bear, _ = state_of(bear)
 bias_bear, why_bear = entry_for(bear)
 s.check("the mirrored staircase turns DOWN", t_bear.pending, -1)
-s.check("...and a turn down gets NO exemption", bias_bear is None, True)
-s.check("...it waits for the 3rd candle, because nothing has pulled back (2026-09-29)",
-        "3rd candle after the break" in why_bear, True)
-s.teeth("the rule is one-sided — up is granted, down is refused",
-        bias is not None and bias_bear is None)
+# HIS 19 NOV RULE replaced the 3-candle wait: with no pullback, the BREAK candle must be a momentum candle on its
+# own. This 25-pip break candle is (median ~5 pips), so a turn DOWN now trades on its break too.
+s.check("a turn down whose BREAK candle is a momentum candle on its own → traded on the break (19 Nov rule)",
+        bias_bear is not None and not bias_bear.bullish, True)
+s.check("...and nothing says '3rd candle' any more", "3rd candle" in (why_bear or ""), False)
 
 # 2. THE BREAK IS A SMALL CANDLE AND NOTHING BIG FOLLOWS -> refused.
 #    His rule: "a CHOCH is not a qualification for momentum".
@@ -273,14 +273,27 @@ print()
 print("DEFAULT (switch OFF, live since 2026-09-14) — a turn up must prove itself first")
 vix1_choch._EXEMPT_UP_TURNS = False
 bias_def, why_def = entry_for(fires)
-s.check("the big candle breaking the protecting high is NOT traded on the break", bias_def is None, True)
-s.check("...because nothing has pulled back and it is only candle 1 after the break",
-        "3rd candle after the break" in why_def, True)
-s.teeth("the switch is what decides it — the same bars traded with it on",
-        bias is not None and bias_def is None)
+# HIS 19 NOV RULE: with the switch OFF there is still no blanket shortcut — the BREAK candle must qualify on its own.
+s.check("the 25-pip break candle (a momentum candle on its own) IS traded on the break (19 Nov rule)",
+        bias_def is not None and bias_def.bullish, True)
+_real_bc = vix1_choch.vix1_break_candle.refusal
+vix1_choch.vix1_break_candle.refusal = lambda *a, **k: "forced refusal"
+bias_forced, why_forced = entry_for(fires)
+vix1_choch.vix1_break_candle.refusal = _real_bc
+s.teeth("the break-candle rule is what decides it on this route (forced to refuse → no trade)",
+        bias_forced is None and "forced refusal" in why_forced)
+# A SMALL break candle followed by a big one, nothing pulled back: the old rule traded the 3rd candle; the new one
+# refuses — the break candle itself did not qualify.
+small_then_big = (zigzag(DOWN, start=1.1150)
+                  + [body(1.1042, 1.1052, tf="H1", t=200, wick_up=0.00005, wick_dn=0.00005),
+                     body(1.1052, 1.1056, tf="H1", t=201, wick_up=0.00002, wick_dn=0.00002),
+                     body(1.1056, 1.1086, tf="H1", t=202, wick_up=0.00005, wick_dn=0.00005)])
+bias_sb, why_sb = entry_for(small_then_big)
+s.check("a 10-pip break, then a 30-pip momentum candle, no pullback → REFUSED: the break candle was not a momentum "
+        "candle on its own", bias_sb is None and "on its own" in (why_sb or ""), True)
 if eur and i17 > 0:
     b_def = detect_bias(eur[max(0, i17 - H1_COUNT):i17 + 1], [], "EUR/USD")
-    s.check("his 28 Jul 17:00 break is no longer traded through the change-of-character route",
-            b_def is None or b_def.origin != "choch", True)
+    s.check("his 28 Jul 17:00 break (13.6 pips, a momentum candle on its own) is traded through the change-of-character "
+            "route again (19 Nov rule)", b_def is not None and b_def.origin == "choch", True)
 
 s.done()

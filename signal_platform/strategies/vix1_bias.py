@@ -34,6 +34,7 @@ from strategies import vix1_log
 from shared.candle_math import atr
 from strategies import vix1_choch
 from strategies import vix1_pullback_end
+from strategies import vix1_break_candle
 from strategies import vix1_chop
 from strategies import vix1_regime
 from strategies import vix1_retracement
@@ -550,6 +551,9 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
                      vix1_pullback_end.refusal(h1, bullish, symbol),
                      (None if ignore_count else
                       vix1_retracement.entry_timing(at_mc, 1 if bullish else -1, break_time=_bt)),
+                     # HIS 19 NOV RULE (replacing the 3-candle wait): no pullback since the break of structure ->
+                     # the BREAK candle must be a momentum candle on its own. Not a count: `ignore_count` leaves it.
+                     vix1_break_candle.refusal(at_mc, h1, _bt, bullish, symbol),
                      market_awake(awake_window, mstate, ret, symbol, _QUIET_LOOK),
                      None if vix1_void.direction_already_confirmed(
                          awake_window, mc_idx, _ds, bullish, symbol)

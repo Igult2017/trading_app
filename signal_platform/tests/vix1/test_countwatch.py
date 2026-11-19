@@ -98,17 +98,12 @@ for _t, _lbl in ((1790748000, "the 9.0p candle after it"), (1790751600, "the 9.7
 # other check here asserts SILENCE, and a suite that only proves silence would stay green if the
 # notification were broken shut — he would hear nothing and have no way to know why.
 #
-# THE CASE. 28 Jul 2026 EUR/USD, the chart HE marked (images 4 and 5), already the acceptance case of
-# the change-of-character route. Price closed through 1.13732 and a momentum candle followed it out of
-# a TRENDING market, so every gate passes — and at production defaults the entry refuses it anyway,
-# in the route's own words:
-#     17:00  "...the move broke out 1 candle ago and has not pulled back yet — with no pullback the
-#             trade comes from the 3rd candle after the break"
-#     18:00  "...the move broke out 2 candles ago ..."
-# Candle 1 and candle 2 of a wait, each a qualifying momentum candle, and nothing else objecting.
-# That is exactly what he asked to be told about, so both must produce a note.
+# THE CASES. Until 19 Nov 2026 this was his 28 Jul EUR/USD break (17:00 / 18:00 UTC+3), held as candle 1 and 2 of
+# the 3-candle no-pullback wait. HIS 19 NOV RULE replaced that wait — the break candle must be a momentum candle on its
+# own, and his 17:00 candle is — so 28 Jul now TRADES and is a SILENCE case here. The firing case is now a candle held
+# by the PULLBACK count, the only count left: a real EUR/USD hour, 18 Jun 2026 08:00 (UTC+3).
 print()
-print("   his 28 Jul EUR/USD chart — candle 1 and candle 2 of a breakout wait:")
+print("   his 28 Jul EUR/USD break now trades; the note fires on a real pullback-count wait:")
 _eur = load("EURUSD_H1_to16Aug.csv", "H1")
 if not _eur:
     print("   (EURUSD_H1_to16Aug.csv absent — the positive cases cannot run)")
@@ -128,50 +123,32 @@ else:
 
     s.check("his 28 Jul 17:00 candle is in the data", _at(17) > 0, True)
 
-    # THE SWITCH IS WHAT MAKES THE DIFFERENCE, proven on the real function before anything is read
-    # off the note: the entry says no, and the same entry with only the count muted says yes.
+    # HIS 19 NOV RULE REPLACED THE 3-CANDLE WAIT: with no pullback, the BREAK candle must be a momentum candle on
+    # its own. His 28 Jul 17:00 break candle (13.6 pips, grade A) is, so the entry now TRADES it — and a candle that
+    # trades is not "held only by the count", so the note is correctly silent.
     _w17 = _win(17)
-    s.check("the real entry refuses 17:00", detect_bias(_w17, [], "EUR/USD"), None)
-    s.check("...and with ONLY the count muted it would trade",
-            detect_bias(_w17, [], "EUR/USD", ignore_count=True) is not None, True)
-
-    _n17 = vix1_countwatch.check(_w17, [], "EUR/USD")
-    s.check("CANDLE 1 (17:00) IS REPORTED", _n17 is not None, True)
-    s.check("...as a BUY, the way the candle closed", _n17 is not None and _n17[1], True)
-    s.check("...and it is the 13.6-pip grade-A candle, not some other bar",
-            _n17 is not None and round(body_size(_n17[0]) / 0.0001, 1), 13.6)
-
-    _n18 = vix1_countwatch.check(_win(18), [], "EUR/USD")
-    s.check("CANDLE 2 (18:00) IS ALSO REPORTED — his 'first and second candles'",
-            _n18 is not None, True)
-    s.check("...and it is a different note from candle 1's",
-            _n17 is not None and _n18 is not None
-            and vix1_countwatch.dedup_key("EUR/USD", True, _n17[0])
-            != vix1_countwatch.dedup_key("EUR/USD", True, _n18[0]), True)
-
-    # THE HOUR BEFORE THE BREAK SAYS NOTHING — 6.4 pips, grade B, refused by his own size test. This
-    # is the check that stops the feature becoming chatter during every ordinary hour.
+    s.check("his 28 Jul 17:00 break candle now TRADES (19 Nov rule) — no count to wait on",
+            detect_bias(_w17, [], "EUR/USD") is not None, True)
+    s.check("...so there is no count-wait note for it (it is a trade, not a wait)",
+            vix1_countwatch.check(_w17, [], "EUR/USD"), None)
     s.check("16:00 is silent — 6.4 pips does not qualify as a momentum candle",
             vix1_countwatch.check(_win(16), [], "EUR/USD"), None)
 
-    # ⚠ AND THE 3rd CANDLE PRODUCES NEITHER A SIGNAL NOR A NOTE HERE, which is correct and is NOT
-    # what the plan for this work predicted. The count is satisfied at 19:00, so the note correctly
-    # stops; but the 19:00 bar closed DOWN, so there is no momentum candle that way and the entry
-    # refuses for a different reason — *"a break on its own is not a trade"*. The count being
-    # satisfied is permission to trade a momentum candle, not a trade.
-    _w19 = _win(19)
-    s.check("19:00 — the count is satisfied, so the note stops",
-            vix1_countwatch.check(_w19, [], "EUR/USD"), None)
-    s.check("...and there is still no signal, because that candle closed DOWN",
-            detect_bias(_w19, [], "EUR/USD"), None)
-
-    # TEETH — the positive case must be able to fail. If `ignore_count` ever stops muting the count,
-    # the shadow call returns None, and this whole section would go quiet while still passing every
-    # silence check above. This is the assertion that catches "broken shut".
-    s.teeth("the note fires on a real candle 1 and a real candle 2",
-            vix1_countwatch.check(_w17, [], "EUR/USD") is not None
-            and _n18 is not None
-            and detect_bias(_w17, [], "EUR/USD") is None)
+    # THE NOTE STILL FIRES — on the PULLBACK count, the only count left. A real EUR/USD hour found by searching the
+    # same file for "the entry says no, and the same entry with only the count muted says yes": 18 Jun 2026 08:00
+    # (UTC+3). This is the assertion that catches a note broken SHUT — every other check here proves silence.
+    _jun = (dt.datetime(2026, 6, 18, 8) - dt.timedelta(hours=3)).replace(tzinfo=dt.timezone.utc).timestamp()
+    _ij = next((i for i, c in enumerate(_eur) if c.time == _jun), -1)
+    s.check("his 18 Jun 08:00 (UTC+3) candle is in the data", _ij > 0, True)
+    if _ij > 0:
+        _wj = _eur[max(0, _ij - _H1N):_ij + 1]
+        s.check("the real entry refuses 18 Jun 08:00", detect_bias(_wj, [], "EUR/USD"), None)
+        s.check("...and with ONLY the count muted it would trade (held by the PULLBACK count alone)",
+                detect_bias(_wj, [], "EUR/USD", ignore_count=True) is not None, True)
+        _nj = vix1_countwatch.check(_wj, [], "EUR/USD")
+        s.check("THE NOTE FIRES on a candle held only by the pullback count", _nj is not None, True)
+        s.teeth("the note fires on a real count-held candle (and not on the 28 Jul candle that now trades)",
+                _nj is not None and vix1_countwatch.check(_w17, [], "EUR/USD") is None)
 
 # ── 3. THE CHEAP GUARD RUNS FIRST ─────────────────────────────────────────────────────────────────
 # A candle that is not a momentum candle must cost nothing: `check` returns before the shadow call.

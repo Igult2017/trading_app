@@ -255,8 +255,9 @@ def measure(candles: list[Candle], direction: int, since: int | None = None,
 #     * the cluster he circled was never a pullback to this strategy — it was the RANGE BAND
 #       (`vix1_chop`: *"price is still inside the 1.32228-1.32302 box"*), his own rule, working;
 #     * after the box broke there was a ONE-candle pullback, so this branch never ran;
-#     * the "3rd candle" wording in the 07:00 refusal came from the NO-PULLBACK branch
-#       (`_BREAK_CANDLES`), not this one. I matched on the words and not on the branch that printed them.
+#     * the "3rd candle" wording in the 07:00 refusal came from the NO-PULLBACK branch (then
+#       `_BREAK_CANDLES`; that branch was replaced on 19 Nov 2026 by `vix1_break_candle`), not this one.
+#       I matched on the words and not on the branch that printed them.
 #
 #   AND IT WOULD HAVE REVERSED HIS 16 SEP RULING, which he made from watching real trades, and which
 #   `vix1-measured.md` §7 mildly supports (group B: 35 entries, 4W/9L, -2.0R). If it is ever revisited,
@@ -285,7 +286,6 @@ def measure(candles: list[Candle], direction: int, since: int | None = None,
 # can drift from those two — the thing this one-function design exists to prevent.
 _SHORT_PULLBACK = 3     # a pullback of this many candles or fewer is SHORT: its first momentum candle trades
 _WAIT_CANDLES   = 3     # after a longer one, the trade may only come from this candle onward
-_BREAK_CANDLES  = 3     # with NO pullback at all, the trade comes from this candle after the break
 
 
 def _ordinal(n: int) -> str:
@@ -322,55 +322,33 @@ def since_pullback(candles: list[Candle], direction: int) -> tuple[int, int]:
 
 def entry_timing(candles: list[Candle], direction: int,
                  break_time: int | None = None) -> str | None:
-    """May the NEWEST candle trade? The refusal in his words, or None to go ahead.
+    """May the NEWEST candle trade, as far as the PULLBACK count goes? The refusal in his words, or None.
 
     `direction` is the way the move is going — the CONFIRMED trend where there is one, otherwise the
-    direction the break committed to. It is passed in rather than read off a trend state, so this
-    answers during a change of character too, which is the whole point of the 2026-09-29 rules.
+    direction the break committed to, so this answers during a change of character too.
 
-    `break_time` is the BAR TIME of the candle the move broke out on — the change of character, or
-    the break of structure that left the band. **THAT CANDLE IS CANDLE 1**, his ruling 2026-09-29.
-    Without it the first branch cannot apply and only the pullback branches run, which is exactly
-    today's behaviour for a trend that is merely continuing.
+    THE TWO BRANCHES (his, 2026-09-16 and 2026-09-29):
 
-    ⚠ A TIME AND NOT AN INDEX, deliberately. VIX.1 carries several windows of the same bars — the
-    trend window, the same window truncated at the momentum candle, the full history — and a trend
-    state's indexes belong to whichever one built it. Translating between them is arithmetic that
-    fails silently when a window changes length, and it has cost this platform before. A bar time is
-    the same number in every window, so there is nothing to translate and nothing to get wrong.
+      a pullback of 1-3 candles     ->  its FIRST momentum candle trades
+      a longer pullback             ->  the trade comes from the 3rd candle after it
 
-    THE THREE BRANCHES:
+    ⚠ THE THIRD BRANCH IS GONE (19 Nov 2026). "No pullback since the break -> the trade comes from the 3rd
+    candle, counting the break as the 1st" was HIS rule of 29 Sep, and he replaced it: *"Remove that rule. And
+    replace with the candle that breaks CHOCH or BOS to be a qualifying volume candle that qualifies on its own
+    not by memory or error margin."* That replacement is NOT a count, so it does not live here: it is
+    `vix1_break_candle.refusal`, asked by the same three callers. With no pullback, this now says nothing.
 
-      no pullback since the break   ->  the trade comes from the 3rd candle, counting the break
-                                        candle as the 1st
-      a pullback of 1-3 candles     ->  its FIRST momentum candle trades (unchanged, 2026-09-16)
-      a longer pullback             ->  the trade comes from the 3rd candle after it (unchanged)
-
-    WHY THE FIRST BRANCH HAD TO EXIST, in his words: *"the band issue has proven to us that sometimes
-    price can move for a very long time without a pullback"*. Waiting for a pullback that never comes
-    is how a move runs its whole length untraded — measured on XAU/USD 28 Sep 2026, six momentum
-    candles qualified across 22 hours and none could be taken.
+    `break_time` (the BAR TIME of the break candle) STILL MATTERS: the pullback is counted only from the break
+    on. Counting the whole window would read the OLD move's candles, before the break, as a pullback. A time
+    and not an index: VIX.1 carries several windows of the same bars, and a bar time is the same in all.
     """
     bi = None
     if break_time is not None:
         bi = next((k for k, c in enumerate(candles) if c.time == break_time), None)
-    # A break that is not in this window cannot be counted from, and guessing where it fell would be
-    # worse than not applying the branch — so it degrades to the pullback branches alone.
     seg = candles if bi is None else candles[bi:]
     after, bars = since_pullback(seg, direction)
-
     if bars == 0:
-        # NOTHING HAS PULLED BACK YET. Before the break is known this is simply "no reason to wait",
-        # which is what shipped before and is right for a trend already under way.
-        if bi is None:
-            return None
-        n = len(candles) - bi                   # the break candle itself is candle 1
-        if n >= _BREAK_CANDLES:
-            return None
-        return (f"the move broke out {n} candle{'s' if n != 1 else ''} ago and has not pulled back yet "
-                f"— with no pullback the trade comes from the {_ordinal(_BREAK_CANDLES)} candle "
-                f"after the break")
-
+        return None                    # no pullback since the break: `vix1_break_candle` decides, not a count
     if bars <= _SHORT_PULLBACK or after >= _WAIT_CANDLES:
         return None
     return (f"the pullback ran {bars} candles and this is only candle {after} after it — after a pullback "

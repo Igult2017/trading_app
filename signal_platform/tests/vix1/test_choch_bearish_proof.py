@@ -134,12 +134,16 @@ print()
 print("A TURN UP NOW PROVES ITSELF TOO — 'enable pullback to uptrend the same way'")
 s.check("the upward exemption is switched OFF by default", vix1_choch._EXEMPT_UP_TURNS, False)
 _up_off, _up_off_why = route(bull())
-s.check("a bullish change of character is refused the shortcut", _up_off is None, True)
-# THE REASON CHANGED ON 2026-09-29 and the change is the point: it is no longer "you get no
-# shortcut", it is his COUNT — the break candle is candle 1 and this is it, so the 3rd is the
-# earliest that may trade. The refusal stands; what it is waiting for is now nameable.
-s.check("  ...and the refusal says WHY, in his terms",
-        "3rd candle after the break" in _up_off_why, True)
+# HIS 19 NOV RULE replaced the 3-candle count: with no pullback, the BREAK candle must be a momentum candle on its
+# own. This one is, so with the switch OFF the turn up trades on its break — not via a shortcut, via his new rule.
+s.check("a bullish change of character whose break candle qualifies on its own is traded (19 Nov rule)",
+        _up_off is not None and _up_off.bullish, True)
+_real_bc = vix1_choch.vix1_break_candle.refusal
+vix1_choch.vix1_break_candle.refusal = lambda *a, **k: "forced refusal"
+_up_forced, _up_forced_why = route(bull())
+vix1_choch.vix1_break_candle.refusal = _real_bc
+s.teeth("with the switch OFF it is the break-candle rule that lets it through (forced to refuse → no trade)",
+        _up_forced is None and "forced refusal" in _up_forced_why)
 
 # ── 2. SWITCHED OFF, NOT DELETED ─────────────────────────────────────────────────────────────────
 print()
@@ -161,8 +165,16 @@ s.check("the SAME shape with 6 bars printed after the candle is still refused", 
 s.check("  ...because the current bar is not a momentum candle",
         "no momentum candle that way yet" in _old_why, True)
 s.check("the switch never opens a turn DOWN", _bear_on, None)
-s.teeth("the switch is what decides a turn up — same bars, opposite answers",
-        _up_off is None and _bull_bias is not None)
+# The switch now only matters for a break candle that does NOT qualify on its own (it skips that question too).
+vix1_choch.vix1_break_candle.refusal = lambda *a, **k: "forced refusal"
+vix1_choch._EXEMPT_UP_TURNS = True
+try:
+    _on_forced, _ = route(bull())
+finally:
+    vix1_choch._EXEMPT_UP_TURNS = False
+    vix1_choch.vix1_break_candle.refusal = _real_bc
+s.teeth("the switch still decides a turn up whose break candle would be refused — same bars, opposite answers",
+        _up_forced is None and _on_forced is not None)
 
 # ── 3. A TURN DOWN — unchanged since 2026-08-25 ──────────────────────────────────────────────────
 print()
