@@ -455,6 +455,63 @@ ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_hidden BOOLEAN DE
 -- an admin removed cannot put themselves back by flipping their own switch.
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_opt_in BOOLEAN DEFAULT false;
 
+-- ── trading_signals — THE WHOLE TABLE, as `shared/schema.ts` defines it (added 2026-11-19) ──────
+-- WHY. This file never created this table — it only ADDED two columns to it. On the new server the
+-- database started EMPTY, so the table was made by the Python engine's own shorter definition
+-- (`signal_platform/storage/models.py`, `create_all`): 27 of the schema's 47 columns. Every web read
+-- (`db.select().from(tradingSignals)`) then asked for `interest_rate_diff_score` and failed with
+-- 42703 — the Assets page got a 500 on every load and showed "no confirmed entries" for weeks.
+-- The CREATE makes a fresh database whole whichever side starts first; the ADD COLUMNs below repair
+-- a table that already exists short. All are nullable, so adding them changes no existing row.
+-- `signal_platform/tests/test_signal_columns.py` fails if a schema column is missing from this file.
+CREATE TABLE IF NOT EXISTS trading_signals (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  symbol TEXT NOT NULL,
+  asset_class TEXT NOT NULL,
+  type TEXT NOT NULL,
+  strategy TEXT NOT NULL,
+  entry_price NUMERIC(12,5) NOT NULL,
+  stop_loss NUMERIC(12,5) NOT NULL,
+  take_profit NUMERIC(12,5) NOT NULL,
+  risk_reward_ratio NUMERIC(5,2) NOT NULL,
+  primary_timeframe TEXT NOT NULL,
+  confirmation_timeframe TEXT,
+  execution_timeframe TEXT,
+  overall_confidence INTEGER NOT NULL,
+  smc_score NUMERIC(5,2),
+  liquidity_sweep BOOLEAN DEFAULT false,
+  smc_factors TEXT[],
+  trend_direction TEXT,
+  technical_reasons TEXT[],
+  market_context TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  expires_at TIMESTAMP,
+  executed_at TIMESTAMP,
+  invalidated_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
+);
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS interest_rate_diff_score NUMERIC(5,2);
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS interest_rate_diff_value NUMERIC(5,2);
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS interest_rate_notes TEXT;
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS inflation_impact_score NUMERIC(5,2);
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS inflation_differential NUMERIC(5,2);
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS inflation_notes TEXT;
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS trend_score NUMERIC(5,2);
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS trend_strength TEXT;
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS trend_timeframes TEXT[];
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS institutional_candle_detected BOOLEAN DEFAULT false;
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS institutional_candle_data JSONB;
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS order_block_type TEXT;
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS order_block_level NUMERIC(12,5);
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS fvg_detected BOOLEAN DEFAULT false;
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS fvg_level NUMERIC(12,5);
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS liquidity_sweep_level NUMERIC(12,5);
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS breaker_block_detected BOOLEAN DEFAULT false;
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS boc_choch_detected TEXT;
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS strength TEXT;
+ALTER TABLE trading_signals ADD COLUMN IF NOT EXISTS zones_tested INTEGER DEFAULT 0;
+
 -- ── trading_signals — pending-entry lifecycle ────────────────────────────────
 -- triggered_at: when the ENTRY actually filled (stop-entry strategies fire an ORDER,
 -- not a position). NULL = still pending — the monitor must not score TP/SL touches

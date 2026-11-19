@@ -438,14 +438,17 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
   // `limit=300`: the endpoint defaults to 50, which was ample for a week and is not for a MONTH
   // (his rule changed 2026-08-22). Silently truncating would drop the OLDEST entries — exactly the
   // ones this change exists to make visible.
-  const { data: allSignals = [] } = useQuery<any[]>({
+  const { data: allSignals = [], isError: signalsFailed } = useQuery<any[]>({
     queryKey: ["all-active-signals"],
     queryFn: async () => {
       // The full lifecycle: watching -> in progress -> closed. 'expired' is deliberately absent —
       // a stop order cancelled before it filled never became a trade, so it is dropped, not shown.
       const res = await fetch(
         "/api/trading-signals?status=watching,active,executed,invalidated&limit=300");
-      if (!res.ok) return [];
+      // A FAILED REPLY IS AN ERROR, NOT AN EMPTY BOARD (19 Nov 2026). This returned [] on any
+      // failure, so when production answered 500 on every load (a database column was missing)
+      // the list said "NO CONFIRMED ENTRIES THIS MONTH" — a false statement that hid the fault.
+      if (!res.ok) throw new Error(`signals request failed: ${res.status}`);
       const json = await res.json();
       return Array.isArray(json) ? json : [];
     },
@@ -1173,8 +1176,9 @@ export default function AssetPage({ darkMode = true }: { darkMode?: boolean }) {
         <div className="asset-scroll" style={{ flex: 1, overflowY: "auto" }}>
           {filtered.length === 0 && (
             <div style={{ padding: "32px 16px", textAlign: "center", color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", lineHeight: 1.8 }}>
-              {search ? "NO MATCH" : "NO CONFIRMED ENTRIES THIS MONTH"}
-              {!search && <div style={{ fontSize: 9, fontWeight: 500, marginTop: 6, color: C.muted2 }}>A signal appears here once its entry is actually taken. The list clears on the 1st.</div>}
+              {search ? "NO MATCH" : signalsFailed ? "COULD NOT LOAD SIGNALS" : "NO CONFIRMED ENTRIES THIS MONTH"}
+              {!search && signalsFailed && <div role="alert" style={{ fontSize: 9, fontWeight: 500, marginTop: 6, color: C.muted2 }}>The server returned an error. Retrying every minute.</div>}
+              {!search && !signalsFailed && <div style={{ fontSize: 9, fontWeight: 500, marginTop: 6, color: C.muted2 }}>A signal appears here once its entry is actually taken. The list clears on the 1st.</div>}
             </div>
           )}
           {filtered.map(card => {
