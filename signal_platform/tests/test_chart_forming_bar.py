@@ -17,7 +17,7 @@ import time
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..")))
-os.environ.setdefault("DATABASE_URL", "postgresql://x/x")
+os.environ.setdefault("DATABASE_URL", "postgresql://x.invalid/x")
 
 from charting import signal_card                                        # noqa: E402
 from core.types import Candle, Direction, Signal, TF                    # noqa: E402

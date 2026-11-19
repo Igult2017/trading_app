@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 # same reason; this file carries its own `check()` rather than importing that harness, so it must
 # set it itself. Without it the file died at section 6 with "database_url Field required", and the
 # suite reported failures for a reason that had nothing to do with the code under test.
-os.environ.setdefault("DATABASE_URL", "postgresql://x/x")
+os.environ.setdefault("DATABASE_URL", "postgresql://x.invalid/x")
 
 _pass = 0
 _fail = 0

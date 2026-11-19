@@ -19,7 +19,7 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..")))
-os.environ.setdefault("DATABASE_URL", "postgresql://x/x")
+os.environ.setdefault("DATABASE_URL", "postgresql://x.invalid/x")
 
 from data import ctrader_session as S                      # noqa: E402
 

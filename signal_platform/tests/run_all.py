@@ -15,7 +15,7 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ENV = {**os.environ, "DATABASE_URL": os.environ.get("DATABASE_URL", "postgresql://x/x"),
+ENV = {**os.environ, "DATABASE_URL": os.environ.get("DATABASE_URL", "postgresql://x.invalid/x"),
        "PYTHONIOENCODING": "utf-8"}
 
 files = sorted(f for f in os.listdir(HERE) if f.startswith("test_") and f.endswith(".py"))

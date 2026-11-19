@@ -31,7 +31,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _PLATFORM = os.path.abspath(os.path.join(_HERE, ".."))
 if _PLATFORM not in sys.path:
     sys.path.insert(0, _PLATFORM)
-os.environ.setdefault("DATABASE_URL", "postgresql://x/x")
+os.environ.setdefault("DATABASE_URL", "postgresql://x.invalid/x")
 
 from core.types import Candle                                   # noqa: E402
 from shared.candle_math import is_bullish, is_bearish           # noqa: E402

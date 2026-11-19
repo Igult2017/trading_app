@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..")))
-os.environ.setdefault("DATABASE_URL", "postgresql://x/x")
+os.environ.setdefault("DATABASE_URL", "postgresql://x.invalid/x")
 # The message carries emoji and a Windows console is cp1252 — without this the SUITE dies on its own
 # print while the code under test is perfectly fine, which is a maddening way to read a red run.
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")

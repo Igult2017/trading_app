@@ -10,7 +10,7 @@ import sys
 from contextlib import contextmanager
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-os.environ.setdefault("DATABASE_URL", "postgresql://x/x")
+os.environ.setdefault("DATABASE_URL", "postgresql://x.invalid/x")
 import storage.observability_repo as _obs  # noqa: E402
 _obs.record = lambda *a, **k: None
 

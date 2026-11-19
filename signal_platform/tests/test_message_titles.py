@@ -19,7 +19,7 @@ import sys
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.abspath(os.path.join(_HERE, "..")))
-os.environ.setdefault("DATABASE_URL", "postgresql://x/x")
+os.environ.setdefault("DATABASE_URL", "postgresql://x.invalid/x")
 
 # THE TITLES LEAD WITH EMOJI AND THIS FILE PRINTS THEM. A Windows console defaults to cp1252, which
 # cannot encode them, so the whole suite died on a UnicodeEncodeError while every assertion in it

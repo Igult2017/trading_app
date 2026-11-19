@@ -16,7 +16,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _PLATFORM = os.path.abspath(os.path.join(_HERE, "..", ".."))
 if _PLATFORM not in sys.path:
     sys.path.insert(0, _PLATFORM)
-os.environ.setdefault("DATABASE_URL", "postgresql://x/x")   # no DB is touched; imports need it set
+os.environ.setdefault("DATABASE_URL", "postgresql://x.invalid/x")   # no DB is touched; imports need it set
 
 # ...and MAKE that true. `detect_bias` calls `observability_repo.record` on every evaluation, which
 # retries the unreachable DB and prints a multi-line SQLAlchemy error EACH TIME. With three calls
