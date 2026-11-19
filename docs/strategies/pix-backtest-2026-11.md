@@ -96,3 +96,28 @@ often than a convergence (43.7% vs 44.9% to +1R). It is associated with slightly
 
 Kit: `trading_app_data/tools/pix_bt.py` (decisions), `pix_sim.py` + `pix_sim_test.py` (trades, 20 checks),
 `pix_bt_sim.py` (tables); raw results `trading_app_data/tools/results.json`.
+
+## Follow-up — EUR/USD only, 5M zones only, with the trend or both sides when ranging (19 Nov 2026)
+His words: *"Test on EURUSD only"*, *"5 min zones only that align with the trend or in a ranging market"*. A
+TEST-ONLY variant around PIX's own functions (live PIX unchanged): only 5M zones; with the 4H (else 1H) trend;
+when both read sideways, the zone logic runs for buys AND sells; no support/resistance path. Same data (22 May 2024 →
+17 Jul 2026), same proven trade replay. Run at two costs to separate the method from the cost — the median 5M stop is
+only 7.9 pips, so 1 pip is 13% of a trade's risk.
+
+| cost | exit | trades | per month | win % | total R | avg R | worst drawdown |
+|---|---|---|---|---|---|---|---|
+| 1 pip (spread + commission) | plain −1R/+3R | 3,914 | 157 | 20.0 | −778.0 | −0.199 | 781R |
+| 1 pip | his ladder | 5,952 | 239 | 20.2 | −1,095.0 | −0.184 | 1,096R |
+| 0.2 pip (best case, no commission) | plain | 4,312 | 173 | 23.0 | −344.0 | −0.080 | 371R |
+| 0.2 pip | his ladder | 6,631 | 266 | 23.7 | −302.0 | −0.046 | 329R |
+
+(24 h order life; 15 min / 1 h / 4 h within 0.003R of these.) At 1 pip: trending −0.200R (2,979 trades), ranging
+−0.196R (935), buys −0.213R, sells −0.184R; 2 of 26 months positive. At 0.2 pip: trending −0.078R, ranging −0.086R;
+6 of 26 months positive.
+
+**Reading:** even with almost no cost the 5M-only variant loses (−0.05 to −0.08R a trade) — the method has no edge on
+EUR/USD over these two years, and the real cost (1 pip on a ~8-pip stop) turns a small loss into a large one. Taking
+trades in a ranging market is no worse and no better than with the trend. Three trades checked by hand (sell 13 Jan
+2025, buy 2 Oct 2025, buy 2 Sep 2025) — all correct. Note the trade count: thousands a year, because every 5M zone
+visit that passes the price rules is a trade; the live order-flow gate (not replayable on EUR/USD — no buy/sell
+history) would take far fewer.
