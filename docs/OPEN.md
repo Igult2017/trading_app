@@ -5463,6 +5463,7 @@ until the first run: whether the server is let in, and whether the scraper image
 | ~~A0b~~ | `decisional` assigned by position | 25 Aug — replaced by the creation test |
 | ~~A0c~~ | Zones marked off a structure break that pre-dated them | 25 Aug |
 | ~~A0d~~ | Telegram signals carried no chart | 3 Aug |
+| ~~C-ASSETS1~~ | **Assets page showed no confirmed setups for weeks.** Every load of `/api/trading-signals` answered 500: `column "interest_rate_diff_score" does not exist`. The new server's empty database got `trading_signals` from the Python engine's 27-column model; `docker-migrate.sql` never created the table, so 20 web-schema columns never existed. The page then turned the 500 into "NO CONFIRMED ENTRIES THIS MONTH". Fixed: full CREATE + 20 ADD COLUMNs in `docker-migrate.sql`, guard `signal_platform/tests/test_signal_columns.py` (with teeth), the page now says "COULD NOT LOAD SIGNALS". Rehearsed on PGlite with the live failing query: fails before, succeeds after, old rows kept | 19 Nov |
 | ~~A0e~~ | 1-hour candles cached for 48 minutes | 20–21 Aug |
 | ~~A0f~~ | Light theme unverified | 1 Aug — seen, it is fine |
 | ~~A0g~~ | 11 orphaned files | deleted 1 Aug |

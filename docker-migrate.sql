@@ -464,27 +464,29 @@ ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS leaderboard_opt_in BOOLEAN DE
 -- The CREATE makes a fresh database whole whichever side starts first; the ADD COLUMNs below repair
 -- a table that already exists short. All are nullable, so adding them changes no existing row.
 -- `signal_platform/tests/test_signal_columns.py` fails if a schema column is missing from this file.
+-- Only id / symbol / type are required (NOT NULL) — the same as the engine's own table, which is what
+-- writes these rows; stricter rules here would refuse an engine insert on a fresh database only.
 CREATE TABLE IF NOT EXISTS trading_signals (
   id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
   symbol TEXT NOT NULL,
-  asset_class TEXT NOT NULL,
+  asset_class TEXT,
   type TEXT NOT NULL,
-  strategy TEXT NOT NULL,
-  entry_price NUMERIC(12,5) NOT NULL,
-  stop_loss NUMERIC(12,5) NOT NULL,
-  take_profit NUMERIC(12,5) NOT NULL,
-  risk_reward_ratio NUMERIC(5,2) NOT NULL,
-  primary_timeframe TEXT NOT NULL,
+  strategy TEXT,
+  entry_price NUMERIC(12,5),
+  stop_loss NUMERIC(12,5),
+  take_profit NUMERIC(12,5),
+  risk_reward_ratio NUMERIC(5,2),
+  primary_timeframe TEXT,
   confirmation_timeframe TEXT,
   execution_timeframe TEXT,
-  overall_confidence INTEGER NOT NULL,
+  overall_confidence INTEGER,
   smc_score NUMERIC(5,2),
   liquidity_sweep BOOLEAN DEFAULT false,
   smc_factors TEXT[],
   trend_direction TEXT,
   technical_reasons TEXT[],
   market_context TEXT,
-  status TEXT NOT NULL DEFAULT 'active',
+  status TEXT DEFAULT 'active',
   expires_at TIMESTAMP,
   executed_at TIMESTAMP,
   invalidated_at TIMESTAMP,
