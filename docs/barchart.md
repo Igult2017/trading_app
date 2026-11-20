@@ -1,5 +1,8 @@
 # Barchart futures-options Greeks & volatility scraper — SWITCHED OFF (built 19 Nov 2026)
 
+> **20 Nov 2026 — its intended use is ON HOLD:** daily buy/sell levels posted to the channel, data discarded (not
+> stored). Waiting on his answers to 8 questions — `docs/barchart-levels-plan.md`, `docs/OPEN.md` G2.
+
 His order: *"create a scraper using the approach we are using to scrape data from myfxbook but for barchart Greeks and
 volatility futures. It only scrapes six time the whole day. Twice at an interval of 15 minutes at NY LN and Asia open.
 Five minutes after the open of each market. After creating it just disable it first, i will tell you what to do with

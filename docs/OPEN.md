@@ -5446,6 +5446,14 @@ PIX as its own program would separate that; not asked for yet.
 forbid robots — it uses a plain browser and no challenge solver; a refusal is recorded and the day skipped. Unknown
 until the first run: whether the server is let in, and whether the scraper image's Chromium starts.
 
+### G2 — Daily buy/sell levels from Barchart's options — ON HOLD, waiting on his 8 answers (20 Nov 2026)
+His job: at each market open, read the next-day options table once, pick buy/sell strikes by his guide, convert each to
+the spot level, post to the channel, discard the data (nothing stored). His order: *"Put that plan on hold and save as
+unresolved issue. Once i answer all those questions you will go ahead and execute."* Everything — his words, his guide
+verbatim, my understanding and the 8 questions (markets, sell delta, sell vega, how a strike qualifies, levels per side,
+how often, the Asia open, PIX) — is in `docs/barchart-levels-plan.md`. **When he answers: build from that file; do not
+re-ask, do not re-derive.**
+
 ## E. Parked — do not start these
 
 | | | |
