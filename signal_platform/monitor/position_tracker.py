@@ -279,8 +279,12 @@ async def _auto_move(p, tag: str, new_sl: float | None, send, price: float | Non
     "auto-breakeven is off" — must not become a message on every trade; only a refusal that happened
     while the feature was ON is worth telling him about.
     """
-    from config.settings import settings as _s
-    if not _s.auto_breakeven_enabled:
+    # THE ADMIN-PAGE VALUE, NOT THE COOLIFY ONE (fixed 20 Nov 2026). This read `settings.auto_breakeven_enabled` under the
+    # alias `_s`, so the 19 Nov move of the engine settings to the admin page missed it; when AUTO_BREAKEVEN_ENABLED was
+    # then deleted from Coolify the code default (OFF) applied, and from ~23:05 UTC no stop was moved on ANY trade while
+    # the watcher still announced "breakeven". His XAU/USD sell #265250522 is the trade it cost.
+    from config import live_settings
+    if not live_settings.get('auto_breakeven_enabled'):
         return None
     k = f"{p.position_id}:{tag}"
     try:

@@ -99,7 +99,22 @@ fresh()
 
 # ── 4. every reader goes through it ──────────────────────────────────────────────────────────────────────────────
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-pat = re.compile(r"(?<![\w.])settings\.(" + "|".join(L.MANAGED) + r")\b")
+# ANY SPELLING, NOT ONLY `settings.` (20 Nov 2026). The first version matched `settings.<name>` and stayed green while
+# `monitor/position_tracker._auto_move` read `_s.auto_breakeven_enabled` — the alias that switched every stop move off
+# once the Coolify variable was deleted. Now: `<any word>.<moved name>` unless the word is `live_settings`, and
+# `getattr(<x>, "<moved name>")`. Text inside backticks (a docstring naming the setting) is not code and is skipped.
+_names = "|".join(L.MANAGED)
+_attr = re.compile(r"\b(\w+)\.(" + _names + r")\b")
+_get = re.compile(r"getattr\([^)]*[\"'](" + _names + r")[\"']")
+
+
+def offenders(line: str) -> bool:
+    if line.lstrip().startswith("#"):
+        return False
+    code = re.sub(r"`[^`]*`", "", line)
+    return any(m.group(1) != "live_settings" for m in _attr.finditer(code)) or bool(_get.search(code))
+
+
 direct = []
 for d, _, fs in os.walk(ROOT):
     if os.sep + "tests" in d or "__pycache__" in d or ".venv" in d:
@@ -107,9 +122,36 @@ for d, _, fs in os.walk(ROOT):
     for f in fs:
         if f.endswith(".py") and f != "live_settings.py":
             for n, line in enumerate(open(os.path.join(d, f), encoding="utf-8", errors="replace"), 1):
-                if not line.lstrip().startswith("#") and pat.search(line):
+                if offenders(line):
                     direct.append(f"{os.path.relpath(os.path.join(d, f), ROOT)}:{n}")
-s.check("no engine file reads a moved setting straight from Coolify", direct, [])
+s.check("no engine file reads a moved setting under ANY name except live_settings", direct, [])
+s.teeth("the alias that switched every stop move off is caught",
+        offenders("    if not _s.auto_breakeven_enabled:"))
+s.teeth("a getattr read is caught", offenders("x = getattr(settings, \"autotrade_symbols\", '')"))
+s.check("...and the right way is not flagged", offenders("    if not live_settings.get('auto_breakeven_enabled'):"),
+        False)
+
+# ── 5. the ONE function that moves a stop follows the admin page (the 20 Nov defect) ─────────────────────────────
+import asyncio  # noqa: E402
+from types import SimpleNamespace  # noqa: E402
+import monitor.position_tracker as PT  # noqa: E402
+import execution.account as ACC  # noqa: E402
+import execution.breakeven as BE  # noqa: E402
+called = []
+ACC.load_account = lambda: asyncio.sleep(0, result=SimpleNamespace(creds={}, account_type="demo"))
+BE.move_stop_to = lambda *a, **k: asyncio.sleep(0, result=called.append(a) or SimpleNamespace(
+    moved=True, message="moved", alarm=False))
+PT.position_book.invalidate = lambda: None
+pos = SimpleNamespace(position_id=1, symbol="XAU/USD", bullish=False)
+object.__setattr__(settings, "auto_breakeven_enabled", False)        # no Coolify variable → the code default, OFF
+fresh(auto_breakeven_enabled="true")                                 # ...and the admin page says ON
+out = asyncio.new_event_loop().run_until_complete(PT._auto_move(pos, "breakeven", None, None, 3620.0, quiet=True))
+s.check("admin page ON, no Coolify variable → the stop IS moved", (bool(called), out), (True, True))
+called.clear()
+fresh(auto_breakeven_enabled="false")
+out = asyncio.new_event_loop().run_until_complete(PT._auto_move(pos, "breakeven", None, None, 3620.0, quiet=True))
+s.check("admin page OFF → nothing is moved (switch off)", (called, out), ([], None))
+fresh()
 from execution import guards  # noqa: E402
 fresh(autotrade_strategies="vix1,pix", autotrade_symbols="", autotrade_sessions="", autotrade_cutoff_utc="")
 s.check("the order checks follow the panel (PIX allowed by a row)", guards.scope_refusal("XAU/USD", "pix"), None)
