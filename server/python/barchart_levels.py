@@ -38,6 +38,16 @@ def is_high(value: float | None, pool: list[float]) -> bool:
     return value >= s[len(s) - _third(s)]
 
 
+def _g(v: float | None) -> str:
+    """4 significant figures: gold's theta (-6.50) and the euro's vega (0.00004) both stay readable."""
+    if v is None:
+        return "—"
+    out = f"{v:.4g}"
+    if "e" in out:                                   # 3.91e-05 → 0.0000391 (plain decimals read better on a phone)
+        out = f"{v:.{3 - math.floor(math.log10(abs(v)))}f}"
+    return out
+
+
 def _bound(pool: list[float], low: bool) -> float:
     s = sorted(pool)
     return s[_third(s) - 1] if low else s[len(s) - _third(s)]
@@ -63,12 +73,12 @@ def judge(rows: list[dict], side: str) -> list[dict]:
             want = "≥ +0.50" if side == BUY else "≤ -0.50"
             fails.append(f"Delta {'—' if d is None else f'{d:+.2f}'} — should be {want}")
         if not is_high(r.get("gamma"), gam):
-            fails.append(f"Gamma {r.get('gamma') or 0:.4f} — should be high (≥ {_bound(gam, False):.4f})")
+            fails.append(f"Gamma {_g(r.get('gamma'))} — should be high (≥ {_g(_bound(gam, False))})")
         t = r.get("theta")
         if t is None or not is_high(abs(t), the):
-            fails.append(f"Theta {t or 0:.2f} — should be high (≤ -{_bound(the, False):.2f})")
+            fails.append(f"Theta {_g(t)} — should be high (≤ -{_g(_bound(the, False))})")
         if not is_low(r.get("vega"), veg):
-            fails.append(f"Vega {r.get('vega') or 0:.2f} — should be low (≤ {_bound(veg, True):.2f})")
+            fails.append(f"Vega {_g(r.get('vega'))} — should be low (≤ {_g(_bound(veg, True))})")
         sk = r.get("ivSkew")
         if sk is None or (sk <= 0 if side == BUY else sk >= 0):
             fails.append(f"IV skew {'—' if sk is None else f'{sk * 100:+.2f}%'} — should be "

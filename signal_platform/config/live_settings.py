@@ -72,7 +72,8 @@ def _checker(entry: dict):
 
 
 # name -> the check its value must pass (after being turned into the setting's own type).
-MANAGED: dict[str, object] = {e["name"]: _checker(e) for e in SPEC["settings"]}
+# Settings marked "owner": "server" (the Barchart switches) are read by the website, not by the engine.
+MANAGED: dict[str, object] = {e["name"]: _checker(e) for e in SPEC["settings"] if e.get("owner") != "server"}
 
 _rows: dict[str, str] = {}          # the last GOOD read of the table
 _read_at: float | None = None

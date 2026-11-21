@@ -111,3 +111,15 @@ export async function writeEngineSetting(s: SettingSpec, value: string | null, b
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW(), updated_by = EXCLUDED.updated_by`,
     [s.name, value, by.slice(0, 120)]);
 }
+
+/**
+ * A SWITCH THE WEBSITE ITSELF READS (21 Nov 2026 — the Barchart options levels): the admin page's row if there is one,
+ * else the Coolify variable of the same name in capitals, else OFF. Only names on the list marked `owner: "server"`.
+ */
+export async function serverSwitch(name: "barchart_enabled" | "barchart_to_dm", db: Db = pool): Promise<boolean> {
+  try {
+    const { rows } = await db.query(`SELECT value FROM platform_settings WHERE key = $1`, [name]);
+    if (rows[0]) return String(rows[0].value).toLowerCase() === "true";
+  } catch { /* an unreadable table falls back to the variable below — never to ON */ }
+  return (process.env[name.toUpperCase()] ?? "false").toLowerCase() === "true";
+}

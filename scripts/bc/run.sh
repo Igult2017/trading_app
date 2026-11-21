@@ -11,7 +11,8 @@
 #
 # Install (as root), only when he says so:
 #   mkdir -p /opt/bc && cp run.sh /opt/bc/run.sh && chmod +x /opt/bc/run.sh
-#   cp ../../server/python/barchart_greeks.py ../../server/python/barchart_parse.py /opt/bc/
+#   cp ../../server/python/barchart_greeks.py ../../server/python/barchart_parse.py \
+#      ../../server/python/barchart_levels.py ../../server/python/barchart_message.py /opt/bc/
 #   install bc.timer + bc.service beside this file, then: systemctl enable --now bc.timer
 #   and set BARCHART_ENABLED=true on the app.
 set -uo pipefail
@@ -41,11 +42,12 @@ slot="$(printf '%s' "$claim" | sed -n 's/.*"slot":"\([^"]*\)".*/\1/p')"
 if [ -z "$run_id" ]; then log "claim refused: $claim"; exit 0; fi
 log "claimed $slot run $run_id"
 
-# The Python caps one page at 120 s + 60 s waiting for its data; 300 s here is the outer kill.
-timeout 300 docker run --rm \
+# Three markets, each its own browser visit (Barchart allows a visit only a few full pages) — up to ~4 min each on a
+# slow machine; 900 s here is the outer kill.
+timeout 900 docker run --rm \
   --name "bc-$slot" \
   --memory=1g --cpus=1 \
-  -e "BC_INGEST_URL=$APP/api/internal/barchart/ingest" \
+  -e "BC_APP=$APP" \
   -e "BC_SECRET=$SECRET" -e "BC_RUN_ID=$run_id" -e "BC_SLOT=$slot" \
   --entrypoint /app/.venv/bin/python -w /tmp -v /opt/bc:/opt/bc:ro \
   "$IMAGE" /opt/bc/barchart_greeks.py >/dev/null 2>>/var/log/bc.log
@@ -54,7 +56,7 @@ if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
   # 1 = the scraper itself reported the failure; anything else (killed, crashed) never reached the app.
   curl -fsS --max-time 20 -X POST -H "x-admin-secret: $SECRET" -H 'Content-Type: application/json' \
     -d "{\"ok\":false,\"runId\":\"$run_id\",\"slot\":\"$slot\",\"error\":\"host runner exited $rc\"}" \
-    "$APP/api/internal/barchart/ingest" >/dev/null || true
+    "$APP/api/internal/barchart/levels" >/dev/null || true
 fi
 docker rm -f "bc-$slot" >/dev/null 2>&1 || true
 log "done (exit $rc)"

@@ -21,6 +21,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOANewOrderReq, ProtoOAClosePositionReq, ProtoOACancelOrderReq,
     ProtoOAAmendOrderReq, ProtoOAAmendPositionSLTPReq, ProtoOAExecutionEvent,
     ProtoOAReconcileReq, ProtoOAReconcileRes,
+    ProtoOAOrderErrorEvent, ProtoOAErrorRes,
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAOrderType, ProtoOAExecutionType
 
@@ -315,6 +316,16 @@ class CTraderExecutor:
             # Back-fill any missing SL/TP from the live position so None = unchanged.
             self._backfill_modify(res)
             self._send_command(client)
+
+        # THE BROKER SAYING NO IS AN ANSWER (21 Nov 2026). These replies were ignored, so a refusal waited out the full
+        # 20 s and read as "Execution timed out" — three times in a row on 20 Nov (XAU/USD, 02:12-02:13), with the real
+        # reason lost. Now it resolves at once with the broker's own code and words (a refusal while logging in is a
+        # failure too, and is reported the same way).
+        elif ptype in (ProtoOAOrderErrorEvent().payloadType, ProtoOAErrorRes().payloadType):
+            err = Protobuf.extract(message)
+            code = getattr(err, "errorCode", "") or "ERROR"
+            desc = (getattr(err, "description", "") or "").strip()
+            self._resolve(ExecResult(ok=False, error=f"cTrader refused: {code}" + (f" — {desc}" if desc else "")))
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
             event = Protobuf.extract(message)

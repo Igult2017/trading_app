@@ -75,7 +75,14 @@ Where he gave no number or detail, the reading is MINE — each is one named con
    Not built: a STOCK data feed — the tools are market-agnostic, but a stock needs a provider with trade prints.
 2. **His management (rule 7)** and **autotrade on account 5347047** — only after he has seen the signals tested.
 3. 1H volume profile (point of control as support/resistance) — *"you will build later"*, and he wants it backtested.
-4. Barchart options data at the London / New York / Asia opens — he will specify the data.
+4. **Barchart options levels → PIX** (his answer 8, 21 Nov 2026 — the agreed NEXT step; the levels themselves are
+   BUILT and posted to the channel, `docs/barchart.md`). His words: *"in PX, we can find levels that align with these
+   levels and watch them for any reaction before entry. We will mark these levels and when price reacts to them like
+   when price gets to them and start reversing as expected we send signal. That is the whole point. However, they must
+   align with the trend in the higher time frame. If we are in uptrend we only take buys. But we can take trade at both
+   bearish and bullish levels if we are ranging. If price had respected these levels before, it is even better … If
+   those levels align with support or resistance / demand and supply zones, that is even better."* Needs the day's
+   levels kept for PIX (the raw table stays discarded).
 5. The stop-order entry backtest he asked for — **never run without his yes**.
 
 ## Facts (checked 18 Nov)

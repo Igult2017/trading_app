@@ -120,3 +120,13 @@ SELL CHECKLIST — Low IV · Put-side IV is low · Delta above -0.50 · High Gam
 Note: In case you don't find negative skew, or positive skew, use the one that is nearest to either for buys or sells.
 Also, when identifying qualified setups, pick the ones near the money which mean closest to the current spot price not
 far away.
+
+## His answers (21 Nov 2026) — BUILT the same day, see `docs/barchart.md`
+1 **B — EUR/USD, GBP/USD and gold.** 2 **Delta past ±0.50 in size** ("-0.56, -0.57, -0.65 are above -0.5"). 3 **Vega LOW
+for both buys and sells** ("Low Vega favors reversal for both put and calls … if Vega is high it means the reversal might
+not happen"). 4 **Full qualifiers first; then those failing 1 or 2 measures, saying what failed and what it should be;
+near the money only (5-minute trading); the sign rules as strict for sells as for buys; Vega must qualify.** 5 **C — every
+qualifier.** 6 **All three opens.** 7 **Leave the Sunday Asian open out.** 8 **PIX later** (`docs/strategies/pix.md` item 4).
+On blocking: *"disguise the browser and access it as we do with myfxbook"* — Barchart support told him the data may be
+accessed for non-commercial use, for his personal use. My two choices (in the plan, not objected to): an Asia open uses
+SYDNEY's day; an expiry Barchart does not list → the next listed one, said in the post.

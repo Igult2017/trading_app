@@ -3328,7 +3328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // THE DAY'S LEVELS — the container sends the FINISHED message (his guide applied in `server/python/barchart_levels.py`)
   // and this posts it. NOTHING IS STORED (his rule, 20 Nov 2026: "scrape the data then find what we need … then
   // immediately discard that data") — only the run record, so an open cannot run twice. A failure or a block goes to
-  // HIS DM at once, never silently. `BARCHART_TO_DM=true` sends the levels to his DM instead of the channel.
+  // HIS DM at once, never silently. The admin page's "Send the levels to my DM instead" sends them to his DM.
   app.post("/api/internal/barchart/levels", requireAdminSecret, async (req: Request, res: Response) => {
     const body = (req.body ?? {}) as any;
     const runId: string | null = typeof body.runId === "string" ? body.runId : null;
@@ -3338,16 +3338,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const error = String(body.error ?? "the levels run reported a failure").slice(0, 500);
       const blocked = body.blocked === true || looksBlocked(error);
       if (runId) await bcFinishRun(runId, { ok: false, blocked, tookMs, error });
-      if (dm) await telegramNotificationService.sendMessage(dm,
+      if (dm) await telegramNotificationService?.sendMessage(dm,
         `⚠️ <b>Barchart levels NOT posted</b> (${String(body.slot ?? "?")}) — ${blocked ? "Barchart refused the page" : error}`,
         { parse_mode: "HTML" }).catch(() => false);
       return res.status(202).json({ ok: false, recorded: true, blocked });
     }
-    const toDm = (process.env.BARCHART_TO_DM ?? "").toLowerCase() === "true";
+    const { serverSwitch } = await import("./lib/engineSettings");
+    const toDm = await serverSwitch("barchart_to_dm");               // the admin page's "send to my DM instead"
     const message = body.message.slice(0, 4000);
     const sent = toDm && dm
-      ? await telegramNotificationService.sendMessage(dm, message, { parse_mode: "HTML" }).catch(() => false)
-      : await telegramNotificationService.sendToChannel(message, { parse_mode: "HTML" }).catch(() => false);
+      ? await telegramNotificationService?.sendMessage(dm, message, { parse_mode: "HTML" }).catch(() => false)
+      : await telegramNotificationService?.sendToChannel(message, { parse_mode: "HTML" }).catch(() => false);
     if (runId) await bcFinishRun(runId, { ok: !!sent, tookMs, error: sent ? undefined : "Telegram refused the post" });
     return res.json({ ok: !!sent });
   });

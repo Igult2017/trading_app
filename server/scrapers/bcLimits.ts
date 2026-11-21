@@ -64,8 +64,8 @@ export function slotsAround(now: Date): { slot: BcSlot; at: Date }[] {
 }
 
 /** @param runs Barchart runs in the last 24h, any order. */
-export function decide(runs: BcRun[], now: Date): BcDecision {
-  if (!barchartEnabled()) return bcNo("switched off (BARCHART_ENABLED is not true)");
+export function decide(runs: BcRun[], now: Date, enabled: boolean = barchartEnabled()): BcDecision {
+  if (!enabled) return bcNo("switched off (the admin page's 'Post the options levels' is off)");
   const dayUtc = now.toISOString().slice(0, 10);
   if (runs.some((r) => r.blocked && r.startedAt.toISOString().slice(0, 10) === dayUtc)) {
     return bcNo("blocked earlier today — waiting until tomorrow");

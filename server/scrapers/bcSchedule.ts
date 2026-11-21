@@ -12,7 +12,10 @@ export async function bcDecideDue(now: Date = new Date()): Promise<BcDecision> {
   const dayAgo = new Date(now.getTime() - 24 * 60 * 60_000);
   const runs = await db.select().from(scrapeRuns)
     .where(and(eq(scrapeRuns.source, SOURCE), gte(scrapeRuns.startedAt, dayAgo)));
-  return decide(runs.map((r) => ({ kind: r.kind, startedAt: new Date(r.startedAt), blocked: r.blocked })), now);
+  // THE SWITCH IS ON THE ADMIN PAGE (21 Nov 2026) — `serverSwitch` falls back to BARCHART_ENABLED, then OFF.
+  const { serverSwitch } = await import("../lib/engineSettings");
+  const enabled = await serverSwitch("barchart_enabled");
+  return decide(runs.map((r) => ({ kind: r.kind, startedAt: new Date(r.startedAt), blocked: r.blocked })), now, enabled);
 }
 
 /** Written BEFORE the browser opens, so a crash still leaves a trace and still uses up the slot. */

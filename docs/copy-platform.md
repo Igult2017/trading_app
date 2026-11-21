@@ -436,6 +436,27 @@ order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilin
 
 ## Fix log
 
+### 2026-11-21 — followers never got breakeven; a broker refusal read as "timed out"
+
+**His ask (20 Nov):** *"I think copy trader is now working, can you check logs and see if its working fine?"* Copying
+worked (open in 5 s, the half close and the close followed). Two faults, found on XAU/USD #265272334, master
+`ctp2 · 5296567` → follower `ctrader4 · 5347048`; fixed on his order of 21 Nov (*"execute the copier plan"*):
+
+1. **A master stop that protects profit was thrown away.** `risk_stop.follower_stop` only kept a master stop on the
+   LOSING side of the entry; breakeven (3551.76 on a 3552.61 sell) fell through to "master had no stop" and the follower
+   was reset to its full 1% loss stop (3577.73). The same rule runs on every master stop move, so no breakeven or lock
+   had ever reached a follower. Now a stop at or past the entry on the winning side is kept exactly ("master's stop kept
+   — protects profit"); every losing-side stop is still capped at the follower's %. Reversed followers are unaffected —
+   their stop and target are swapped before this rule (`dispatcher`).
+2. **The broker saying no was read as "timed out".** `executors/ctrader._on_message` ignored the order-error reply and
+   the error response, so each refusal waited the full 20 s; three in a row (02:12-02:13) hid the reason. Now it
+   resolves at once as `cTrader refused: <code> — <description>`. And a MODIFY to the stop and target the follower
+   already has is no longer sent at all (`dispatcher._follower_levels` / `same_levels`) — the likely cause of those three.
+
+Proof: `tests/test_risk_stop.py` 39 checks — the live trade's own numbers, breakeven kept for BUY and SELL, a losing
+stop still capped, the refusal answered at once with its words (fails when the handler is switched off — tried), the
+identical modify skipped.
+
 ### 2026-09-26 — the audit: it has never sent an order, and the reason is a switch
 
 **His ask:** *"audit copy trader system, identify the problems and root causes and then fix it once

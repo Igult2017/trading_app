@@ -108,6 +108,9 @@ for folder, _dirs, files in os.walk(ROOT):
                 bad.append(f"{os.path.relpath(path, ROOT)}: {m.group(0)}")
 
 s.check("every Protobuf.extract call passes exactly one argument", bad, [])
+# ELEVEN SINCE 2026-11-21 — `executors/ctrader.py` now decodes the broker's ORDER-ERROR reply and error response, so a
+# refused follower order or stop change is answered at once with the broker's own reason instead of waiting out 20 s
+# and reading "Execution timed out" (three in a row on 20 Nov, XAU/USD #265272334).
 # TEN SINCE 2026-11-07 — `providers/ctrader.py` now decodes `ProtoOAErrorRes` (2142) to read the
 # broker's real errorCode and description, which is how it tells "you are not logged in" from "you
 # are asking too often". Before that, 2142 was one of the messages the provider dropped in silence,
@@ -116,7 +119,7 @@ s.check("every Protobuf.extract call passes exactly one argument", bad, [])
 # authenticated on the shared connection. The count is a canary: it catches a call site QUIETLY
 # DISAPPEARING (a reply silently stopping being handled), which the one-argument rule above cannot
 # see. So it is updated deliberately when a real one is added, never to make a red suite green.
-s.check("...and all ten call sites are still present", total, 10)
+s.check("...and all eleven call sites are still present", total, 11)
 
 
 # ── TEETH ───────────────────────────────────────────────────────────────────

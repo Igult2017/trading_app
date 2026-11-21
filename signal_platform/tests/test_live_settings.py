@@ -39,7 +39,7 @@ def fresh(**rows):
 
 # ── 1. the one list agrees with config/settings.py ───────────────────────────────────────────────────────────────
 bad = []
-for e in L.SPEC["settings"]:
+for e in [e for e in L.SPEC["settings"] if e.get("owner") != "server"]:
     d = Settings.model_fields[e["name"]].default
     v = L._convert(e["name"], e["default"])
     if v != (d.lower() if isinstance(d, str) else d) or not L.MANAGED[e["name"]](v):

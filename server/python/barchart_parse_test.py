@@ -40,10 +40,6 @@ check("a row with no strike is dropped; one with a strike but no Greeks is kept 
 check("an empty or missing response → no rows (never a crash)", (P.parse_options({}), P.parse_options(None)), ([], []))
 
 print("\nTHE FUTURES PRICE ON THE PAGE")
-html = '<div data-ng-init=\'init({"symbol":"GCZ26","symbolName":"Gold","symbolType":2,"lastPrice":"3,726.3","priceChange":"-137.9"})\'>'
-check("contract and last price read from the page header (commas removed)", P.parse_underlying(html), ("GCZ26", 3726.3))
-check("...also when the page escapes its quotes", P.parse_underlying(html.replace('"', "&quot;")), ("GCZ26", 3726.3))
-check("no header → (None, None)", P.parse_underlying("<html></html>"), (None, None))
 
 print("\nA BLOCK IS A BLOCK — reported, never fought")
 check("Cloudflare 'Just a moment...' page → blocked", P.is_blocked("Just a moment...", "<html>cf_chl_opt</html>"), True)

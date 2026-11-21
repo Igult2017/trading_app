@@ -33,7 +33,8 @@ def expiry_for(slot: str, now: datetime | None = None) -> date:
 
 def _line(r: dict, futures: float, spot: float, digits: int, ok: bool) -> str:
     lvl = r["strike"] * spot / futures
-    head = f"{'✅' if ok else '⚠️'} {r['strike']:g} → <code>{lvl:.{digits}f}</code>"
+    sd = 4 if digits >= 4 else 0                     # currency strikes 1.1000, gold strikes 3600
+    head = f"{'✅' if ok else '⚠️'} {r['strike']:.{sd}f} → <code>{lvl:.{digits}f}</code>"
     return head if ok else f"{head} — " + "; ".join(r["fails"])
 
 

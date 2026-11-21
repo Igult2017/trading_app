@@ -418,6 +418,12 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                     _log(fid, master_trade_id, "INFO", "STOP",
                          f"{snap.symbol}: master's new stop — {stop_why} (stop {new_sl})")
                 sl_price = new_sl
+                # NOTHING TO CHANGE → NOTHING SENT (21 Nov 2026). An amend to the levels the follower already has was
+                # refused by the broker 3 times in a row (XAU/USD 20 Nov 02:12-02:13), each read as "timed out".
+                if same_levels(await run_db(_follower_levels, fid, snap.key), sl_price, tp_price):
+                    _log(fid, master_trade_id, "INFO", "SKIP",
+                         f"{snap.symbol}: your stop and target are already there — nothing to change")
+                    return
             if etype == "REDUCE":
                 lots = reduce_lots(open_vol, fraction)
                 if not lots:
@@ -608,6 +614,32 @@ def _get_executor(broker_account: BrokerAccount, creds: dict):
         from executors.tradelocker import TradeLockerExecutor
         return TradeLockerExecutor(creds=creds, account_type=acc_type)
     raise ValueError(f"No executor for platform: {platform}")
+
+
+def _follower_levels(follower_id: str, master_ext_id: str) -> tuple[float | None, float | None] | None:
+    """(stop, target) the follower's copy of this master position LAST had — from its newest executed OPEN or MODIFY.
+    None when there is no such record. Used to skip a MODIFY that would change nothing (21 Nov 2026): the broker
+    refused one such amend three times in a row and each refusal read as "timed out"."""
+    with Session() as db:
+        row = (db.query(CopyTradeFollower)
+                 .join(CopyTradeMaster, CopyTradeFollower.master_trade_id == CopyTradeMaster.id)
+                 .filter(CopyTradeFollower.follower_id == follower_id,
+                         CopyTradeMaster.external_id == master_ext_id,
+                         CopyTradeFollower.event_type.in_(("OPEN", "MODIFY")),
+                         CopyTradeFollower.status == "executed")
+                 .order_by(CopyTradeFollower.executed_at.desc()).first())
+        if row is None:
+            return None
+        f = lambda v: float(v) if v is not None else None                    # noqa: E731
+        return f(row.stop_loss), f(row.take_profit)
+
+
+def same_levels(have: tuple | None, sl, tp) -> bool:
+    """True when the follower already has exactly this stop and target (to a hundred-thousandth)."""
+    if have is None:
+        return False
+    eq = lambda a, b: (a is None and b is None) or (a is not None and b is not None and abs(float(a) - float(b)) < 1e-6)
+    return eq(have[0], sl) and eq(have[1], tp)
 
 
 def _find_follower_position_id(follower_id: str, master_ext_id: str):

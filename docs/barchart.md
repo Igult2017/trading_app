@@ -1,7 +1,21 @@
-# Barchart futures-options Greeks & volatility scraper — SWITCHED OFF (built 19 Nov 2026)
+# Barchart options → the day's buy/sell levels (rebuilt 21 Nov 2026; first built 19 Nov as a storing scraper)
 
-> **20 Nov 2026 — its intended use is ON HOLD:** daily buy/sell levels posted to the channel, data discarded (not
-> stored). Waiting on his answers to 8 questions — `docs/barchart-levels-plan.md`, `docs/OPEN.md` G2.
+> **⚠ THE 19 NOV DESIGN BELOW IS HISTORY.** Since 21 Nov it does his job (`docs/barchart-levels-plan.md`, his guide
+> verbatim + his 8 answers): ONE run 10 min after the Sydney (Tue-Fri), London and New York opens; gold (GC), euro (E6),
+> pound (B6); the NEXT trading day's weekly options (Friday → Monday); near the money (10 strikes either side of the
+> futures); his rules → BUY levels (calls) and SELL levels (puts), full qualifiers ✅ and 1-2-miss near misses ⚠️ with the
+> reason; each strike converted to the spot level (strike × spot ÷ futures, spot = our live FIX price); ONE post to the
+> channel (or his DM — admin page). **Nothing is stored**: `barchart_snapshots` is dropped, `/ingest` is gone, the
+> table lives only in the container's memory. Files: `server/python/barchart_greeks.py` (the run),
+> `barchart_levels.py` (his rules, the week, near the money), `barchart_message.py` (the day, the post),
+> `server/scrapers/bcLimits.ts` (when), route `/api/internal/barchart/levels` + `/spot`.
+> **The browser is the disguised one MyFXBook uses** (scrapling, solve_cloudflare) — his instruction 21 Nov, Barchart
+> support having told him the data may be used non-commercially for his personal use. Proven live from his machine on
+> 21 Nov: all three markets read, the post built. Barchart gives one browser visit only a few full pages, so each market
+> gets its own visit (~3-4 min each here).
+> **Switches on the admin page** (Autotrade → Options levels): "Post the options levels" (`barchart_enabled`, falls back
+> to `BARCHART_ENABLED`, else OFF) and "Send the levels to my DM instead of the channel" (`barchart_to_dm`).
+> **On the server** the host timer must be installed as root (`scripts/bc/run.sh` header) — the app alone runs nothing.
 
 His order: *"create a scraper using the approach we are using to scrape data from myfxbook but for barchart Greeks and
 volatility futures. It only scrapes six time the whole day. Twice at an interval of 15 minutes at NY LN and Asia open.

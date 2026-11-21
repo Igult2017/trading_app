@@ -10,7 +10,6 @@ The page https://www.barchart.com/futures/quotes/GC*0/volatility-greeks loads it
 """
 from __future__ import annotations
 
-import re
 
 FIELDS = {"strike": "strikePrice", "last": "lastPrice", "iv": "optImpliedVolatility", "delta": "delta",
           "gamma": "gamma", "theta": "theta", "vega": "vega", "ivSkew": "impliedVolatilitySkew",
@@ -34,20 +33,6 @@ def parse_options(payload: dict) -> list[dict]:
             row["type"] = side
             out.append(row)
     return out
-
-
-_INIT = re.compile(r'"symbol":"([A-Z0-9]+)","symbolName":"[^"]*","symbolType":\d+,"lastPrice":"([0-9,.]+)"')
-
-
-def parse_underlying(html: str) -> tuple[str | None, float | None]:
-    """(contract, last price) from the page's own header data, e.g. ("GCZ26", 3726.3)."""
-    m = _INIT.search((html or "").replace("&quot;", '"'))
-    if not m:
-        return None, None
-    try:
-        return m.group(1), float(m.group(2).replace(",", ""))
-    except ValueError:
-        return m.group(1), None
 
 
 _CHALLENGE = ("just a moment", "cf_chl_opt", "challenge-platform", "cdn-cgi/challenge", "access denied")

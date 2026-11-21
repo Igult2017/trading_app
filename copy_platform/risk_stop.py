@@ -68,14 +68,20 @@ def follower_stop(action: str, entry, master_sl, lots, balance, risk_pct,
 
     if master_sl:
         m = float(master_sl)
-        if _on_stop_side(action, entry, m):
-            m_pips = abs(entry - m) / pip_size
-            m_pct = m_pips * lots * pip_value / balance * 100
-            if m_pips <= max_pips:
-                return round(m, digits), f"master's stop kept ({m_pct:.2f}% of your balance)", False
-            stop = entry - max_pips * pip_size if action == "BUY" else entry + max_pips * pip_size
-            return round(stop, digits), (f"master's stop would risk {m_pct:.2f}% — moved to "
-                                         f"{risk_pct:g}% of your balance"), False
+        # A STOP AT OR PAST THE ENTRY ON THE WINNING SIDE RISKS NOTHING — KEPT EXACTLY (fixed 21 Nov 2026). It used to
+        # fall through to "master had no stop" below, so when the master moved to breakeven or locked profit the
+        # follower was put BACK at its full 1% loss stop (live: XAU/USD #265272334, 20 Nov 02:12 — master at
+        # breakeven 3551.76, follower reset to 3577.73). No breakeven or lock had ever reached a follower. A reversed
+        # follower never gets here with a winning-side stop: its stop and target are swapped first (`dispatcher`).
+        if not _on_stop_side(action, entry, m):
+            return round(m, digits), "master's stop kept — protects profit", False
+        m_pips = abs(entry - m) / pip_size                  # a stop on the LOSING side: capped at the risk %
+        m_pct = m_pips * lots * pip_value / balance * 100
+        if m_pips <= max_pips:
+            return round(m, digits), f"master's stop kept ({m_pct:.2f}% of your balance)", False
+        stop = entry - max_pips * pip_size if action == "BUY" else entry + max_pips * pip_size
+        return round(stop, digits), (f"master's stop would risk {m_pct:.2f}% — moved to "
+                                     f"{risk_pct:g}% of your balance"), False
     stop = entry - max_pips * pip_size if action == "BUY" else entry + max_pips * pip_size
     return round(stop, digits), f"master had no stop — set at {risk_pct:g}% of your balance", False
 
