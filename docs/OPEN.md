@@ -1544,7 +1544,7 @@ real fill, and it has never run. **Nothing here says the strategy is worth armin
 |---|---|---|
 | B-GOLDBANK1 | **Not yet seen on a live gold trade.** Expect `[gold-bank] XAU/USD #… 1.00R step closed …` in the log at 1R and the follower's REDUCE lines. Until then it is proven by `tests/vix1/test_gold_bank.py` only | 21 Nov |
 | B-GOLDBANK2 | **The pieces need the engine running.** The broker library carries ONE take profit per trade, so the levels cannot be held at the broker; if the engine is down, only the breakeven stop protects. A newer library with several take profits would let the broker hold them | 21 Nov |
-| B-GOLDBANK3 | **His gold take profit that disappeared (his report 21 Nov) is not pinned down.** He has not yet said which trade. One cause is CLOSED (21 Nov b): a stop move re-sent a target up to 5 s old — every amend now reads the trade fresh first. Still open: if he set SEVERAL take profits in cTrader, an engine amend carries one only and the broker's handling of the rest is not checked | 21 Nov |
+| ~~B-GOLDBANK3~~ | **CLOSED 21 Nov — his words: "You have explained. Case closed."** The trade was his DM gold sell of 19 Nov 23:32 UTC (entry 3620.47, peak 1.38R at 23:39, closed 00:09 at 3617.77). The engine sent it nothing — the settings-alias fault (D-STOPMOVE1) had every automatic move off — so it could not have removed his take profit; a take profit anywhere between 3590.40 and the entry would have filled, so none was on the trade then. The stale-target cause is fixed anyway (`execution/fresh.py`) | 21 Nov |
 
 ## C. The web app
 
