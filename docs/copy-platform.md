@@ -436,6 +436,18 @@ order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilin
 
 ## Fix log
 
+### 2026-11-21 (b) — one master trade's events could overtake each other
+
+**The audit (his ask: *"ensure slave copies every trade activity from the master account in almost real time"*).** Every
+master event started as its own task (`providers/ctrader.py`, `asyncio.ensure_future`) and a follower copy takes 3-5 s
+to place. So a move or cancel arriving meanwhile found no mirror and was SKIPPED (an orphan or stale order left on the
+follower), and a fill arriving meanwhile was entered as a NEW trade — the follower in twice once the placement landed.
+**Fix:** `lanes.py` — events name the master order and position they are about; each waits for the earlier events about
+any of them, so placed → moved → filled → closed run in that order, while other trades and masters run side by side.
+Proof: `tests/test_event_order.py` fires the four events 10 ms apart through the real listener against a slow fake
+follower — copied once each, in order; with the lanes removed the move is skipped and the fill enters again.
+This is step 1 of the plan in `docs/copy-realtime-plan.md`.
+
 ### 2026-11-21 — followers never got breakeven; a broker refusal read as "timed out"
 
 **His ask (20 Nov):** *"I think copy trader is now working, can you check logs and see if its working fine?"* Copying

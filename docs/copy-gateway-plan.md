@@ -1,5 +1,8 @@
 # Copy trading — the follower gateway: audit and KEPT plan
 
+> **SUPERSEDED (21 Nov 2026) by `docs/copy-realtime-plan.md`** — his approved plan replaces the 2-shared-connections
+> gateway with a POOL of connections. The five faults below are still the checklist for that pool (its step 2).
+
 > **STATUS: NOT STARTED — TO BE FIXED LATER (his decision, 15 Nov 2026).**
 > His words: *"First audit the gateway and then plan and keep the plan and record that it will be
 > fixed later."* This is the plan. When he says "start the gateway work", start at step 1 below.

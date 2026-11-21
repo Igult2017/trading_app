@@ -29,6 +29,7 @@ from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT, RECONNECT_DELAY, \
     RECONCILE_INTERVAL
 
 import auth_loss
+import lanes
 import symbol_details
 import ctrader_send   # every send handles a missing reply (OPEN.md D67)
 from lot_calc import lots_from_volume
@@ -180,6 +181,13 @@ class CTraderProvider:
         self.client.setMessageReceivedCallback(self._on_message)
 
     # ── Lifecycle ──────────────────────────────────────────────────────────────
+
+    def _lane(self) -> "lanes.Lanes":
+        """Events about one trade run in order (21 Nov 2026, `lanes.py`). Made on first use, so every way a provider
+        is built — including the tests' hand-built ones — has it."""
+        if getattr(self, "_lanes", None) is None:
+            self._lanes = lanes.Lanes()
+        return self._lanes
 
     def start(self) -> None:
         log.info(f"[{self.master_id}] connecting to cTrader Open API")
@@ -379,8 +387,8 @@ class CTraderProvider:
                     if pid not in fresh:
                         self._positions.pop(pid, None)
                         log.info(f"[{self.master_id}] reconcile: position {pid} closed externally")
-                        asyncio.ensure_future(
-                            self.on_event({"type": "CLOSE", "snap": prev}, self.master_id))
+                        self._lane().run([f"pos:{pid}"], lambda p=prev: self.on_event(
+                            {"type": "CLOSE", "snap": p}, self.master_id))
                 # A POSITION THAT APPEARED IS AN ENTRY THE LIVE EVENT MISSED — EMIT OPEN.
                 #
                 # ⚠ THIS USED TO BE SILENT, AND THE SILENCE WAS THE BUG. The comment here read
@@ -417,18 +425,20 @@ class CTraderProvider:
                             self._positions[pid] = snap
                             log.info(f"[{self.master_id}] reconcile: position {pid} was partly "
                                      f"closed ({frac:.0%}) — the live event was missed, recovering")
-                            asyncio.ensure_future(self.on_event(
-                                {"type": "REDUCE", "snap": snap, "fraction": frac}, self.master_id))
+                            self._lane().run([f"pos:{pid}"], lambda sn=snap, fr=frac: self.on_event(
+                                {"type": "REDUCE", "snap": sn, "fraction": fr}, self.master_id))
                         continue
                     self._positions[pid] = snap
                     log.info(f"[{self.master_id}] reconcile: position {pid} opened externally "
                              f"({snap.symbol} {snap.action}) — the live event was missed, recovering")
-                    asyncio.ensure_future(
-                        self.on_event({"type": "OPEN", "snap": snap}, self.master_id))
+                    self._lane().run([f"pos:{pid}"], lambda sn=snap: self.on_event(
+                        {"type": "OPEN", "snap": sn}, self.master_id))
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
             event = Protobuf.extract(message)
-            asyncio.ensure_future(self._handle_execution(event))
+            # IN ORDER, PER TRADE (21 Nov 2026, `lanes.py`): a move, fill or close waits for the earlier events about
+            # the same order/position, so it can never overtake a follower copy that is still being placed.
+            self._lane().run(lanes.event_keys(event), lambda e=event: self._handle_execution(e))
 
         # ── THE END OF THE SILENCE (added 2026-11-07) ───────────────────────────────────────────
         # This chain used to STOP HERE, with no `else`. Every other message the broker sent was
