@@ -171,3 +171,23 @@ class CopyExecutionLog(Base):
     message     = Column(Text)
     meta        = Column("metadata", JSON)   # 'metadata' is reserved on the ORM base; map via attr 'meta'
     created_at  = Column(DateTime, default=datetime.utcnow)
+
+
+class CopyJob(Base):
+    """ONE master event for ONE follower, written BEFORE anything is sent (21 Nov 2026, `jobs.py`).
+
+    pending -> started -> done | failed;  unknown = it may have gone out when the engine stopped, not resent;
+    expired = too old to replay safely. A crash mid fan-out used to lose the remaining followers outright."""
+    __tablename__ = "copy_jobs"
+    id              = Column(String, primary_key=True)
+    master_id       = Column(String)
+    master_trade_id = Column(String)
+    follower_id     = Column(String)
+    event_type      = Column(Text)
+    event           = Column(JSON)        # enough to send it again: the type, the snapshot, the order id, the fraction
+    status          = Column(Text, default="pending")
+    attempts        = Column(Integer, default=0)
+    error           = Column(Text)
+    created_at      = Column(DateTime, default=datetime.utcnow)
+    started_at      = Column(DateTime)
+    finished_at     = Column(DateTime)

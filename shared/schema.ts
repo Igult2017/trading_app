@@ -261,6 +261,22 @@ export const copyExecutionLogs = pgTable("copy_execution_logs", {
   createdAt:   timestamp("created_at").defaultNow(),
 });
 
+/** One follower's copy of one master event, written BEFORE it is sent (copy_platform/jobs.py, 21 Nov 2026). */
+export const copyJobs = pgTable("copy_jobs", {
+  id:            varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  masterId:      varchar("master_id"),
+  masterTradeId: varchar("master_trade_id"),
+  followerId:    varchar("follower_id"),
+  eventType:     text("event_type"),
+  event:         jsonb("event"),
+  status:        text("status").default("pending"),   // pending | started | done | failed | unknown | expired
+  attempts:      integer("attempts").default(0),
+  error:         text("error"),
+  createdAt:     timestamp("created_at").defaultNow(),
+  startedAt:     timestamp("started_at"),
+  finishedAt:    timestamp("finished_at"),
+}, (t) => ({ unfinished: index("idx_copy_jobs_unfinished").on(t.status, t.createdAt) }));
+
 export const insertCopyExecutionLogSchema = createInsertSchema(copyExecutionLogs).omit({ id: true, createdAt: true });
 export type InsertCopyExecutionLog = z.infer<typeof insertCopyExecutionLogSchema>;
 export type CopyExecutionLog = typeof copyExecutionLogs.$inferSelect;

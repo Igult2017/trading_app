@@ -50,6 +50,7 @@ def saves(db, events):
     for snap, etype in events:
         try:
             dispatcher._save_master_trade(db, "M1", snap, etype, "ctrader")
+            db.commit()                 # as `_claim_event` does, once, after the follower jobs (21 Nov 2026)
             out.append("ok")
         except Exception as exc:
             db.rollback()

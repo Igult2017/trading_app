@@ -436,6 +436,17 @@ order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilin
 
 ## Fix log
 
+### 2026-11-21 (e) — a crash mid fan-out no longer loses followers (plan step 6)
+
+Every master event now writes one `copy_jobs` row per follower, in the SAME commit as the master's own row, before
+anything is sent; each moves pending → started → done/failed (`jobs.py`, `dispatcher._exec_follower_bounded`). At
+start-up (`engine`, 15 s after logins) unfinished jobs are finished: never started → sent; a started close / stop
+change / order move or cancel → sent again (repeating it does no harm); a started ENTRY, PARTIAL CLOSE or order
+placement → NOT resent (an entry is never retried — it could open a second trade), marked `unknown`, Activity log;
+older than 10 minutes → `expired`, logged. Table in `docker-migrate.sql` + `shared/schema.ts` (migration run twice on
+PGlite). Proof: `tests/test_jobs.py` 12 — a fan-out to three followers stopped mid-way: the one never reached gets its
+copy once, the one mid-send is not repeated, a second restart sends nothing.
+
 ### 2026-11-21 (d) — the connection pool: many accounts on a few long-lived connections
 
 His order: *"use the api we have for over 2000 users without the api even knowing it is serving 2000."* cTrader limits

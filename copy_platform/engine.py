@@ -88,6 +88,16 @@ class CopyEngine:
         # FOLLOWERS LOGGED IN AT START-UP, not on their first copy (21 Nov 2026, plan step 3) — so a copy is one
         # message and never waits for a login. Only when the pool is on; off = nothing changes.
         asyncio.ensure_future(self._warm_followers())
+        # WHAT THE LAST RUN LEFT UNFINISHED (plan step 6): copies written down but not sent are sent now; any that
+        # may already have gone out are left for the repair sweep, never repeated blind.
+        async def _resume():
+            await asyncio.sleep(15)            # after the masters and followers have logged in
+            try:
+                import jobs
+                await jobs.resume()
+            except Exception:
+                log.exception("[engine] could not resume unfinished copy jobs")
+        asyncio.ensure_future(_resume())
         self._watch_task = asyncio.ensure_future(self._watch_loop())
         asyncio.ensure_future(self._supervise_loop())
         # Instant pickup of new masters; silently falls back to the 60s poll.

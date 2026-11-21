@@ -433,6 +433,25 @@ CREATE TABLE IF NOT EXISTS copy_execution_logs (
   created_at  TIMESTAMP DEFAULT NOW()
 );
 
+-- ── copy_jobs (21 Nov 2026) ───────────────────────────────────────────────────
+-- One row per follower per master event, written BEFORE the copy is sent (copy_platform/jobs.py), so a crash
+-- part-way through a fan-out is finished at the next start-up instead of silently losing the remaining followers.
+CREATE TABLE IF NOT EXISTS copy_jobs (
+  id              VARCHAR   PRIMARY KEY DEFAULT gen_random_uuid(),
+  master_id       VARCHAR,
+  master_trade_id VARCHAR,
+  follower_id     VARCHAR,
+  event_type      TEXT,
+  event           JSONB,
+  status          TEXT      DEFAULT 'pending',
+  attempts        INTEGER   DEFAULT 0,
+  error           TEXT,
+  created_at      TIMESTAMP DEFAULT NOW(),
+  started_at      TIMESTAMP,
+  finished_at     TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_copy_jobs_unfinished ON copy_jobs (status, created_at);
+
 -- ── copy_engine_heartbeat ─────────────────────────────────────────────────────
 -- Single row the Python copy engine UPSERTs every load cycle (~60s); the API reads
 -- it (GET /api/copy/engine-status) to report whether the engine is actually alive.

@@ -49,10 +49,10 @@ async def dispatch(event: dict, master_id: str) -> None:
         # runs under the master's lock — so on the loop it stopped the engine for every event, for
         # every master, one after another. The lock still makes it atomic; it is simply no longer
         # atomic AND blocking.
-        got = await run_db(_claim_event, master_id, snap, etype)
+        got = await run_db(_claim_event, master_id, snap, etype, event)
         if got is None:
             return
-        master_trade_id, followers = got
+        master_trade_id, followers, job_ids = got
 
     if not followers:
         # NOBODY TO COPY TO IS ITSELF AN ANSWER, AND IT HAS TO REACH THE SCREEN. This logged one line
@@ -104,7 +104,7 @@ async def dispatch(event: dict, master_id: str) -> None:
     # queue in front of it growing without limit, and keeps memory flat at any follower count.
     await asyncio.gather(*[
         _exec_follower_bounded(master_trade_id, f, snap, etype, event.get("master_order_id"),
-                               event.get("fraction"))
+                               event.get("fraction"), job_id=job_ids.get(f.id))
         for f in followers
     ], return_exceptions=True)
 
@@ -114,12 +114,20 @@ _fanout = asyncio.Semaphore(COPY_MAX_CONCURRENT_FOLLOWERS)
 
 
 async def _exec_follower_bounded(master_trade_id, follower, snap, etype, master_order_id=None,
-                                 fraction=None):
+                                 fraction=None, job_id=None):
+    """One follower's copy, inside the fan-out bound — and its job row (`jobs.py`) moved on as it runs."""
+    import jobs
     async with _fanout:
-        await _exec_follower(master_trade_id, follower, snap, etype, master_order_id, fraction)
+        await run_db(jobs.mark, job_id, "started")
+        try:
+            await _exec_follower(master_trade_id, follower, snap, etype, master_order_id, fraction)
+        except Exception as exc:
+            await run_db(jobs.mark, job_id, "failed", f"{type(exc).__name__}: {exc}")
+            raise
+        await run_db(jobs.mark, job_id, "done")
 
 
-def _claim_event(master_id: str, snap, etype: str):
+def _claim_event(master_id: str, snap, etype: str, event: dict | None = None):
     """The dedup + master-row insert + follower read, as ONE blocking unit for `run_db`.
 
     Returns (master_trade_id, followers), or None when this event must not be copied at all.
@@ -170,7 +178,12 @@ def _claim_event(master_id: str, snap, etype: str):
                                   CopyFollower.risk_accepted.is_(True),
                                   CopyFollower.dropped_at.is_(None))
                           .all())
-        return master_trade.id, followers
+        # THE JOBS ARE WRITTEN HERE, in this same session, before anything is sent (plan step 6, `jobs.py`): a crash
+        # part-way through the fan-out leaves the rest as pending rows that the next start-up finishes.
+        import jobs
+        job_ids = jobs.create(db, master_id, master_trade.id, followers, event) if (event and followers) else {}
+        db.commit()
+        return master_trade.id, followers, job_ids
 
 
 # ── Master trade record ───────────────────────────────────────────────────────
@@ -214,7 +227,9 @@ def _save_master_trade(db: DBSession, master_id: str,
         status      = "dispatched",
     )
     db.add(record)
-    db.commit()
+    # FLUSHED, NOT COMMITTED (21 Nov 2026): the caller commits it together with the follower jobs, so the master's
+    # row and the record of who still has to receive it are saved as one — never one without the other.
+    db.flush() if hasattr(db, "flush") else None
     return record
 
 
