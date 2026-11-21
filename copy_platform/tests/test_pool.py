@@ -152,7 +152,12 @@ async def main():
         s.check("all 2,000 copies placed, none over cTrader's limit", (sum(x.ok for x in res), st["breaches"]), (2000, 0))
         s.check("...no connection ever wrote more than 35 in one second (our side, what the broker sees)",
                 ctrader_protocol.PEAK <= 35, True)
-        s.check("...in under 3 seconds", took2 < 3.0, True)
+        # BOTH DIRECTIONS, not an arbitrary line: it cannot be FASTER than the limit allows (2,000 messages over 40
+        # connections at 35/s = 1.43 s — faster would mean the pace was broken), and it must not stall (a copy waiting
+        # out its 20 s timeout). Between the two, the figure is this machine's CPU, printed above.
+        floor = 2000 / (40 * ctrader_protocol.PER_SECOND)
+        s.check(f"...no faster than cTrader's limit allows ({floor:.2f}s) and no stall (under 6 s)",
+                floor * 0.95 <= took2 < 6.0, True)
 
         # 6. cTrader says "too many requests": the message is resent, the copy still lands
         fake("limit 3")

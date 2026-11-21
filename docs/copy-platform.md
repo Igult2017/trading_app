@@ -436,6 +436,19 @@ order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilin
 
 ## Fix log
 
+### 2026-11-21 (f) — the repair sweep: copies that went their own way are put right (plan step 7)
+
+Every minute, one account at a time, each pooled follower's open orders and trades are read and compared with EVERY
+master that account copies (the master listener now keeps its resting orders, when it last read them, and which order
+each open trade came from). Only copies (label `cp-…`) older than 2 minutes, and only against master reads under 90 s
+old: a copy ORDER whose master order is gone → cancelled; a copy TRADE whose master trade is closed → closed (only if
+the master listener was running when the copy opened — otherwise its origin cannot be known); a copy with NO STOP →
+the master's stop through the normal stop path (the follower's risk cap still applies). Never opens a trade; every
+repair in the Activity log (REPAIR). `sweep.py`, started with the pool. Proof: `tests/test_sweep.py` 10 — including
+two masters on one account, where checking one master alone would have closed the other's copy (teeth).
+Deviation from the plan, said plainly: repairs go to the Activity log and the container log, not to his DM — the
+copier has no DM sender of its own.
+
 ### 2026-11-21 (e) — a crash mid fan-out no longer loses followers (plan step 6)
 
 Every master event now writes one `copy_jobs` row per follower, in the SAME commit as the master's own row, before

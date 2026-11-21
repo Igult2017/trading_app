@@ -191,6 +191,18 @@ class CTraderProvider:
 
     # ── Lifecycle ──────────────────────────────────────────────────────────────
 
+    # WHAT THE REPAIR SWEEP READS (21 Nov 2026, `sweep.py`): resting order ids and when they were read, which order each
+    # open position came from, and when this listener started. Defaults here so hand-built test providers have them.
+    resting: set = set()
+    read_at: float = 0.0
+    started_at: float = 0.0
+
+    @property
+    def origin(self) -> dict:
+        if getattr(self, "_origin", None) is None:
+            self._origin = {}
+        return self._origin
+
     def _lane(self) -> "lanes.Lanes":
         """Events about one trade run in order (21 Nov 2026, `lanes.py`). Made on first use, so every way a provider
         is built — including the tests' hand-built ones — has it."""
@@ -199,6 +211,7 @@ class CTraderProvider:
         return self._lanes
 
     def start(self) -> None:
+        self.started_at = time.time()
         if getattr(self, "_pooled", False):
             asyncio.ensure_future(self._start_pooled())
             return
@@ -390,6 +403,10 @@ class CTraderProvider:
 
         elif ptype == ProtoOAReconcileRes().payloadType:
             res = Protobuf.extract(message)
+            # WHAT THE MASTER HAS RESTING, AND WHEN IT WAS LAST READ (21 Nov 2026) — the repair sweep (`sweep.py`)
+            # cancels a follower's copy order only when the master's order is gone from a FRESH read like this one.
+            self.resting = {int(o.orderId) for o in getattr(res, "order", ())}
+            self.read_at = time.monotonic()
             fresh: dict[int, PositionSnapshot] = {}
             for pos in res.position:
                 # A FAILURE TO READ A POSITION MUST NEVER LOOK LIKE A CLOSED ONE. If `_snap` raises,
@@ -563,6 +580,8 @@ class CTraderProvider:
                 # follower already has a mirrored order resting at this price, that order fills BY
                 # ITSELF and sending a market order here would open the follower twice.
                 oid = event.order.orderId if event.HasField("order") else None
+                if oid:
+                    self.origin[pid] = int(oid)     # which master ORDER this position came from — copies carry it
                 await self.on_event({"type": "OPEN", "snap": snap, "master_order_id": oid},
                                     self.master_id)
             else:
@@ -588,6 +607,13 @@ class CTraderProvider:
         position path below records that fill. Emitting here as well would open the follower twice.
         """
         et = event.executionType
+        if event.HasField("order") and not event.order.closingOrder:
+            oid = int(event.order.orderId)            # kept current between reads, for the repair sweep
+            if et == ProtoOAExecutionType.ORDER_ACCEPTED:
+                self.resting = set(self.resting) | {oid}
+            elif et in (ProtoOAExecutionType.ORDER_CANCELLED, ProtoOAExecutionType.ORDER_EXPIRED,
+                        ProtoOAExecutionType.ORDER_REJECTED, ProtoOAExecutionType.ORDER_FILLED):
+                self.resting = set(self.resting) - {oid}
         kind = _ORDER_EVENT.get(et)
         if kind is None or not event.HasField("order"):
             return

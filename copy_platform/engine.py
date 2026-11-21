@@ -98,6 +98,11 @@ class CopyEngine:
             except Exception:
                 log.exception("[engine] could not resume unfinished copy jobs")
         asyncio.ensure_future(_resume())
+        # THE REPAIR SWEEP (plan step 7, `sweep.py`): every minute each follower's copies are checked against the masters.
+        import os as _os
+        if _os.environ.get("COPY_USE_POOL", "off").strip().lower() in ("demo", "all"):
+            import sweep
+            asyncio.ensure_future(sweep.run(self))
         self._watch_task = asyncio.ensure_future(self._watch_loop())
         asyncio.ensure_future(self._supervise_loop())
         # Instant pickup of new masters; silently falls back to the 60s poll.

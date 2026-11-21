@@ -108,6 +108,7 @@ for folder, _dirs, files in os.walk(ROOT):
                 bad.append(f"{os.path.relpath(path, ROOT)}: {m.group(0)}")
 
 s.check("every Protobuf.extract call passes exactly one argument", bad, [])
+# FOURTEEN SINCE 2026-11-21 (f) — `sweep._read` decodes the follower's open orders and trades for the repair sweep.
 # THIRTEEN SINCE 2026-11-21 (c) — `executors/ctrader.is_too_many` decodes a broker error to tell "too many requests on
 # this connection" (resend it a moment later) from a real refusal.
 # TWELVE SINCE 2026-11-21 (b) — `pool.py` decodes every message once to read which account it names, so it can be handed
@@ -123,7 +124,7 @@ s.check("every Protobuf.extract call passes exactly one argument", bad, [])
 # authenticated on the shared connection. The count is a canary: it catches a call site QUIETLY
 # DISAPPEARING (a reply silently stopping being handled), which the one-argument rule above cannot
 # see. So it is updated deliberately when a real one is added, never to make a red suite green.
-s.check("...and all thirteen call sites are still present", total, 13)
+s.check("...and all fourteen call sites are still present", total, 14)
 
 
 # ── TEETH ───────────────────────────────────────────────────────────────────
