@@ -109,9 +109,22 @@ delivery_ledger.is_delivered = lambda k: k in _marked
 delivery_ledger.mark_delivered = lambda k: _marked.add(k)
 
 
+_broker: dict = {}
+
+
+async def _open():
+    # what the broker holds NOW — read just before the target is moved out (`execution/fresh.py`); no starting stop
+    return [Position(**{**x.__dict__, "start_stop": None}) for x in _broker.values()]
+
+from data import ctrader_positions
+ctrader_positions.open_positions = _open
+
+
 def gold(pid, vol=400, target=3520.0, bullish=True, symbol="XAU/USD"):
     # buy at 3500, starting stop 3490 -> 1R = $10. No costs, so breakeven is the entry.
-    return Position(pid, symbol, bullish, vol, 3500.0, 3500.0, target, 0.0, 0.0, 0, start_stop=3490.0)
+    p = Position(pid, symbol, bullish, vol, 3500.0, 3500.0, target, 0.0, 0.0, 0, start_stop=3490.0)
+    _broker[pid] = p
+    return p
 
 
 def reset():

@@ -96,8 +96,15 @@ async def _move_target_out(p, acct) -> None:
     from shared.pip import price_digits
     risk = p.risk()
     far = round(p.entry + _FAR_TP_R * risk if p.bullish else p.entry - _FAR_TP_R * risk, price_digits(p.symbol))
-    res = await StopOrderClient(acct.creds, acct.account_type).amend_sltp(p.position_id, p.symbol, p.stop, far)
+    # THE OTHER LEG AS IT IS NOW — never `p.stop` from a copy up to 5 s old (`execution/fresh.py`).
+    from execution import fresh
+    asked, cur = await fresh.current(p.position_id)
+    if not asked or cur is None or cur.stop is None or not fresh.same_price(cur.target, p.target, price_digits(p.symbol)):
+        return                                     # unreadable, closed, or the target changed meanwhile: decide again
+    res = await StopOrderClient(acct.creds, acct.account_type).amend_sltp(p.position_id, p.symbol, cur.stop, far)
     if res.ok:
+        from monitor import position_book
+        position_book.invalidate()
         delivery_ledger.mark_delivered(key)
         log.info(f"[gold-bank] {p.symbol} #{p.position_id}: engine target {p.target} moved out to {far} (10R) — "
                  f"the pieces bank the profit")

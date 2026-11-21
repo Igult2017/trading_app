@@ -50,7 +50,12 @@ class _Client:
 
 
 async def _positions():
-    return [broker_after["p"]] if broker_after.get("p") else []
+    # THE REAL SHAPE (21 Nov 2026): a position read straight from the broker carries NO starting stop. This fake used
+    # to hand one back WITH it, which hid that the success check (in R) could never pass. First read = the trade
+    # just before the amend, second = the read-back.
+    broker_after["n"] = broker_after.get("n", 0) + 1
+    p = broker_after.get("before") if broker_after["n"] == 1 else broker_after.get("p")
+    return [replace(p, start_stop=None)] if p else []
 
 
 async def _send(m):
@@ -67,7 +72,7 @@ def run(p, momentum_at=None, after=None, acct="demo"):
     """momentum_at = index of the bar that qualifies (None = none). after = the position the re-read returns."""
     amends.clear(); sent.clear()
     vix1_momentum.qualifies_for_trade = lambda h1, k, bull, sym: k == momentum_at
-    broker_after["p"] = after
+    broker_after.update(p=after, before=p, n=0)
     try:
         async def go():
             out = await tp_extend.maybe_extend(p, _send, {}, acct)
@@ -84,6 +89,21 @@ print("1. a momentum candle closing AFTER the fill moves the target to 4R, stop 
 s.check("moved", run(pos(position_id=11), momentum_at=2, after=replace(moved, position_id=11)), True)
 s.check("...one amend: same stop, target at entry - 4R", [(a[1], round(a[2], 5)) for a in amends],
         [(1.31936, round(1.31842 - 4 * risk, 5))])
+s.check("...and he is told it WORKED, not the warning", any("is moved from 2R to 4R" in m for m in sent), True)
+s.teeth("the old check (target in R off the broker's copy) can never pass — R is unknown there",
+        replace(moved, start_stop=None).risk() is None)
+be_now = pos(position_id=19, stop=1.31830)                  # the watcher moved it to breakeven a moment ago
+async def _seq():
+    broker_after["n"] = broker_after.get("n", 0) + 1
+    return [replace(be_now, start_stop=None)] if broker_after["n"] == 1 else [replace(
+        be_now, target=1.31842 - 4 * risk, start_stop=None)]
+ctrader_positions.open_positions = _seq
+amends.clear(); broker_after["n"] = 0
+vix1_momentum.qualifies_for_trade = lambda h1, k, bull, sym: k == 2
+asyncio.run(tp_extend.maybe_extend(pos(position_id=19), _send, {}, "demo"))
+vix1_momentum.qualifies_for_trade = _real_q
+ctrader_positions.open_positions = _positions
+s.check("the 4R move re-sends the CURRENT stop (breakeven), never the copy's old one", [a[1] for a in amends], [1.31830])
 
 print("\n2. what must NOT move it:")
 s.check("a momentum candle that closed BEFORE the fill (index 0 closes an hour before it)",

@@ -86,27 +86,42 @@ async def maybe_extend(p, send, creds: dict, account_type: str) -> bool:
     mc = momentum_after_fill(h1, p)
     if mc is None:
         return False
-    _, run = _levels()
+    base, run = _levels()
     risk = p.risk()
-    new_tp = p.entry + run * risk if p.bullish else p.entry - run * risk
+    from shared.pip import price_digits
+    d = price_digits(p.symbol)
+    new_tp = round(p.entry + run * risk if p.bullish else p.entry - run * risk, d)
+    # THE TRADE AS IT IS NOW (21 Nov 2026). `p` can be up to 5 s old; re-sending its stop could undo a breakeven the
+    # 0.5 s watcher has just made, and a target he changed meanwhile must not be overwritten. Unreadable = try later.
+    from execution import fresh
+    asked, cur = await fresh.current(p.position_id)
+    if not asked or cur is None or cur.stop is None or cur.target is None:
+        return False
+    cur_r = ((cur.target - p.entry) if p.bullish else (p.entry - cur.target)) / risk
+    if abs(cur_r - base) > _AT_2R:
+        return False                      # no longer the 2R target — moved already, or set by hand
     from execution.broker import StopOrderClient
-    res = await StopOrderClient(creds, account_type).amend_sltp(p.position_id, p.symbol, p.stop, new_tp)
+    res = await StopOrderClient(creds, account_type).amend_sltp(p.position_id, p.symbol, cur.stop, new_tp)
     if not res.ok:
         log.warning(f"[tp_extend] {p.symbol} #{p.position_id}: broker refused — {res.error}")
         return False
-    after = await ctrader_positions.open_positions()
-    now = next((x for x in (after or []) if x.position_id == p.position_id), None)
+    from monitor import position_book
+    position_book.invalidate()            # no loop may keep re-sending the old 2R target
+    ok, now = await fresh.current(p.position_id)
     if now is None:
         return False                     # closed meanwhile, or unreadable: the next poll decides again
+    # CHECKED BY PRICE, NOT R (21 Nov 2026). This compared the target IN R, but a position read straight from the
+    # broker carries no starting stop, so R was always unknown and every successful move sent "⚠️ … check your
+    # platform". The test faked the re-read WITH a starting stop, which is why it stayed green.
     if now.target is None:
         msg = (f"⚠️ {p.symbol}: THE TAKE PROFIT IS GONE after moving it to 4R — the stop is {now.stop}. "
                f"Set a target on your platform now.")
-    elif abs((target_r(now) or 0) - run) > _AT_2R or now.stop != p.stop:
+    elif not fresh.same_price(now.target, new_tp, d) or not fresh.same_price(now.stop, cur.stop, d):
         msg = (f"⚠️ {p.symbol}: tried to move the target to 4R ({new_tp}) but the position reads target "
                f"{now.target}, stop {now.stop} — check your platform.")
     else:
         msg = (f"{p.symbol} {'BUY' if p.bullish else 'SELL'}: a momentum candle closed in the trade's direction "
-               f"— the target is moved from {_levels()[0]:.0f}R to {run:.0f}R ({now.target}). Stop unchanged.")
+               f"— the target is moved from {base:.0f}R to {run:.0f}R ({now.target}). Stop unchanged.")
         delivery_ledger.mark_delivered(key)
         log.info(f"[tp_extend] {p.symbol} #{p.position_id}: target moved to {run:.0f}R at {now.target}")
         from storage import signal_repo

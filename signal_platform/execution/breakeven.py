@@ -105,13 +105,25 @@ async def move_stop_to(p, new_sl: float | None, label: str, creds: dict,
     blocked = why_not(p, account_type, be, price)
     if blocked:
         return Outcome(False, blocked)
-    old = p.stop
+    # THE TRADE AS IT IS NOW (21 Nov 2026). `p` can be up to 5 s old (`position_book`), and the target re-sent below
+    # must be the broker's CURRENT one — not a 2R the 4R move has just replaced, nor an old value of a target he has
+    # just set by hand. The ratchet is checked against the current stop too, so a stale copy can never send a stop
+    # backwards past one the other loop has just placed. Unreadable = nothing sent, the next pass retries.
+    from execution import fresh
+    asked, cur = await fresh.current(p.position_id)
+    if not asked:
+        return Outcome(False, "could not read the position just before moving its stop — nothing sent, "
+                              "it is retried on the next pass")
+    if cur is None:
+        return Outcome(False, "the position is no longer open")
+    if cur.stop is not None and not _better(be, cur.stop, p.bullish):
+        return Outcome(False, f"stop {cur.stop} already at or beyond {be:.5f} — nothing to do")
+    old, tp_now = (cur.stop if cur.stop is not None else p.stop), cur.target
     try:
         from execution.broker import StopOrderClient
         client = StopOrderClient(creds, account_type)
-        # THE CURRENT TARGET IS RE-PASSED, not omitted — rule 1. `p.target` was read from the broker
-        # moments ago by the same reconcile that produced this position.
-        res = await client.amend_sltp(p.position_id, p.symbol, be, p.target)
+        # THE CURRENT TARGET IS RE-PASSED, not omitted — rule 1 — and it is the one read just above.
+        res = await client.amend_sltp(p.position_id, p.symbol, be, tp_now)
         if not res.ok:
             return Outcome(False, f"broker refused the amend: {res.error}")
     except Exception as exc:
@@ -128,12 +140,12 @@ async def move_stop_to(p, new_sl: float | None, label: str, creds: dict,
     if now is None:
         return Outcome(True, f"stop moved to {be:.5f}, but the position is no longer open — it may "
                              f"have closed in the meantime")
-    lost_tp = bool(p.target) and not now.target
+    lost_tp = bool(tp_now) and not now.target
     if lost_tp:
         # The failure mode this whole design is shaped around. Say it loudly and say what to do.
         return Outcome(True,
                        f"⚠️ THE TAKE PROFIT IS GONE. The stop moved to {now.stop} but your target "
-                       f"({p.target}) is no longer on the position. Re-set it on your platform now. "
+                       f"({tp_now}) is no longer on the position. Re-set it on your platform now. "
                        f"Auto-breakeven should be switched off until this is understood.",
                        alarm=True)
     if now.stop is None or not _better(now.stop, old, p.bullish):

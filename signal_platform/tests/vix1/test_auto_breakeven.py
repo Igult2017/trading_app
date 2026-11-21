@@ -117,9 +117,14 @@ try:
     import execution.broker as _b
     _b.StopOrderClient = _Client
 
-    def _after(positions):
+    # TWO READS NOW (21 Nov 2026): the trade as it is just BEFORE the amend (`execution/fresh.py` — so the target
+    # re-sent is the broker's current one), then the read-back after it. `_after` serves `before` first.
+    def _after(positions, first=None):
+        calls = {"n": 0}
+
         async def _f():
-            return positions
+            calls["n"] += 1
+            return ([before] if first is None else first) if calls["n"] == 1 else positions
         breakeven.ctrader_positions.open_positions = _f
 
     before = P(stop=1.09900)
@@ -143,6 +148,29 @@ try:
     blind = asyncio.run(breakeven.move_to_breakeven(before, {}, "demo"))
     s.check("an unverifiable amend says so rather than claiming success",
             "could not be re-read" in blind.message, True)
+
+    # THE TARGET RE-SENT IS THE ONE ON THE BROKER NOW, not the copy the ladder holds (21 Nov 2026).
+    sent_tp = []
+
+    class _Spy(_Client):
+        async def amend_sltp(self, position_id, symbol, sl, tp):
+            sent_tp.append(tp)
+            return await super().amend_sltp(position_id, symbol, sl, tp)
+    _b.StopOrderClient = _Spy
+    _after([P(stop=1.10007, target=1.10400)], first=[P(stop=1.09900, target=1.10400)])   # moved to 4R a moment ago
+    asyncio.run(breakeven.move_to_breakeven(P(stop=1.09900, target=1.10200), {}, "demo"))
+    s.check("a stop move right after the 4R move re-sends 4R, not the old 2R copy", sent_tp, [1.10400])
+    s.teeth("re-sending the copy's target is what undid the 4R move", sent_tp[-1] != 1.10200)
+    sent_tp.clear()
+    _after([P(stop=1.10050)], first=[P(stop=1.10050)])          # the other loop already locked further
+    late = asyncio.run(breakeven.move_to_breakeven(P(stop=1.09900), {}, "demo"))
+    s.check("a stale copy never sends the stop backwards past one just placed", (sent_tp, late.moved), ([], False))
+    async def _none():
+        return None
+    breakeven.ctrader_positions.open_positions = _none
+    unread = asyncio.run(breakeven.move_to_breakeven(before, {}, "demo"))
+    s.check("cannot read the trade first -> nothing sent, retried next pass", (sent_tp, unread.moved), ([], False))
+    _b.StopOrderClient = _Client
 
     # ── TEETH ───────────────────────────────────────────────────────────────
     s.teeth("the ratchet genuinely blocks a backwards move",
