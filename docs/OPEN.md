@@ -1546,6 +1546,13 @@ real fill, and it has never run. **Nothing here says the strategy is worth armin
 | B-GOLDBANK2 | **The pieces need the engine running.** The broker library carries ONE take profit per trade, so the levels cannot be held at the broker; if the engine is down, only the breakeven stop protects. A newer library with several take profits would let the broker hold them | 21 Nov |
 | ~~B-GOLDBANK3~~ | **CLOSED 21 Nov — his words: "You have explained. Case closed."** The trade was his DM gold sell of 19 Nov 23:32 UTC (entry 3620.47, peak 1.38R at 23:39, closed 00:09 at 3617.77). The engine sent it nothing — the settings-alias fault (D-STOPMOVE1) had every automatic move off — so it could not have removed his take profit; a take profit anywhere between 3590.40 and the entry would have filled, so none was on the trade then. The stale-target cause is fixed anyway (`execution/fresh.py`) | 21 Nov |
 
+### Copier near-real-time + scale (21 Nov 2026) — `docs/copy-realtime-plan.md`, approved
+| id | what | since |
+|---|---|---|
+| D-POOL1 | **Pool live on demo (`COPY_USE_POOL=demo`) but no master trade copied through it yet** (weekend). 21 Nov 20:10 UTC: 5 masters + 1 follower logged in on ONE shared connection, positions loaded in ~1 s. Proof needed: the next copied trade — place/move/fill/close once each, and the master→follower delay | 21 Nov |
+| D-POOL2 | **Steps 6-11 not started:** durable job queue (crash mid fan-out), 60 s self-healing sweep, splitting accounts across machines, per-copy delay measured on the admin page, 2,000 through the DISPATCHER (database included — measured only through the executor), `docs/security/` pass on the changed surface | 21 Nov |
+| D-POOL3 | **Drift false alarm possible:** a broker push about a copier close that arrives just AFTER the command finished may be logged as DRIFT (`follower_watch.py`). Log noise only, nothing is sent | 21 Nov |
+
 ## C. The web app
 
 ### C21 — The settings vault is built and deployed but SWITCHED OFF: waiting on his private GitHub repo + token. Built 17 Nov 2026 — PENDING (his: "Record it as a pending issue")
