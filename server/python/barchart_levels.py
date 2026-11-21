@@ -89,3 +89,42 @@ def pick(rows: list[dict], side: str, spot_now: float) -> tuple[list[dict], list
 def spot_level(strike: float, futures: float, spot: float) -> float:
     """The level on his cTrader chart: strike × spot ÷ futures (EUR, GBP and gold futures are quoted like spot)."""
     return strike * spot / futures
+
+
+# ── WHICH WEEK, AND NEAR THE MONEY (read from the live page, 21 Nov 2026) ─────────────────────────────────────
+# Each weekday has its own menu entry ("Monday Weekly Options"); its week menu lists the expiries it has, as
+# "Week 4: Nov 2026" with a link like /futures/quotes/GCZ26/volatility-greeks/IY4X26 (the futures contract it sits on,
+# then the options code). "Week N" = the Nth such weekday of that month: Monday "Week 4: Nov 2026" = Mon 23 Nov 2026.
+# The data request has no near-the-money setting — the page cuts it itself — so the cut is made here, the same way:
+# "Near the Money" = 10 strikes either side of the futures price.
+import re as _re
+from datetime import date as _date, timedelta as _td
+
+WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+_MONTHS = {m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov",
+                                        "Dec"], start=1)}
+NEAR = 10
+
+
+def week_expiry(label: str, weekday: int) -> _date | None:
+    """'Week 4: Nov 2026' on the Monday menu (weekday 0) → date(2026, 11, 23). None if it cannot be read."""
+    m = _re.match(r"\s*Week\s+(\d)\s*:\s*([A-Z][a-z]{2})\w*\s+(\d{4})", label or "")
+    if not m or m.group(2) not in _MONTHS:
+        return None
+    first = _date(int(m.group(3)), _MONTHS[m.group(2)], 1)
+    d = first + _td(days=(weekday - first.weekday()) % 7) + _td(weeks=int(m.group(1)) - 1)
+    return d if d.month == first.month else None
+
+
+def choose_week(entries: list[tuple[str, str]], weekday: int, target: _date) -> tuple[str, _date] | None:
+    """(link, expiry) — the entry expiring ON `target`, else the first one after it (said in the post). None if none."""
+    dated = sorted((d, link) for label, link in entries if (d := week_expiry(label, weekday)) and d >= target)
+    return (dated[0][1], dated[0][0]) if dated else None
+
+
+def near_the_money(rows: list[dict], futures: float, n: int = NEAR) -> list[dict]:
+    """One side's rows cut to the n strikes below and the n at or above the futures price."""
+    rows = sorted(rows, key=lambda r: r["strike"])
+    below = [r for r in rows if r["strike"] < futures][-n:]
+    above = [r for r in rows if r["strike"] >= futures][:n]
+    return below + above

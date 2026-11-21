@@ -67,6 +67,24 @@ for side, kind in ((L.BUY, "Call"), (L.SELL, "Put")):
     judged = L.judge([r for r in real if r["type"] == kind], side)
     check(f"real gold {kind}s: every strike judged with its reasons", all(isinstance(j["fails"], list) for j in judged), True)
 
+# ── 5b. which week, and near the money — on the REAL menu entries the live page showed (21 Nov 2026) ─────────
+from datetime import date  # noqa: E402
+check("Monday 'Week 4: Nov 2026' = Mon 23 Nov", L.week_expiry("Week 4: Nov 2026", 0), date(2026, 11, 23))
+check("Monday 'Week 1: Dec 2026' = Mon 7 Dec", L.week_expiry("Week 1: Dec 2026", 0), date(2026, 12, 7))
+check("Friday 'Week 5: Nov 2026' does not exist (Nov 2026 has 4 Fridays) → None",
+      L.week_expiry("Week 5: Nov 2026", 4), None)
+menu = [("Week 4: Nov 2026", "/futures/quotes/GCZ26/volatility-greeks/IY4X26"),
+        ("Week 5: Nov 2026", "/futures/quotes/GCZ26/volatility-greeks/IY5X26"),
+        ("Week 1: Dec 2026", "/futures/quotes/GCG27/volatility-greeks/IY1Z26")]
+check("target Mon 23 Nov → the week-4 link", L.choose_week(menu, 0, date(2026, 11, 23)),
+      ("/futures/quotes/GCZ26/volatility-greeks/IY4X26", date(2026, 11, 23)))
+check("target not listed (Tue 24 Nov on a Monday menu) → the next one listed, Mon 30 Nov",
+      L.choose_week(menu, 0, date(2026, 11, 24))[1], date(2026, 11, 30))
+strikes = [{"strike": float(s)} for s in range(3400, 3651, 5)]          # 51 strikes, every $5
+cut = L.near_the_money(strikes, 3515.4)
+check("near the money = 10 strikes below and 10 at/above the futures price",
+      (len(cut), cut[0]["strike"], cut[-1]["strike"]), (20, 3470.0, 3565.0))
+
 # ── 6. teeth ──────────────────────────────────────────────────────────────────────────────────────────────────
 real_low = L.is_low
 L.is_low = lambda v, p: True                                     # SABOTAGE: everything counts as low
