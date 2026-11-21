@@ -1,7 +1,11 @@
 # Plan — the copier: near-real-time, 2,000+ users on the ONE cTrader app we have (21 Nov 2026)
 
-> **STATUS (21 Nov 2026): APPROVED by him. Step 1 DONE (lanes, deployed). Steps 2-5 BUILT and deployed with `COPY_USE_POOL=demo` (21 Nov): the pool, followers sending and masters listening through it, followers listened to. Measured on the stand-in broker: one trade to 2,000 followers in 1.53 s, zero over the limit. Steps 6-11 NOT started.** This supersedes
-> `docs/copy-gateway-plan.md` (the 2-shared-connections plan).
+> **STATUS (22 Nov 2026): steps 1-11 DONE and deployed** (`COPY_USE_POOL=demo`). Deviations, said plainly:
+> repairs (step 7) go to the Activity log, not his DM (the copier has no DM sender); steps 7 and 8 are proven by their
+> decisions and the database claim, not against two broker processes; the copy-speed card (step 9) uses the admin
+> page's own look, not shadcn. Measured: one order to 2,000 followers — sending side 1.5 s, whole copier 25.8 s on
+> PGlite (the database is now the limit, `docs/OPEN.md` D-POOL4). Still to observe: the first real copied trade on demo
+> (D-POOL1). Security: `docs/security/2026-11-22-copier-pool-jobs-sweep.md`. This supersedes `docs/copy-gateway-plan.md`.
 
 
 ## Context

@@ -389,35 +389,32 @@ To add Binance, ByBit, or another platform:
 
 ## Scale — what it can carry, and what caps it
 
-**Rebuilt 2026-09-26** on his instruction: *"ensure copy trader can be used by many people and the
-only limit is resources which is hosting."* It was SOFTWARE-bound, not resource-bound. All four
-numbers below are measured, not estimated.
+**Rebuilt 21 Nov 2026** on his order: *"use the api we have for over 2000 users without the api even knowing it is
+serving 2000"* — the full plan, its status and its deviations are in `docs/copy-realtime-plan.md`.
 
-| ceiling | before | now |
-|---|---|---|
-| every database call ran ON the event loop (no `to_thread` anywhere in the package) | 50 x 200ms queries = **10.03 s**, engine fully stopped throughout | **0.41 s** on a worker pool (24.7x), and the loop serviced 30 other things during it |
-| the account's symbol list, re-downloaded per order | **1,941 symbols / 312 KB every order** | fetched once per ACCOUNT, cached in `symbol_details` |
-| follower fan-out | unbounded — 500 followers = 500 simultaneous broker requests | capped by `COPY_MAX_CONCURRENT_FOLLOWERS` (25) |
-| the broker's own rate limit | not respected at all | token bucket at 45/sec; bursts inside one second are NOT slowed |
-| database pool | 20 + 40, starved at ~8-12 concurrent followers | `COPY_DB_POOL` 40 + 80, sized with the thread pool so they cannot drift |
+**How it scales on ONE cTrader app.** cTrader limits CONNECTIONS, not users: 50 requests a second per connection
+(https://help.ctrader.com/open-api/), and one connection carries many logged-in accounts because every message names
+its account. Its own guidance is one connection per environment *per user* (https://help.ctrader.com/open-api/connection/)
+— the old reading here ("two connections for the whole platform") was wrong and is gone with `gateway.py`.
+`pool.py` puts 50 accounts on each long-lived connection, per environment and app; 2,000 accounts = 40 connections.
 
-### ⚠ The ceiling that is NOT ours, and no hosting lifts it
+| measured (stand-in cTrader in its own process, 50/s per connection enforced) | result |
+|---|---|
+| 2,000 accounts logged in at start-up (10/s per connection) | 5.8 s, none over the limit |
+| one master order → 2,000 followers, sending side only (`tests/test_pool.py`) | 1.5-2.7 s, none over the limit; busiest connection 35 in a second |
+| one master order → 2,000 followers through the WHOLE copier, database included (PGlite; `tests/capacity_dispatch.py`) | **25.8 s**, none over the limit, every job done and recorded |
+| today on production, before the rebuild (20 Nov gold) | 3-5 s per copy |
 
-> *"a maximum of 50 requests per second per connection for any non-historical data requests"*
-> — https://help.ctrader.com/open-api/
-> *"At most, you should create two connections: one for demo accounts and one for live accounts.
-> Each connection can support an unlimited number of accounts of a certain type."*
-> — https://help.ctrader.com/open-api/connection/
+**What caps it now: the database.** 5-7 statements per follower per event; PGlite runs one at a time, so 25.8 s is the
+worst case — production Postgres runs 40 at once and was not measured here. The next cure is to write each fan-out's
+follower records and log rows in batches (`docs/OPEN.md` D-POOL4).
 
-Rate limits are **per connection** and the guidance is **two connections for the whole platform**.
-So the hard ceiling is roughly **50 orders/sec across all demo accounts and 50 across all live**,
-shared by every user. 500 followers on one master event is ~10 seconds to place them all. Going past
-it needs **more cTrader application registrations, not more servers** — a question for the broker.
+**Pace:** 35 messages a second per connection (`ctrader_protocol.PER_SECOND`), sent at once within that, on a rolling
+second. Measured: at 45 and 30 a busy machine's messages still ARRIVED over 50 in a second; at 25 none did. A "too many
+requests" answer is resent a second later, matched to the exact message by its reply tag.
 
-`gateway.py` is built to exactly that shape: two long-lived connections, many accounts authenticated
-on each (every message carries `ctidTraderAccountId`), heartbeat every 8s as the docs require.
-
----
+**Switch:** `COPY_USE_POOL` = off | demo | all — `demo` since 21 Nov. **More machines:** `COPY_WORKER_COUNT` > 1 splits
+masters AND follower accounts between workers; every copy job is claimed before it runs, so no job runs twice.
 
 ## WHAT IS REMAINING — read this before starting anything on the copier
 

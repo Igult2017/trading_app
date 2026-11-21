@@ -1550,7 +1550,8 @@ real fill, and it has never run. **Nothing here says the strategy is worth armin
 | id | what | since |
 |---|---|---|
 | D-POOL1 | **Pool live on demo (`COPY_USE_POOL=demo`) but no master trade copied through it yet** (weekend). 21 Nov 20:10 UTC: 5 masters + 1 follower logged in on ONE shared connection, positions loaded in ~1 s. Proof needed: the next copied trade — place/move/fill/close once each, and the master→follower delay | 21 Nov |
-| D-POOL2 | **Steps 6-10 DONE (21 Nov): job queue, repair sweep, workers, delay on the admin page, whole-copier capacity measured. Step 11 security pass in progress.** | 21 Nov |
+| ~~D-POOL2~~ | **Steps 6-11 DONE (22 Nov):** job queue, repair sweep, workers, delay on the admin page, whole-copier capacity measured, security pass (`docs/security/2026-11-22-copier-pool-jobs-sweep.md`) | 22 Nov |
+| D-POOL5 | **`uuid` inside the Telegram library** (5 moderate, GHSA-w5hq-g745-h8pq): the only automatic fix installs an incompatible old release; the app never uses the affected mode. Revisit when node-telegram-bot-api ships on uuid 11 | 22 Nov |
 | D-POOL4 | **The database is the copier's limit at scale:** 2,000 followers through the whole copier took 25.8 s on PGlite (one query at a time; worst case), 5-7 statements per follower. Production Postgres runs 40 at once and was not measured. Cure: batch each fan-out's follower records and log rows. `tests/capacity_dispatch.py` measures it | 21 Nov |
 | D-POOL3 | **Drift false alarm possible:** a broker push about a copier close that arrives just AFTER the command finished may be logged as DRIFT (`follower_watch.py`). Log noise only, nothing is sent | 21 Nov |
 
