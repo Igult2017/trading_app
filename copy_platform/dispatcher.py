@@ -822,10 +822,19 @@ def _log(follower_id: str, trade_id: str, level: str, event: str, msg: str):
     The stdout line is emitted immediately either way, so the container log keeps its true ordering
     even if two database rows land microseconds apart.
     """
-    log.info(f"[{_follower_label(follower_id)}] {level} {event}: {msg}")
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
+        log.info(f"[{_follower_label(follower_id)}] {level} {event}: {msg}")
         _write_log_row(follower_id, trade_id, level, event, msg)
         return
+    # THE NAME IS NEVER LOOKED UP ON THE LOOP (21 Nov 2026, found by `tests/capacity_dispatch.py`). `_follower_label`
+    # reads two rows the first time it sees a follower, and this line ran it ON the event loop — so the first trade
+    # after a restart, or any new follower, held the whole copier still for two queries per follower mid fan-out.
+    # A known name is used at once; an unknown one prints the short id and the name is fetched on a worker for next time.
+    if follower_id and follower_id not in _labels:
+        log.info(f"[{follower_id[:8]}] {level} {event}: {msg}")
+        loop.create_task(run_db(_follower_label, follower_id))
+    else:
+        log.info(f"[{_follower_label(follower_id)}] {level} {event}: {msg}")
     loop.create_task(run_db(_write_log_row, follower_id, trade_id, level, event, msg))

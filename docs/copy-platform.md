@@ -436,6 +436,27 @@ order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilin
 
 ## Fix log
 
+### 2026-11-21 (i) — measured through the WHOLE copier: the database is now the limit (plan step 10)
+
+`tests/capacity_dispatch.py` (run by hand: it needs Node) puts 2,000 followers in a real Postgres (PGlite over its
+socket server — never Docker) and runs ONE master order through the real dispatcher, risk checks, job rows, follower
+records, the pool and the executor, against the stand-in cTrader. Measured:
+
+| followers | master order → last follower | broker over its limit | statements per follower |
+|---|---|---|---|
+| 200 | 3.7 s | 0 | 8 |
+| 2,000 | **34.3 s** before the two fixes below | 0 | 8 |
+| 2,000 | **25.8 s** after | 0 | 7 (5 once follower names are known) |
+
+Every copy reached the broker, every job done, every copy recorded. **Two fixes from the measurement:** the Activity
+log looked a follower's name up ON the event loop the first time it met it (two blocking queries per follower,
+mid fan-out — the copier stood still meanwhile); it now prints the short id and fetches the name on a worker. And a
+job is marked done in ONE write, not a read and a write. **What the number is and is not:** PGlite runs ONE query at a
+time, so 25.8 s is the worst case; production Postgres runs up to 40 at once (COPY_DB_POOL) and was NOT measured
+here. The sending side alone is 1.5 s for 2,000 (`tests/test_pool.py`). **Next cure (open):** write each fan-out's
+follower records and log rows in batches instead of one follower at a time. `COPY_MAX_CONCURRENT_FOLLOWERS` stays 100:
+the database, not this bound, is what waits.
+
 ### 2026-11-21 (h) — the delay of every copy, measured and shown (plan step 9)
 
 Each copy job stores the broker's time on the master's event (`master_ms`) and on the follower's confirming event

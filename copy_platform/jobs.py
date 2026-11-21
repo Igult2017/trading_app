@@ -146,17 +146,17 @@ def mark(job_id: str | None, status: str, error: str | None = None, session_fact
     try:
         if session_factory is None:
             from db import Session as session_factory
-        from db import CopyJob
+        from sqlalchemy import text
+        # ONE WRITE, not a read and then a write (21 Nov 2026, measured by `tests/capacity_dispatch.py`): this runs
+        # for every follower of every master event, so each statement saved is thousands per busy minute.
         with session_factory() as db:
-            j = db.get(CopyJob, job_id)
-            if j is None:
-                return
-            now = datetime.utcnow()
-            j.status = status
             if status == "started":
-                j.started_at, j.attempts = now, (j.attempts or 0) + 1
+                db.execute(text("UPDATE copy_jobs SET status = :s, started_at = :now, "
+                                "attempts = COALESCE(attempts, 0) + 1 WHERE id = :id"),
+                           {"s": status, "now": datetime.utcnow(), "id": job_id})
             else:
-                j.finished_at, j.error = now, (error or None)
+                db.execute(text("UPDATE copy_jobs SET status = :s, finished_at = :now, error = :e WHERE id = :id"),
+                           {"s": status, "now": datetime.utcnow(), "e": error or None, "id": job_id})
             db.commit()
     except Exception as exc:
         log.warning("[jobs] could not mark %s %s: %s", job_id, status, exc)
