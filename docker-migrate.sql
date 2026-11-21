@@ -451,6 +451,10 @@ CREATE TABLE IF NOT EXISTS copy_jobs (
   finished_at     TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_copy_jobs_unfinished ON copy_jobs (status, created_at);
+-- The delay of each copy by the broker's own clock at both ends (plan step 9, 21 Nov 2026).
+ALTER TABLE copy_jobs ADD COLUMN IF NOT EXISTS master_ms   BIGINT;
+ALTER TABLE copy_jobs ADD COLUMN IF NOT EXISTS follower_ms BIGINT;
+ALTER TABLE copy_jobs ADD COLUMN IF NOT EXISTS delay_ms    INTEGER;
 
 -- ── copy_engine_heartbeat ─────────────────────────────────────────────────────
 -- Single row the Python copy engine UPSERTs every load cycle (~60s); the API reads

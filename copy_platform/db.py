@@ -3,7 +3,7 @@ SQLAlchemy models for the tables the copy engine reads/writes.
 Mirrors shared/schema.ts — only the columns we actually touch.
 """
 from datetime import datetime
-from sqlalchemy import create_engine, Column, String, Boolean, Integer, \
+from sqlalchemy import create_engine, Column, String, Boolean, Integer, BigInteger, \
     Numeric, Text, DateTime, JSON, ARRAY
 from sqlalchemy.orm import declarative_base, sessionmaker
 from config import DATABASE_URL, COPY_DB_POOL, COPY_DB_OVERFLOW
@@ -191,3 +191,6 @@ class CopyJob(Base):
     created_at      = Column(DateTime, default=datetime.utcnow)
     started_at      = Column(DateTime)
     finished_at     = Column(DateTime)
+    master_ms       = Column(BigInteger)    # the broker's time on the master's event (plan step 9)
+    follower_ms     = Column(BigInteger)    # the broker's time on the follower's confirming event
+    delay_ms        = Column(Integer)       # follower_ms - master_ms

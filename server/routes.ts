@@ -4614,6 +4614,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
    *  trade row it refers to has been cleaned up, because the lines with no trade are often the
    *  interesting ones.
    */
+  // THE DELAY OF EVERY COPY (21 Nov 2026, docs/copy-realtime-plan.md step 9): the broker's own time on the follower's
+  // confirming event minus its time on the master's event, stored per copy job by the copy engine (copy_jobs.delay_ms).
+  // Today's median and worst, and the last 20 copies. Read-only; admin only.
+  app.get("/api/admin/copy/delay", requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      const today = await pool.query(`
+        SELECT COUNT(*)::int AS copies,
+               (PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY delay_ms))::int AS median_ms,
+               MAX(delay_ms)::int AS worst_ms
+          FROM copy_jobs
+         WHERE delay_ms IS NOT NULL AND created_at >= date_trunc('day', NOW())`);
+      const recent = await pool.query(`
+        SELECT j.created_at, j.event_type, j.delay_ms, ba.name AS account, ba.login_id
+          FROM copy_jobs j
+          LEFT JOIN copy_followers  f  ON f.id  = j.follower_id
+          LEFT JOIN broker_accounts ba ON ba.id = f.broker_account_id
+         WHERE j.delay_ms IS NOT NULL
+         ORDER BY j.created_at DESC
+         LIMIT 20`);
+      res.json({ today: today.rows[0] ?? { copies: 0, median_ms: null, worst_ms: null }, recent: recent.rows });
+    } catch (err: any) {
+      // A missing table (engine not yet started on this database) is an empty answer, not a failure.
+      if (String(err?.code) === "42P01") return res.json({ today: { copies: 0, median_ms: null, worst_ms: null }, recent: [] });
+      res.status(500).json({ error: "Could not read the copy delays" });
+    }
+  });
+
   app.get("/api/admin/copy/activity", requireAdmin, async (req: Request, res: Response) => {
     try {
       const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "200"), 10) || 200, 1), 500);

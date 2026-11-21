@@ -75,7 +75,7 @@ jobs.mark(ids["f2"], "started", session_factory=S)        # the engine stopped h
 sent, logged = [], []
 
 
-async def fake_bounded(mtid, f, snap, etype, oid, frac, job_id=None, force=False):
+async def fake_bounded(mtid, f, snap, etype, oid, frac, job_id=None, force=False, master_ms=None):
     sent.append((f.id, etype, snap.order_id))
     jobs.mark(job_id, "done", session_factory=S)
 dispatcher._exec_follower_bounded = fake_bounded

@@ -25,6 +25,7 @@ import { PageHeader, StatCard, Pill, Panel } from '@/components/admin-ui/AdminUI
 import { useAdminData, usePrefetchAdmin } from '@/features/admin-data/useAdminData';
 import { StatsAndTableSkeleton, StatsAndListSkeleton, JustTableSkeleton, TwoPanelSkeleton } from '@/features/admin-data/AdminSkeleton';
 import { readingTime } from '@shared/readingTime';
+import CopyDelayCard from '@/features/admin-copy/CopyDelayCard';
 import {
   Users, FileText, BellRing, Smartphone, Search, TrendingUp,
   Plus, Mail, Bell, UserPlus, ShieldCheck,
@@ -1375,7 +1376,7 @@ const SyncPerformanceSection = ({ bp }: { bp: any }) => {
         {tab === 'telegram'     && renderTelegram()}
         {tab === 'followers'    && renderFollowers()}
         {tab === 'trades'       && renderAllTrades()}
-        {tab === 'activity'     && renderActivity()}
+        {tab === 'activity'     && <><div style={{ marginBottom: 16 }}><CopyDelayCard /></div>{renderActivity()}</>}
         {tab === 'leaderboard'  && renderLeaderboard()}
       </div>
     </div>

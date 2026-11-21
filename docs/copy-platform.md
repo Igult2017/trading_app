@@ -436,6 +436,16 @@ order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilin
 
 ## Fix log
 
+### 2026-11-21 (h) — the delay of every copy, measured and shown (plan step 9)
+
+Each copy job stores the broker's time on the master's event (`master_ms`) and on the follower's confirming event
+(`follower_ms`) and the difference (`delay_ms`) — both from cTrader's own clock (`timing.broker_ms`: the deal's
+execution time, else the order's/position's last update), so neither our clock nor the network distorts it. The
+admin copy page's Activity tab opens with "Copy speed": copies today, the typical (median) and slowest delay today,
+and the last 20 copies (`GET /api/admin/copy/delay`, `client/src/features/admin-copy/CopyDelayCard.tsx`). Columns
+added with `ADD COLUMN IF NOT EXISTS` (migration rehearsed on PGlite). Checked in a browser (Playwright) in the light
+and dark admin themes, empty and filled, at desktop and phone width. Proof: `tests/test_timing.py` 5.
+
 ### 2026-11-21 (g) — more than one machine when needed (plan step 8)
 
 Follower ACCOUNTS are now shared out between workers by the same stable hash used for masters (`jobs.owner_of`), so

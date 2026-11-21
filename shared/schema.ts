@@ -275,6 +275,9 @@ export const copyJobs = pgTable("copy_jobs", {
   createdAt:     timestamp("created_at").defaultNow(),
   startedAt:     timestamp("started_at"),
   finishedAt:    timestamp("finished_at"),
+  masterMs:      bigint("master_ms", { mode: "number" }),    // the broker's time on the master's event
+  followerMs:    bigint("follower_ms", { mode: "number" }),  // the broker's time on the follower's confirming event
+  delayMs:       integer("delay_ms"),                        // follower - master
 }, (t) => ({ unfinished: index("idx_copy_jobs_unfinished").on(t.status, t.createdAt) }));
 
 export const insertCopyExecutionLogSchema = createInsertSchema(copyExecutionLogs).omit({ id: true, createdAt: true });

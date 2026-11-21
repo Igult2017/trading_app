@@ -29,6 +29,7 @@ from config import CT_LIVE_HOST, CT_DEMO_HOST, CT_PORT, RECONNECT_DELAY, \
     RECONCILE_INTERVAL
 
 import auth_loss
+from timing import broker_ms   # the broker's own clock (plan step 9)
 import lanes
 import symbol_details
 import ctrader_send   # every send handles a missing reply (OPEN.md D67)
@@ -571,7 +572,7 @@ class CTraderProvider:
             snap.closed_price = float(pos.price) if pos.price else None
             if prev is not None:
                 snap.entry_price = prev.entry_price
-            await self.on_event({"type": "CLOSE", "snap": snap}, self.master_id)
+            await self.on_event({"type": "CLOSE", "snap": snap, "master_ms": broker_ms(event)}, self.master_id)
 
         elif status == ProtoOAPositionStatus.POSITION_STATUS_OPEN:
             if prev is None:
@@ -582,7 +583,7 @@ class CTraderProvider:
                 oid = event.order.orderId if event.HasField("order") else None
                 if oid:
                     self.origin[pid] = int(oid)     # which master ORDER this position came from — copies carry it
-                await self.on_event({"type": "OPEN", "snap": snap, "master_order_id": oid},
+                await self.on_event({"type": "OPEN", "snap": snap, "master_order_id": oid, "master_ms": broker_ms(event)},
                                     self.master_id)
             else:
                 self._positions[pid] = snap
@@ -593,10 +594,10 @@ class CTraderProvider:
                 # FRACTION, on this pushed event.
                 frac = _reduced_fraction(prev.volume_lots, snap.volume_lots)
                 if frac:
-                    await self.on_event({"type": "REDUCE", "snap": snap, "fraction": frac},
+                    await self.on_event({"type": "REDUCE", "snap": snap, "fraction": frac, "master_ms": broker_ms(event)},
                                         self.master_id)
                 if prev.stop_loss != snap.stop_loss or prev.take_profit != snap.take_profit:
-                    await self.on_event({"type": "MODIFY", "snap": snap, "prev": prev},
+                    await self.on_event({"type": "MODIFY", "snap": snap, "prev": prev, "master_ms": broker_ms(event)},
                                         self.master_id)
 
     async def _handle_order(self, event) -> None:
@@ -650,7 +651,7 @@ class CTraderProvider:
             return
         log.info(f"[{self.master_id}] order {snap.order_id} {snap.symbol} {snap.action} "
                  f"{otype} @ {snap.price} sl {snap.stop_loss} tp {snap.take_profit} -> {kind}")
-        await self.on_event({"type": kind, "order": snap}, self.master_id)
+        await self.on_event({"type": kind, "order": snap, "master_ms": broker_ms(event)}, self.master_id)
 
     def _order_snap(self, order, otype: str):
         """A master order as a copy event. None when its size cannot be read, never a guess."""

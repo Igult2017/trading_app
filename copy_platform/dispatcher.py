@@ -113,7 +113,7 @@ async def dispatch(event: dict, master_id: str) -> None:
         await run_db(_notify_jobs)
     await asyncio.gather(*[
         _exec_follower_bounded(master_trade_id, f, snap, etype, event.get("master_order_id"),
-                               event.get("fraction"), job_id=job_ids.get(f.id))
+                               event.get("fraction"), job_id=job_ids.get(f.id), master_ms=event.get("master_ms"))
         for f in mine
     ], return_exceptions=True)
 
@@ -129,12 +129,17 @@ def _notify_jobs() -> None:
         log.warning("[dispatch] could not wake the other workers (%s) — their 5 s check picks the jobs up", exc)
 
 
+# THE JOB AND THE MASTER'S BROKER TIME OF THE COPY BEING RUN, for `_exec_follower` to stamp the delay (plan step 9).
+# A context variable, so concurrent followers each see their own.
+import contextvars
+_current_job: contextvars.ContextVar = contextvars.ContextVar("copy_job", default=(None, None))
+
 # One slot per concurrent follower execution, for the whole process.
 _fanout = asyncio.Semaphore(COPY_MAX_CONCURRENT_FOLLOWERS)
 
 
 async def _exec_follower_bounded(master_trade_id, follower, snap, etype, master_order_id=None,
-                                 fraction=None, job_id=None, force=False):
+                                 fraction=None, job_id=None, force=False, master_ms=None):
     """One follower's copy, inside the fan-out bound — and its job row (`jobs.py`) moved on as it runs."""
     import jobs
     async with _fanout:
@@ -144,6 +149,7 @@ async def _exec_follower_bounded(master_trade_id, follower, snap, etype, master_
             await run_db(jobs.mark, job_id, "started")
         elif not await run_db(jobs.claim, job_id):
             return
+        _current_job.set((job_id, master_ms))
         try:
             await _exec_follower(master_trade_id, follower, snap, etype, master_order_id, fraction)
         except Exception as exc:
@@ -597,6 +603,11 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                       "STILL RESTING and will fill if price reaches it; cancel it by hand.",
                       fid, follower_pos_id, snap.key)
 
+        # THE DELAY OF THIS COPY, by the broker's own clock at both ends (plan step 9).
+        if result is not None and result.ok and getattr(result, "broker_ms", None):
+            import jobs as _jobs
+            jid, mms = _current_job.get()
+            await run_db(_jobs.stamp, jid, mms, result.broker_ms)
         await run_db(_record_follower_trade, master_trade_id, follower, snap, etype, lots, result,
                      action, sl_price, tp_price)
     except Exception as e:

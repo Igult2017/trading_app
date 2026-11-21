@@ -116,6 +116,7 @@ class ExecResult:
     external_id: str | None = None
     entry_price: float | None = None
     error:       str | None = None
+    broker_ms:   int | None = None      # cTrader's own time on the confirming event (plan step 9)
 
 
 def is_too_many(message) -> bool:
@@ -278,6 +279,8 @@ class CTraderExecutor:
             self._client.stopService()
 
     def _resolve(self, result: ExecResult) -> None:
+        if result.ok and result.broker_ms is None:
+            result.broker_ms = getattr(self, "_event_ms", None)
         if self._result_future and not self._result_future.done():
             self._result_future.set_result(result)
 
@@ -341,6 +344,8 @@ class CTraderExecutor:
             event = Protobuf.extract(message)
             if not self._mine(event):
                 return                    # another order's news on this account — not the answer to THIS command
+            from timing import broker_ms
+            self._event_ms = broker_ms(event)
             et = event.executionType
             # 1. Explicit error code → fail immediately.
             if event.HasField("errorCode") and event.errorCode:
