@@ -214,6 +214,8 @@ class Settings(BaseSettings):
     # is set. Demo-only is enforced at runtime the same way autotrade's is.
     auto_breakeven_enabled:   bool = False
     auto_breakeven_demo_only: bool = True
+    # Gold banks its profit in pieces (monitor/gold_bank.py, 21 Nov 2026). Changed on the admin Autotrade page.
+    gold_banking_enabled:     bool = True
     # THE REAL-TIME WATCHER — streams prices over cTrader's FIX price session so a stop move happens
     # within a second instead of up to ~110s (60s of M1 bar + 20s of cache + the 30s poll). FIX is a
     # different protocol on a different port with its own credential, and it POLLS NOTHING, so it

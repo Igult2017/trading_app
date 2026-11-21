@@ -1539,6 +1539,13 @@ outcome. `placer.fill_report` exists precisely to measure the gap between the mo
 real fill, and it has never run. **Nothing here says the strategy is worth arming.**
 
 
+### Gold profit banking (21 Nov 2026) — built, still open
+| id | what | since |
+|---|---|---|
+| B-GOLDBANK1 | **Not yet seen on a live gold trade.** Expect `[gold-bank] XAU/USD #… 1.00R step closed …` in the log at 1R and the follower's REDUCE lines. Until then it is proven by `tests/vix1/test_gold_bank.py` only | 21 Nov |
+| B-GOLDBANK2 | **The pieces need the engine running.** The broker library carries ONE take profit per trade, so the levels cannot be held at the broker; if the engine is down, only the breakeven stop protects. A newer library with several take profits would let the broker hold them | 21 Nov |
+| B-GOLDBANK3 | **His gold take profit that disappeared (his report 21 Nov) is not pinned down.** He has not yet said which trade. If he set several take profits in cTrader, an engine stop move (one take profit only) may drop them — not checked what the broker does | 21 Nov |
+
 ## C. The web app
 
 ### C21 — The settings vault is built and deployed but SWITCHED OFF: waiting on his private GitHub repo + token. Built 17 Nov 2026 — PENDING (his: "Record it as a pending issue")

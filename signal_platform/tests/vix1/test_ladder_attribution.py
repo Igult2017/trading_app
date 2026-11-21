@@ -65,7 +65,9 @@ def gbpusd():
 # a FIXTURE only, to show what it cost while it existed.
 _OLD_LADDER = (R.Rung(1.0, None, "breakeven"), R.Rung(2.0, 1.0, "lock_1r"))
 
-s.check("there is one ladder and it takes no argument", R.ladder.__code__.co_argcount, 0)
+s.check("the ladder is chosen by the SYMBOL on the position only (gold, 21 Nov 2026) — no strategy argument",
+        R.ladder.__code__.co_varnames[:R.ladder.__code__.co_argcount], ("symbol",))
+s.check("...and every non-gold position gets the same full ladder", R.ladder("GBP/JPY"), R.ladder())
 s.check("...breaking even at 0.4R for every position", R.ladder()[0].at_r, 0.4)
 s.check("...and locking +1R at 1.5R", (R.ladder()[1].at_r, R.ladder()[1].lock_r), (1.5, 1.0))
 s.check("the ladder that could be selected instead is gone",

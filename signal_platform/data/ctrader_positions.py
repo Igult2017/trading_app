@@ -227,13 +227,42 @@ class Position:
         one-unit-quote instrument, moving one price unit on `volume` units earns `volume`. Returns
         None when the size is unknown rather than guessing, because a wrong breakeven is worse than
         no breakeven — it is a stop he would actually move.
+
+        WIRE VOLUME IS HUNDREDTHS (fixed 21 Nov 2026). `volume` is cTrader's wire figure — lots × lotSize × 100 —
+        so 0.81 EUR/USD lots arrive as 8,100,000 for 81,000 euros. This divided the cost by the wire figure, which
+        put breakeven 100x too close to the entry: his GBP/JPY copy #265414235 closed "at breakeven" on its entry
+        208.258 and lost the $2.64 commission. A move of 1.0 in price on `units` earns `units` of the QUOTE
+        currency, so a non-USD quote (JPY) needs the cost converted into it — `quote_per_usd`, see below.
         """
-        vol = volume_units if volume_units is not None else float(self.volume)
+        vol = volume_units if volume_units is not None else float(self.volume) / 100.0
         if not vol:
             return None
-        cost = abs(self.commission) * 2.0 + abs(self.swap)     # open + close, plus financing
-        offset = cost / vol
+        cost = abs(self.commission) * 2.0 + abs(self.swap)     # open + close, plus financing (account USD)
+        offset = cost * quote_per_usd(self.symbol, self.entry) / vol
         return self.entry + offset if self.bullish else self.entry - offset
+
+
+def quote_per_usd(symbol: str, entry: float) -> float:
+    """How many units of `symbol`'s QUOTE currency one US dollar buys — 1.0 for every */USD pair.
+
+    The account is in dollars and the costs arrive in dollars; a price move is paid in the quote currency. For a
+    USD/xxx pair the trade's own entry IS that rate. For any other quote (GBP/JPY) the live USD/xxx price is read;
+    if the feed has none, 1.0 is returned and logged — breakeven then covers less than the cost, never more, so the
+    stop can never be pushed through the market by a missing rate."""
+    quote = (symbol.split("/") + [""])[1]
+    if quote in ("", "USD"):
+        return 1.0
+    if symbol.startswith("USD/"):
+        return float(entry)
+    try:
+        from data import fix_quotes
+        rate = fix_quotes.live_price(f"USD/{quote}", 300.0)
+    except Exception:
+        rate = None
+    if not rate:
+        log.warning(f"[ctrader_positions] no live USD/{quote} price — {symbol} breakeven covers costs as if in USD")
+        return 1.0
+    return float(rate)
 
 
 def _name_for(symbol_id: int) -> str | None:

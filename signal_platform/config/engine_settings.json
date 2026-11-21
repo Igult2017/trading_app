@@ -175,6 +175,14 @@
       "help": "On: the engine moves a running trade's stop to breakeven by itself."
     },
     {
+      "name": "gold_banking_enabled",
+      "group": "switches",
+      "kind": "bool",
+      "default": "true",
+      "label": "Bank gold profit in pieces",
+      "help": "On: gold closes part at 1R and 2R (half an R each), then a piece each time the rest earns another 0.2R. Off: gold keeps only breakeven."
+    },
+    {
       "name": "barchart_enabled",
       "group": "barchart",
       "kind": "bool",

@@ -26,7 +26,9 @@ s = Suite("AUTO-BREAKEVEN — the guards on the first code that touches the acco
 
 
 def P(bullish=True, entry=1.10000, stop=1.09900, target=1.10200, commission=0.35,
-      volume=10_000, pid=7):
+      volume=1_000_000, pid=7):
+    # 1,000,000 ON THE WIRE = 0.1 lot = 10,000 euros (lots x lotSize x 100). This was 10_000 — read as 10,000
+    # units by the breakeven sum that was 100x off until 21 Nov 2026 (`Position.breakeven`).
     return Position(position_id=pid, symbol="EUR/USD", bullish=bullish, volume=volume,
                     entry=entry, stop=stop, target=target, commission=commission, swap=0.0,
                     opened_at=0)
@@ -59,7 +61,7 @@ try:
     s.check("...and demo is allowed", breakeven.why_not(P(), "demo"), None)
 
     # ── RULE 2: the ratchet ─────────────────────────────────────────────────
-    # breakeven for this position is entry + (2 x 0.35) / 10,000 = 1.10007
+    # breakeven for this position is entry + (2 x 0.35) / 10,000 euros = 1.10007
     s.check("a stop BELOW breakeven may be moved up", breakeven.why_not(P(stop=1.09900), "demo"), None)
     s.check("a stop ALREADY at breakeven is left alone",
             "already at or beyond" in (breakeven.why_not(P(stop=1.10007), "demo") or ""), True)

@@ -160,19 +160,27 @@ _LADDER = (
 _TRAIL = Trail(from_r=2.2, gap_r=0.2, step_r=0.1)
 
 
-def ladder() -> tuple[Rung, ...]:
-    """The rungs, for every position. One ladder, no strategy argument, nothing to select.
+# GOLD: BREAKEVEN ONLY (21 Nov 2026). His order: *"use it on gold only for now. Dont delete the existing trade manager
+# but only make it work on forex pairs."* Gold banks its profit in pieces (`monitor/gold_bank.py`); a +1R lock or a
+# trail would close the whole trade, which is exactly what he is moving away from. Keyed on the SYMBOL the position
+# itself carries — never on a memory a restart can lose, which is what made the old per-strategy table dangerous.
+_GOLD_LADDER = (_LADDER[0],)
 
-    This took a `strategy` and could return a different table. See the note above `_LADDER` for what
-    that cost: a position whose strategy was forgotten got numbers he never asked for, and the trade
-    that fell in the gap lost a full R instead of scratching.
+
+def ladder(symbol: str = "") -> tuple[Rung, ...]:
+    """The rungs for a position on `symbol`: gold gets breakeven only, every other symbol the full ladder.
+
+    This once took a `strategy` and could return a different table from memory. See the note above `_LADDER` for
+    what that cost. The symbol cannot be forgotten: it is on the position.
     """
-    return _LADDER
+    from monitor.gold_bank_plan import is_gold
+    return _GOLD_LADDER if is_gold(symbol) else _LADDER
 
 
-def trail() -> Trail:
-    """The trailing rule, for every position."""
-    return _TRAIL
+def trail(symbol: str = "") -> Trail | None:
+    """The trailing rule — none for gold, which banks pieces instead."""
+    from monitor.gold_bank_plan import is_gold
+    return None if is_gold(symbol) else _TRAIL
 
 
 def trailing_rung(trail: Trail | None, r: float) -> Rung | None:

@@ -46,6 +46,9 @@ def why_not(p, account_type: str) -> str | None:
     """The reason this position's target must NOT be extended, or None. No network call."""
     if not str(getattr(p, "label", "") or "").startswith(_LABEL):
         return "not a VIX.1 position"
+    from monitor.gold_bank_plan import is_gold
+    if is_gold(getattr(p, "symbol", "")):
+        return "gold banks its profit in pieces (monitor/gold_bank.py) — its target is not moved to 4R"
     if not live_settings.get('auto_breakeven_enabled'):
         return "automatic trade management is off"
     if settings.auto_breakeven_demo_only and (account_type or "").lower() != "demo":

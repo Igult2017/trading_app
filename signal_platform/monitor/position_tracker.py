@@ -211,7 +211,7 @@ def _lines(p, r: float, price: float, guard: float | None = None) -> list[tuple[
     risk = p.risk() or 0.0
     out: list[tuple[str, str]] = []
 
-    for rung in rungs.reached(rungs.ladder(), r, rungs.trail()):
+    for rung in rungs.reached(rungs.ladder(p.symbol), r, rungs.trail(p.symbol)):
         if rung.lock_r is None:
             be = p.breakeven()
             where = (f"{be:.{d}f}" if be is not None else "your entry + costs")
@@ -229,8 +229,8 @@ def _lines(p, r: float, price: float, guard: float | None = None) -> list[tuple[
         # lock keeps its own level and is only pushed out when that level sits inside the spread.
         # `rungs.ladder()` holds the fixed rungs, so anything else came from the trail.
         if guard is not None and risk:
-            trailing = rung not in rungs.ladder()
-            lock_at = (stop_placement.trail_stop(guard, risk, p.bullish, rungs.trail().gap_r, d)
+            trailing = rung not in rungs.ladder(p.symbol)
+            lock_at = (stop_placement.trail_stop(guard, risk, p.bullish, rungs.trail(p.symbol).gap_r, d)
                        if trailing else
                        stop_placement.no_closer_than(lock_at, guard, risk, p.bullish, digits=d))
         if rung.quiet:
@@ -440,6 +440,20 @@ async def _one_position(p, send, r_seen: dict) -> None:
         else:
             log.warning(f"[position_tracker] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R "
                         f"NOT protected — will retry next poll")
+    await _bank_gold(p, guard, send)
+
+
+async def _bank_gold(p, guard: float, send) -> None:
+    """GOLD BANKS ITS PROFIT IN PIECES (21 Nov 2026, `monitor/gold_bank.py`). After the ladder, and CONTAINED: a fault
+    there must never cost this or any other position its stop move. Shared by the 0.5 s watcher."""
+    from monitor import gold_bank, gold_bank_plan
+    if not gold_bank_plan.is_gold(p.symbol):
+        return
+    try:
+        await gold_bank.manage(p, guard, send)
+    except Exception as exc:
+        log.error(f"[position_tracker] {p.symbol} #{p.position_id}: gold banking failed: "
+                  f"{type(exc).__name__}: {exc} — the stop is unaffected", exc_info=True)
 
 
 _waiting_task = None
@@ -541,6 +555,11 @@ async def check_all(send) -> None:
         # The R each position reached this poll, handed to `exit_watch` at the end so the exit
         # message can report how far the trade actually ran before it closed.
         r_seen: dict[int, float] = {}
+        try:
+            from monitor import gold_bank
+            gold_bank.forget_closed({int(p.position_id) for p in positions})
+        except Exception as exc:
+            log.warning(f"[position_tracker] gold banking memory not tidied: {type(exc).__name__}: {exc}")
         for p in positions:
             # ONE BAD POSITION MUST NOT COST THE OTHERS THEIR STOP MOVE.
             #

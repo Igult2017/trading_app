@@ -68,7 +68,7 @@ class ManageState:
     events:    list  = field(default_factory=list)   # ratchet steps to announce, e.g. [(3.0, 2.0)]
 
 
-def _locked_for(peak_r: float) -> tuple[float, bool]:
+def _locked_for(peak_r: float, symbol: str = "") -> tuple[float, bool]:
     """R to protect at a given peak, and whether that rung SPEAKS — READ FROM THE SHARED LADDER,
     `monitor/rungs.py`.
 
@@ -97,19 +97,19 @@ def _locked_for(peak_r: float) -> tuple[float, bool]:
     instruction was applied to the table and never reached the messenger.
     """
     locked, quiet = 0.0, True
-    for rung in rungs.reached(rungs.ladder(), peak_r, rungs.trail()):
+    for rung in rungs.reached(rungs.ladder(symbol), peak_r, rungs.trail(symbol)):
         if rung.lock_r is not None and rung.lock_r >= locked:
             locked, quiet = rung.lock_r, rung.quiet
     return locked, quiet
 
 
-def _be_rung(peak_r: float):
+def _be_rung(peak_r: float, symbol: str = ""):
     """The breakeven rung if it has been reached, else None. Its own question, because breakeven
     locks 0R and so cannot be told apart from 'nothing locked yet' by the number alone.
 
     Returns the RUNG rather than a bool so its `quiet` flag travels with it — see `_locked_for`.
     """
-    return next((r for r in rungs.reached(rungs.ladder(), peak_r, rungs.trail())
+    return next((r for r in rungs.reached(rungs.ladder(symbol), peak_r, rungs.trail(symbol))
                  if r.lock_r is None), None)
 
 
@@ -129,7 +129,7 @@ def _be_rung(peak_r: float):
 # from the candle's WICK while triggering on a body CLOSE, which contradicted its own docstring
 # ("Wicks never count") and defended a level below where price had actually settled.
 def run(entry: float, sl0: float, bullish: bool, bars: list[Candle],
-        state: ManageState | None = None) -> ManageState:
+        state: ManageState | None = None, symbol: str = "") -> ManageState:
     """Advance the ratchet over `bars` (1M, entry onward). Pure: no I/O, no broker calls.
 
     Used two ways with the same code — replayed over a whole trade in a backtest, or called each
@@ -148,13 +148,13 @@ def run(entry: float, sl0: float, bullish: bool, bars: list[Candle],
             # BREAKEVEN FIRST, and only once. It protects 0R, so it moves the stop to the entry
             # without changing `locked_r` — the two are different facts and conflating them is how
             # the structure exit below would arm a rung early.
-            be = _be_rung(r)
+            be = _be_rung(r, symbol)
             if not st.be_done and be is not None:
                 st.be_done = True
                 if (entry > st.stop) if bullish else (entry < st.stop):
                     st.stop = entry                     # ratchet only — never widen the risk
                 st.events.append((round(r, 2), 0.0, be.quiet))
-            want, want_quiet = _locked_for(r)
+            want, want_quiet = _locked_for(r, symbol)
             if want > st.locked_r:                      # ratchet forward — never backward
                 st.locked_r = want
                 st.stop = entry + want * risk if bullish else entry - want * risk

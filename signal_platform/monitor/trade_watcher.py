@@ -338,3 +338,6 @@ class TradeWatcher:
             else:
                 log.warning(f"[watcher] {p.symbol} #{p.position_id}: {tag} at {r:.2f}R "
                             f"NOT protected — retrying")
+        # GOLD BANKS ITS PROFIT IN PIECES — the same contained call the 2 s poll makes (`position_tracker._bank_gold`).
+        from monitor.position_tracker import _bank_gold
+        await _bank_gold(p, guard, self.send)

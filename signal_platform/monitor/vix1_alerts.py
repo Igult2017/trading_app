@@ -110,7 +110,7 @@ async def check(row, bars) -> None:
     if len(since) < 3:
         return
 
-    st = run(entry, sl0, buy, since)
+    st = run(entry, sl0, buy, since, symbol=row.symbol)   # gold: breakeven only — the advice matches the manager
     d  = price_digits(row.symbol)
 
     # 1) ratchet steps — one alert per NEW locked level, deduped so a level is announced once.

@@ -55,9 +55,12 @@ s.check("the rungs are ordered, so a gap cannot let a higher one fire first",
 
 # THERE IS NOTHING TO SELECT. No argument, no map, no fallback — so no position can be handed
 # numbers he did not ask for, whatever else has gone wrong.
-s.check("the ladder takes no strategy argument",
-        rungs.ladder.__code__.co_argcount, 0)
-s.check("...and neither does the trail", rungs.trail.__code__.co_argcount, 0)
+# 21 Nov 2026, his order: gold banks pieces, forex keeps this ladder. The one argument is the SYMBOL the position
+# carries — never a strategy remembered in memory, which is what a restart lost on 01 Sep.
+s.check("the ladder takes only the symbol, never a strategy",
+        rungs.ladder.__code__.co_varnames[:rungs.ladder.__code__.co_argcount], ("symbol",))
+s.check("...and so does the trail",
+        rungs.trail.__code__.co_varnames[:rungs.trail.__code__.co_argcount], ("symbol",))
 s.check("the OLD 1R-breakeven ladder is gone from the module",
         any(n in dir(rungs) for n in ("_DEFAULT", "_BY_STRATEGY", "_TRAIL_BY_STRATEGY",
                                       "ladder_for", "trail_for")), False)

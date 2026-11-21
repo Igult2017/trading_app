@@ -62,18 +62,41 @@ s.teeth("counting from the CURRENT stop is what breaks", P(stop=1.1000).r_at(1.1
 # ── BREAKEVEN is the NET-ZERO price, not the entry ──────────────────────────
 free = P(commission=0.0, swap=0.0)
 s.check("with no costs, breakeven IS the entry", free.breakeven(), 1.1000)
-# $3.50 charged on the open => $7.00 round trip on 100,000 units => 0.00007 of price
-paid = P(commission=3.50, swap=0.0, volume=100000)
+# $3.50 charged on the open => $7.00 round trip on 1 lot = 100,000 units => 0.00007 of price.
+# ON THE WIRE one lot is 10,000,000 (lots x lotSize x 100) — the 21 Nov 2026 fix; this test used to pass the wire
+# figure 100,000 and read it as 100,000 units, which is how breakeven came out 100x too close to the entry.
+paid = P(commission=3.50, swap=0.0, volume=10_000_000)
 s.check("commission is DOUBLED — the close costs the same as the open",
         round(paid.breakeven(), 5), round(1.1000 + 7.0 / 100000, 5))
 s.check("...which is ABOVE the entry on a buy", paid.breakeven() > paid.entry, True)
-paid_sell = P(bullish=False, commission=3.50, volume=100000)
+paid_sell = P(bullish=False, commission=3.50, volume=10_000_000)
 s.check("...and BELOW it on a sell", paid_sell.breakeven() < paid_sell.entry, True)
 s.check("swap is added on top (financing is a real cost)",
-        round(P(commission=3.50, swap=-1.0, volume=100000).breakeven(), 5),
+        round(P(commission=3.50, swap=-1.0, volume=10_000_000).breakeven(), 5),
         round(1.1000 + 8.0 / 100000, 5))
 s.check("unknown size -> no breakeven, rather than a wrong one he would act on",
         P(volume=0).breakeven(), None)
+
+# THE REAL TRADES THAT EXPOSED THE 100x (21 Nov 2026), from the broker's own deal list.
+from data import ctrader_positions as _cp, fix_quotes as _fq
+gold = Position(position_id=265272383, symbol="XAU/USD", bullish=False, volume=400, entry=3551.22,
+                stop=3577.73, target=3495.74, commission=0.14, swap=0.0, opened_at=0, start_stop=3577.73)
+s.check("gold 0.04 lot (wire 400 = 4 oz), $0.28 round trip -> breakeven $0.07 below a sell's entry",
+        round(gold.breakeven(), 2), 3551.15)
+_real_live = _fq.live_price
+_fq.live_price = lambda sym, age=0: 155.0 if sym == "USD/JPY" else None
+gj = Position(position_id=265414235, symbol="GBP/JPY", bullish=False, volume=4_400_000, entry=208.258,
+              stop=208.595, target=206.917, commission=1.32, swap=0.0, opened_at=0, start_stop=208.595)
+s.check("GBP/JPY 0.44 lot: $2.64 is 409 yen on 44,000 GBP -> breakeven 0.0093 below the entry, not ON it",
+        round(gj.breakeven(), 4), round(208.258 - 2.64 * 155.0 / 44_000, 4))
+s.teeth("the old sum put GBP/JPY breakeven on the entry itself (his trade closed there and lost $2.64)",
+        round(gj.breakeven(), 3) != 208.258)
+_fq.live_price = lambda sym, age=0: None
+s.check("no USD/JPY price -> covers the cost as if in dollars (less, never through the market)",
+        round(gj.breakeven(), 6), round(208.258 - 2.64 / 44_000, 6))
+_fq.live_price = _real_live
+s.check("USD/JPY uses its own entry as the rate",
+        round(_cp.quote_per_usd("USD/JPY", 155.2), 1), 155.2)
 
 # ── the alert sequence ──────────────────────────────────────────────────────
 sent: list[str] = []
