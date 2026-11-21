@@ -173,6 +173,15 @@ class CTraderProvider:
         self._stopped     = False
         self._loop        = asyncio.get_running_loop()
 
+        # ON THE POOL (21 Nov 2026, `docs/copy-realtime-plan.md` step 4) the master owns no socket: its account is
+        # logged in on a shared long-lived connection and that connection hands it this account's messages. 500
+        # masters are then a few connections, not 500. `COPY_USE_POOL` decides; off = its own connection, as before.
+        import pool as _pool
+        self._pooled = _pool.enabled_for(account_type)
+        self._unlisten = None
+        if self._pooled:
+            self.client = None
+            return
         # Only "demo" uses the demo gateway; live AND funded/prop accounts are live.
         host = CT_DEMO_HOST if account_type == "demo" else CT_LIVE_HOST
         self.client = Client(host, CT_PORT, OwnQueueProtocol, numberOfMessagesToSendPerSecond=int(PER_SECOND))
@@ -190,8 +199,31 @@ class CTraderProvider:
         return self._lanes
 
     def start(self) -> None:
+        if getattr(self, "_pooled", False):
+            asyncio.ensure_future(self._start_pooled())
+            return
         log.info(f"[{self.master_id}] connecting to cTrader Open API")
         self.client.startService()
+
+    async def _start_pooled(self) -> None:
+        """Log the account in on the pool, then run the SAME login chain from "account logged in" onward (symbols,
+        open positions, the 30-second reconcile) — every rule after that point is unchanged."""
+        import pool as _pool
+        from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage
+        acct = int(self.creds["ctraderId"])
+        self._connected, self._connected_since, self._disconnected_since = True, time.monotonic(), None
+        try:
+            conn = await _pool.POOL.connection(self.creds, self.account_type)
+        except Exception as exc:
+            self._note_auth_lost(f"pool login failed: {type(exc).__name__}: {exc}")
+            return
+        if self._stopped:
+            return
+        self.client = conn.client
+        self._unlisten = conn.listen(acct, self._on_message, logins=True)
+        log.info(f"[{self.master_id}] on the shared connection pool:{conn.env}#{conn.index} — loading symbols")
+        res = ProtoOAAccountAuthRes(ctidTraderAccountId=acct)
+        self._on_message(conn.client, ProtoMessage(payloadType=res.payloadType, payload=res.SerializeToString()))
 
     def stop(self) -> None:
         # ⚠ MARK IT STOPPED FIRST. `stopService()` ends the socket but NOT the reconcile timer
@@ -201,6 +233,10 @@ class CTraderProvider:
         # rare; it is not now that a lost login causes one, so it is closed here rather than left
         # as a leak this change would have multiplied.
         self._stopped = True
+        if getattr(self, "_pooled", False):
+            if self._unlisten:
+                self._unlisten()           # the shared connection stays up for everyone else
+            return
         self.client.stopService()
 
     def needs_recycle(self, max_down: float = 300.0, max_unauthed: float = 120.0) -> bool:

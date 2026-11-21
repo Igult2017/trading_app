@@ -100,7 +100,7 @@ async def dispatch(event: dict, master_id: str) -> None:
     # BOUNDED FAN-OUT (2026-09-26). This gathered EVERY follower at once. With 500 followers that is
     # 500 simultaneous broker requests, and cTrader allows 50 per second per connection
     # (https://help.ctrader.com/open-api/) — so an unbounded burst does not go faster, it gets the
-    # application throttled. The gateway's token bucket enforces the broker's rule; this stops the
+    # application throttled. The connection pool's pacing enforces the broker's rule; this stops the
     # queue in front of it growing without limit, and keeps memory flat at any follower count.
     await asyncio.gather(*[
         _exec_follower_bounded(master_trade_id, f, snap, etype, event.get("master_order_id"),

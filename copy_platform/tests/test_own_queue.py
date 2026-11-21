@@ -64,6 +64,8 @@ for i in range(int(CP.PER_SECOND) + 5):
     c.send(f"m{i:03d}".encode())
 sent_now = c.transport.value().count(b"m")
 S.check(f"no more than {int(CP.PER_SECOND)} go out in one second (cTrader allows 50)", sent_now, int(CP.PER_SECOND))
-S.check("the rest wait in order for the next second", [d for _, d in c._send_queue][:2], [b"m045", b"m046"])
+n = int(CP.PER_SECOND)
+S.check("the rest wait in order for the next second", [d for _, d in c._send_queue][:2],
+        [f"m{n:03d}".encode(), f"m{n + 1:03d}".encode()])
 
 S.done()

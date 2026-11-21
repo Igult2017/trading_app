@@ -85,10 +85,50 @@ class CopyEngine:
             await self._load_masters()
         except Exception:
             log.exception("[engine] initial _load_masters failed — arming loops anyway")
+        # FOLLOWERS LOGGED IN AT START-UP, not on their first copy (21 Nov 2026, plan step 3) — so a copy is one
+        # message and never waits for a login. Only when the pool is on; off = nothing changes.
+        asyncio.ensure_future(self._warm_followers())
         self._watch_task = asyncio.ensure_future(self._watch_loop())
         asyncio.ensure_future(self._supervise_loop())
         # Instant pickup of new masters; silently falls back to the 60s poll.
         start_listener(asyncio.get_running_loop(), self._load_masters)
+
+    async def _warm_followers(self) -> None:
+        """Log every active cTrader follower account in on the pool, gently (10 a second per connection)."""
+        try:
+            import pool
+            from db import CopyFollower
+            with Session() as db:
+                rows = (db.query(BrokerAccount).join(CopyFollower, CopyFollower.broker_account_id == BrokerAccount.id)
+                          .filter(CopyFollower.is_active.is_(True), CopyFollower.dropped_at.is_(None)).all())
+                accounts = {b.id: b for b in rows if (b.platform or "").lower() in ("ctrader", "ct")}
+                fids: dict = {}
+                for f in (db.query(CopyFollower).filter(CopyFollower.is_active.is_(True),
+                                                        CopyFollower.dropped_at.is_(None)).all()):
+                    fids.setdefault(f.broker_account_id, []).append(f.id)
+            todo, owner = [], {}
+            for b in accounts.values():
+                kind = b.account_type or "demo"
+                if not pool.enabled_for(kind):
+                    continue
+                creds = await get_creds(b)
+                if creds and creds.get("ctraderId"):
+                    todo.append((creds, kind))
+                    owner[int(creds["ctraderId"])] = b.id
+            if not todo:
+                return
+            out = await pool.POOL.warm(todo)
+            # LISTEN to every follower now it is logged in (plan step 5): a copy closed by hand, or refused later by
+            # the broker, is written to the Activity log instead of passing unnoticed.
+            import follower_watch
+            for acct, bid in owner.items():
+                if out.get(acct) is None and acct in pool.POOL._home:
+                    follower_watch.watch(pool.POOL._home[acct], pool.POOL, acct, fids.get(bid, []))
+            bad = {a: why for a, why in out.items() if why}
+            log.info("[engine] pool: %d follower account(s) logged in at start-up%s — %s", len(out) - len(bad),
+                     f", {len(bad)} refused: {bad}" if bad else "", pool.POOL.stats())
+        except Exception:
+            log.exception("[engine] could not log the followers in at start-up — each logs in on its first copy")
 
     async def _watch_loop(self) -> None:
         while True:

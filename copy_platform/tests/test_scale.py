@@ -24,7 +24,6 @@ import time
 
 from _harness import Suite
 
-import gateway
 import symbol_details
 from db_io import run_db
 
@@ -136,43 +135,25 @@ s.teeth("forgetting an account really clears it",
         (symbol_details.forget_account(ACCT), symbol_details.symbol_map(ACCT))[1] is None)
 
 
-# ── 4. THE BROKER'S OWN RATE LIMIT IS HELD ─────────────────────────────────────────────────────
-# "a maximum of 50 requests per second per connection" — we sit just under it so a clock edge
-# cannot tip us over. A burst inside one second's budget must NOT be slowed: that is what makes a
-# fan-out fast; only sustained load waits.
-async def _burst_then_sustain():
-    b = gateway._Bucket(45.0)
-    t0 = time.monotonic()
-    for _ in range(45):
-        await b.take()
-    burst = time.monotonic() - t0
-    t1 = time.monotonic()
-    for _ in range(45):
-        await b.take()
-    return burst, time.monotonic() - t1
-
-
+# ── 4+5. HOW MANY CONNECTIONS — the POOL (21 Nov 2026, docs/copy-realtime-plan.md) ──────────────────────────────
+# The old gateway held TWO connections for everyone; it was never wired and is deleted. The pool puts accounts on a few
+# long-lived connections, COPY_ACCOUNTS_PER_CONN each, per (environment, app). The 50-a-second rule per connection is
+# held by `ctrader_protocol.OwnQueueProtocol` and proven with a stand-in broker in `test_pool.py`.
 print()
-print("4. THE BROKER'S 50-REQUESTS-PER-SECOND RULE")
-burst, paced = asyncio.run(_burst_then_sustain())
-print(f"   first 45 (one second's budget): {burst*1000:6.0f} ms  <- a burst is not throttled")
-print(f"   next  45:                       {paced:6.2f} s   <- paced to the limit")
-s.check("a burst within budget is not slowed", burst < 0.2, True)
-s.check("sustained load is paced to the broker's rule", 0.8 < paced < 1.5, True)
-
-
-# ── 5. TWO CONNECTIONS FOR THE WHOLE PLATFORM, NOT ONE PER ORDER ───────────────────────────────
-# Spotware: "At most, you should create two connections: one for demo accounts and one for live."
-print()
-print("5. HOW MANY CONNECTIONS THE PLATFORM HOLDS")
-gateway._gateways.clear()
-seen = {gateway.for_account(t) for t in ("demo", "demo", "demo", "live", "live", "LIVE", "funded")}
-s.check("however many accounts, there are only ever TWO gateways", len(seen), 2)
-s.check("demo and live are separate connections, as the docs require",
-        gateway.for_account("demo") is not gateway.for_account("live"), True)
-s.check("a funded/prop account goes on the LIVE connection, not demo",
-        gateway.for_account("funded") is gateway.for_account("live"), True)
-s.teeth("the same environment really does reuse one object",
-        gateway.for_account("demo") is gateway.for_account("demo"))
+print("4. HOW MANY CONNECTIONS THE PLATFORM HOLDS")
+import pool                                                            # noqa: E402
+P = pool.Pool()
+home = {a: P._conn_for(a, "demo", "app") for a in range(1, pool.ACCOUNTS_PER_CONN + 2)}
+s.check(f"{pool.ACCOUNTS_PER_CONN} accounts share ONE connection", len({id(home[a]) for a in range(1, pool.ACCOUNTS_PER_CONN + 1)}), 1)
+for a in home:
+    home[a].creds[a] = {}
+P2 = pool.Pool()
+c1 = [P2._conn_for(a, "demo", "app") for a in range(1, 4)]
+s.check("an account stays on the connection it was given", P2._conn_for(2, "demo", "app") is c1[1], True)
+s.check("demo and live never share a connection", P._conn_for(9001, "live", "app") is home[1], False)
+s.check("accounts of a DIFFERENT app never share a connection (cTrader would refuse them)",
+        P._conn_for(9002, "demo", "other-app") is home[1], False)
+s.teeth("the per-connection cap is what opens a second connection",
+        P._conn_for(10_000, "demo", "app") is not home[1])
 
 s.done()

@@ -108,6 +108,10 @@ for folder, _dirs, files in os.walk(ROOT):
                 bad.append(f"{os.path.relpath(path, ROOT)}: {m.group(0)}")
 
 s.check("every Protobuf.extract call passes exactly one argument", bad, [])
+# THIRTEEN SINCE 2026-11-21 (c) — `executors/ctrader.is_too_many` decodes a broker error to tell "too many requests on
+# this connection" (resend it a moment later) from a real refusal.
+# TWELVE SINCE 2026-11-21 (b) — `pool.py` decodes every message once to read which account it names, so it can be handed
+# to that account's listeners on a shared connection (the copier's connection pool, docs/copy-realtime-plan.md).
 # ELEVEN SINCE 2026-11-21 — `executors/ctrader.py` now decodes the broker's ORDER-ERROR reply and error response, so a
 # refused follower order or stop change is answered at once with the broker's own reason instead of waiting out 20 s
 # and reading "Execution timed out" (three in a row on 20 Nov, XAU/USD #265272334).
@@ -119,7 +123,7 @@ s.check("every Protobuf.extract call passes exactly one argument", bad, [])
 # authenticated on the shared connection. The count is a canary: it catches a call site QUIETLY
 # DISAPPEARING (a reply silently stopping being handled), which the one-argument rule above cannot
 # see. So it is updated deliberately when a real one is added, never to make a red suite green.
-s.check("...and all eleven call sites are still present", total, 11)
+s.check("...and all thirteen call sites are still present", total, 13)
 
 
 # ── TEETH ───────────────────────────────────────────────────────────────────

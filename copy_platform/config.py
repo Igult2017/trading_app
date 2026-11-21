@@ -131,19 +131,13 @@ COPY_WORKER_COUNT = max(1, int(os.environ.get("COPY_WORKER_COUNT", "1")))
 COPY_DB_POOL     = int(os.environ.get("COPY_DB_POOL", "40"))
 COPY_DB_OVERFLOW = int(os.environ.get("COPY_DB_OVERFLOW", "80"))
 
-# HOW MANY FOLLOWERS MAY BE EXECUTED AT ONCE. The fan-out used to gather EVERY follower with no
-# bound, so 500 followers meant 500 simultaneous broker requests — straight past cTrader's
-# documented 50-per-second-per-connection limit, which gets the application throttled rather than
-# served. 25 is a safe starting number, NOT a measured one; the gateway's own rate limiter is what
-# actually enforces the broker's rule, and this simply stops the queue in front of it growing
-# without limit.
-COPY_MAX_CONCURRENT_FOLLOWERS = int(os.environ.get("COPY_MAX_CONCURRENT_FOLLOWERS", "25"))
+# HOW MANY FOLLOWERS MAY BE EXECUTED AT ONCE. The fan-out used to gather EVERY follower with no bound (500 followers =
+# 500 simultaneous broker requests). 25 kept that sane while every copy opened its own connection and took 3-5 s.
+# 100 since 21 Nov 2026: on the connection pool a copy is ONE message and the pool itself holds cTrader's limit per
+# connection (`ctrader_protocol.OwnQueueProtocol`, proven in `tests/test_pool.py`), so 25 would only make 2,000
+# followers wait their turn. The database pool below (40 + 80) is the next governor; plan step 6 (a durable job queue)
+# replaces this bound. NOT measured at 2,000 through the dispatcher yet — measured through the executor only.
+COPY_MAX_CONCURRENT_FOLLOWERS = int(os.environ.get("COPY_MAX_CONCURRENT_FOLLOWERS", "100"))
 
-# cTrader's OWN limit, quoted from https://help.ctrader.com/open-api/ :
-#   "a maximum of 50 requests per second per connection for any non-historical data requests"
-# It is PER CONNECTION and the platform is meant to hold only two (one demo, one live), so this is
-# the real external ceiling on how fast a fan-out can go. Set slightly under 50 so a clock edge
-# cannot tip us over it.
-CTRADER_REQS_PER_SEC = float(os.environ.get("CTRADER_REQS_PER_SEC", "45"))
-# "make sure that you send a heartbeat to the server at least once every 10 seconds" — same source.
-CTRADER_HEARTBEAT_SEC = float(os.environ.get("CTRADER_HEARTBEAT_SEC", "8"))
+# cTrader's rate limit per connection and the heartbeat now live with the connection itself:
+# `ctrader_protocol.PER_SECOND` (CTRADER_REQS_PER_SEC, default 35) and `pool.HEARTBEAT_S`.

@@ -118,6 +118,16 @@ class ExecResult:
     error:       str | None = None
 
 
+def is_too_many(message) -> bool:
+    """Is this broker answer "too many requests on this connection" (REQUEST_FREQUENCY_EXCEEDED)?"""
+    try:
+        if message.payloadType != ProtoOAErrorRes().payloadType:
+            return False
+        return Protobuf.extract(message).errorCode == "REQUEST_FREQUENCY_EXCEEDED"
+    except Exception:
+        return False
+
+
 class CTraderExecutor:
     """One-shot executor for a follower's cTrader account."""
 
@@ -229,6 +239,33 @@ class CTraderExecutor:
     # ── Internal ───────────────────────────────────────────────────────────────
 
     async def _run(self) -> ExecResult:
+        import pool
+        if pool.enabled_for(self.account_type):
+            return await self._run_pooled(pool.POOL)
+        return await self._run_own_connection()
+
+    async def _run_pooled(self, the_pool) -> ExecResult:
+        """THE SAME COMMAND, SENT ON THE POOL (21 Nov 2026, `docs/copy-realtime-plan.md` step 3). The account is
+        already logged in on a long-lived connection, so the command starts straight at its first step — no connect,
+        no app login, no account login. One command per account at a time, so two never read each other's replies."""
+        acct = int(self.creds["ctraderId"])
+        try:
+            conn = await the_pool.connection(self.creds, self.account_type)
+        except Exception as exc:
+            return ExecResult(ok=False, error=f"pool: {type(exc).__name__}: {exc}")
+        async with the_pool.account_lock(acct):
+            loop = asyncio.get_event_loop()
+            self._result_future = loop.create_future()
+            stop_listening = conn.listen(acct, self._on_message)
+            try:
+                self._start_command(conn.client)
+                return await asyncio.wait_for(self._result_future, timeout=20)
+            except asyncio.TimeoutError:
+                return ExecResult(ok=False, error="Execution timed out")
+            finally:
+                stop_listening()
+
+    async def _run_own_connection(self) -> ExecResult:
         loop = asyncio.get_event_loop()
         self._result_future = loop.create_future()
         self._client = self._make_client()
@@ -250,7 +287,7 @@ class CTraderExecutor:
         req = ProtoOAApplicationAuthReq()
         req.clientId     = cid
         req.clientSecret = csec
-        ctrader_send.send(client, req)
+        self._send(client, req)
 
     def _on_message(self, client, message):
         ptype = message.payloadType
@@ -259,41 +296,10 @@ class CTraderExecutor:
             req = ProtoOAAccountAuthReq()
             req.ctidTraderAccountId = int(self.creds["ctraderId"])
             req.accessToken         = self.creds["accessToken"]
-            ctrader_send.send(client, req)
+            self._send(client, req)
 
         elif ptype == ProtoOAAccountAuthRes().payloadType:
-            # Opens need a numeric symbolId → fetch the symbol list first.
-            # A MODIFY that omits a field (SL or TP is None) means "leave that
-            # protection untouched" — but the cTrader amend request REPLACES the
-            # position's SL/TP wholesale (an unset field clears it). So we first
-            # reconcile to read the position's current SL/TP and back-fill the
-            # missing side; only when BOTH fields are supplied do we skip reconcile
-            # and send straight away (the cTrader live-copy path, unchanged).
-            # Close uses a positionId → send straight away.
-            if self._pending_cmd and self._pending_cmd[0] in ("open", "close", "place"):
-                # THE SYMBOL LIST IS 1,941 SYMBOLS AND 312 KB, so it is fetched ONCE PER ACCOUNT and
-                # cached in `symbol_details`, not once per order. It used to live on this executor,
-                # and `dispatcher._get_executor` builds a new executor for every follower on every
-                # event — so the whole 312 KB came down again to place each single order, and spent
-                # one of the 50 requests per second cTrader allows the connection.
-                cached = symbol_details.symbol_map(int(self.creds["ctraderId"]))
-                if cached:
-                    self._symbol_map = cached
-                    self._after_symbols(client)
-                    return
-                req = ProtoOASymbolsListReq()
-                req.ctidTraderAccountId = int(self.creds["ctraderId"])
-                ctrader_send.send(client, req)
-            elif self._pending_cmd and self._pending_cmd[0] == "find":
-                req = ProtoOAReconcileReq()
-                req.ctidTraderAccountId = int(self.creds["ctraderId"])
-                ctrader_send.send(client, req)
-            elif self._modify_needs_reconcile():
-                req = ProtoOAReconcileReq()
-                req.ctidTraderAccountId = int(self.creds["ctraderId"])
-                ctrader_send.send(client, req)
-            else:
-                self._send_command(client)
+            self._start_command(client)
 
         elif ptype == ProtoOASymbolsListRes().payloadType:
             res = Protobuf.extract(message)
@@ -323,12 +329,18 @@ class CTraderExecutor:
         # failure too, and is reported the same way).
         elif ptype in (ProtoOAOrderErrorEvent().payloadType, ProtoOAErrorRes().payloadType):
             err = Protobuf.extract(message)
+            if not self._mine(err):
+                return
+            if getattr(err, "errorCode", "") == "REQUEST_FREQUENCY_EXCEEDED" and getattr(self, "_resends", 0) <= self._MAX_RESENDS:
+                return                    # `_on_reply` resends it; this is a pause, not the answer
             code = getattr(err, "errorCode", "") or "ERROR"
             desc = (getattr(err, "description", "") or "").strip()
             self._resolve(ExecResult(ok=False, error=f"cTrader refused: {code}" + (f" — {desc}" if desc else "")))
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
             event = Protobuf.extract(message)
+            if not self._mine(event):
+                return                    # another order's news on this account — not the answer to THIS command
             et = event.executionType
             # 1. Explicit error code → fail immediately.
             if event.HasField("errorCode") and event.errorCode:
@@ -376,6 +388,89 @@ class CTraderExecutor:
                     entry_price = float(pos.price) if pos.price else None,
                 ))
 
+    # "TOO MANY REQUESTS" IS A PAUSE, NOT A REFUSAL (21 Nov 2026). cTrader answers REQUEST_FREQUENCY_EXCEEDED when a
+    # connection sends more than 50 in a second; the request was NOT carried out, so sending the same message again a
+    # second later is safe (a new order also carries its clientOrderId). Seen under load in `tests/test_pool.py`: a
+    # busy machine flushes messages in bunches, so even a paced sender can arrive bunched.
+    _MAX_RESENDS = 5
+
+    def _send(self, client, req) -> None:
+        # MATCHED BY THE REPLY TAG, not by account: the library stamps each request with a `clientMsgId` and the
+        # broker's answer carries it back, so a "too many" answer is tied to the exact message that caused it even
+        # when it names no account (the field is optional in `ProtoOAErrorRes`).
+        d = ctrader_send.send(client, req)
+        if d is not None:
+            d.addCallback(lambda msg, c=client, r=req: self._on_reply(msg, c, r))
+
+    def _on_reply(self, msg, client, req):
+        if is_too_many(msg) and getattr(self, "_resends", 0) < self._MAX_RESENDS:
+            import random
+            self._resends = getattr(self, "_resends", 0) + 1
+            delay = self._resends * (1.0 + random.random() * 0.5)     # spread out, so retries do not collide again
+            asyncio.get_event_loop().call_later(delay, lambda: self._send(client, req))
+        return msg
+
+    def _mine(self, msg) -> bool:
+        """Is this execution event / order error about THIS command's order or position? (21 Nov 2026)
+
+        Every push for the account reaches every command running on it — another mirror filling, a trade its owner
+        closed. Read as this command's answer, it would report the wrong order as placed or the wrong fill as done.
+        Matched by what this command knows: a new order by its `clientOrderId` (the copy label), a close/modify by
+        the position id, an amend/cancel by the order id. Nothing to match by -> accepted, as before."""
+        cmd = tuple(self._pending_cmd or ()) + (None,) * 9      # a short tuple (a test, an old caller) never raises
+        verb = cmd[0] or ""
+        def _sub(name):
+            return getattr(msg, name) if name in msg.DESCRIPTOR.fields_by_name and msg.HasField(name) else None
+        order, position = _sub("order"), _sub("position")
+        if verb in ("open", "place"):
+            want = str((cmd[6] if verb == "open" else cmd[8]) or "")
+            got = getattr(order, "clientOrderId", "") if order is not None else ""
+            return not want or not got or got == want[:50]
+        if verb in ("close", "modify") and cmd[1] is not None:
+            pid = int(cmd[1])
+            got = (position.positionId if position is not None else 0) or int(getattr(msg, "positionId", 0) or 0)
+            return not got or got == pid
+        if verb in ("amend", "cancel") and cmd[1] is not None:
+            oid = int(cmd[1])
+            got = (order.orderId if order is not None else 0) or int(getattr(msg, "orderId", 0) or 0)
+            return not got or got == oid
+        return True
+
+    def _start_command(self, client) -> None:
+        """The first step of a command once the account is logged in — on its own connection, or on the pool."""
+        # Opens need a numeric symbolId → fetch the symbol list first.
+        # A MODIFY that omits a field (SL or TP is None) means "leave that
+        # protection untouched" — but the cTrader amend request REPLACES the
+        # position's SL/TP wholesale (an unset field clears it). So we first
+        # reconcile to read the position's current SL/TP and back-fill the
+        # missing side; only when BOTH fields are supplied do we skip reconcile
+        # and send straight away (the cTrader live-copy path, unchanged).
+        # Close uses a positionId → send straight away.
+        if self._pending_cmd and self._pending_cmd[0] in ("open", "close", "place"):
+            # THE SYMBOL LIST IS 1,941 SYMBOLS AND 312 KB, so it is fetched ONCE PER ACCOUNT and
+            # cached in `symbol_details`, not once per order. It used to live on this executor,
+            # and `dispatcher._get_executor` builds a new executor for every follower on every
+            # event — so the whole 312 KB came down again to place each single order, and spent
+            # one of the 50 requests per second cTrader allows the connection.
+            cached = symbol_details.symbol_map(int(self.creds["ctraderId"]))
+            if cached:
+                self._symbol_map = cached
+                self._after_symbols(client)
+                return
+            req = ProtoOASymbolsListReq()
+            req.ctidTraderAccountId = int(self.creds["ctraderId"])
+            self._send(client, req)
+        elif self._pending_cmd and self._pending_cmd[0] == "find":
+            req = ProtoOAReconcileReq()
+            req.ctidTraderAccountId = int(self.creds["ctraderId"])
+            self._send(client, req)
+        elif self._modify_needs_reconcile():
+            req = ProtoOAReconcileReq()
+            req.ctidTraderAccountId = int(self.creds["ctraderId"])
+            self._send(client, req)
+        else:
+            self._send_command(client)
+
     def _after_symbols(self, client) -> None:
         """What happens once the name -> id map is in hand, from the cache or from the broker.
 
@@ -387,7 +482,7 @@ class CTraderExecutor:
         # stepVolume. Ask for the full ProtoOASymbol before sizing anything.
         sid = self._cmd_symbol_id()
         if sid is not None and symbol_details.get(int(self.creds["ctraderId"]), sid) is None:
-            ctrader_send.send(client, symbol_details.build_request(int(self.creds["ctraderId"]), sid))
+            self._send(client, symbol_details.build_request(int(self.creds["ctraderId"]), sid))
             return
         self._send_command(client)
 
@@ -504,7 +599,7 @@ class CTraderExecutor:
             if label:
                 req.label = label[:100]
                 req.clientOrderId = label[:50]
-            ctrader_send.send(client, req)
+            self._send(client, req)
 
         elif cmd[0] == "close":
             _, pos_id, lots, close_symbol = cmd
@@ -519,7 +614,7 @@ class CTraderExecutor:
                 self._resolve(ExecResult(ok=False, error=f"close: {refusal}"))
                 return
             req.volume = volume
-            ctrader_send.send(client, req)
+            self._send(client, req)
 
         elif cmd[0] == "modify":
             _, pos_id, sl, tp = cmd
@@ -528,7 +623,7 @@ class CTraderExecutor:
             req.positionId          = int(pos_id)
             if sl: req.stopLoss   = sl
             if tp: req.takeProfit = tp
-            ctrader_send.send(client, req)
+            self._send(client, req)
 
         elif cmd[0] == "place":
             _, symbol, action, lots, order_type, price, sl, tp, label = cmd
@@ -564,10 +659,10 @@ class CTraderExecutor:
             # THE IDEMPOTENCY KEY. cTrader echoes `clientOrderId` back on the execution event
             # (`ProtoOAOrder.clientOrderId`), so it is both the safety net against placing the same
             # mirror twice after an ambiguous failure AND the way a reply is matched to its request
-            # when several orders share one connection (`gateway.request`). Derived from the master
+            # when several orders share one connection (the connection pool, `_mine`). Derived from the master
             # order + follower, never random, so a retry produces the SAME key.
             if label: req.clientOrderId = label[:50]
-            ctrader_send.send(client, req)
+            self._send(client, req)
 
         elif cmd[0] == "amend":
             _, order_id, order_type, price, sl, tp = cmd
@@ -580,11 +675,11 @@ class CTraderExecutor:
                 req.limitPrice = price
             if sl: req.stopLoss   = sl
             if tp: req.takeProfit = tp
-            ctrader_send.send(client, req)
+            self._send(client, req)
 
         elif cmd[0] == "cancel":
             _, order_id = cmd
             req = ProtoOACancelOrderReq()
             req.ctidTraderAccountId = acct_id
             req.orderId             = int(order_id)
-            ctrader_send.send(client, req)
+            self._send(client, req)

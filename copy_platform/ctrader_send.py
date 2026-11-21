@@ -7,7 +7,7 @@ away, so when no reply came the timeout had nobody to catch it, and Twisted prin
 "Unhandled error in Deferred" — 9 of them in one short live log after the 15 Nov deploy.
 
 The commonest case is not a fault at all: THE HEARTBEAT, sent every 8 s to keep the socket open
-(`gateway.py` `_heartbeat`), is never answered by the broker, by design. Its wait always runs out.
+(`pool.Conn._heartbeat`), is never answered by the broker, by design. Its wait always runs out.
 
 So every send now goes through `send`, which keeps the reply logic exactly as it was (replies are
 still read in each module's own message callback) and only decides what a missing reply means:

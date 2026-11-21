@@ -436,6 +436,27 @@ order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilin
 
 ## Fix log
 
+### 2026-11-21 (d) — the connection pool: many accounts on a few long-lived connections
+
+His order: *"use the api we have for over 2000 users without the api even knowing it is serving 2000."* cTrader limits
+CONNECTIONS (50 requests/s each), not users, and one connection carries many logged-in accounts. **Built:** `pool.py`
+(accounts spread over connections, `COPY_ACCOUNTS_PER_CONN` = 50 each, per environment AND app; one client per
+connection for life; on a drop the same client reconnects and logs everyone back in, staggered; a refused or logged-out
+account logs in again with fresh credentials on next use); followers send through it (`executors/ctrader._run_pooled`,
+one command per account at a time, every reply checked as its own by `_mine`); masters listen through it
+(`providers/ctrader._start_pooled`); followers are logged in at start-up (`engine._warm_followers`, 10/s per
+connection) and LISTENED to (`follower_watch.py`: a copy closed by hand or refused later is written as DRIFT).
+"Too many requests" answers are resent a moment later, matched by the reply tag. Pace per connection 35/s (measured:
+a busy machine flushes in bunches; at 45 and 30 messages ARRIVED over 50, at 25 none did). Followers at once: 100.
+`gateway.py` (never wired) is DELETED. Switch: `COPY_USE_POOL` = off | demo | all.
+
+**Measured on a stand-in cTrader in its own process** (`tests/fake_ctrader.py`, enforces 50/s per connection):
+2,000 accounts logged in on 41 connections in 5.8 s, none over the limit; **one master trade copied to all 2,000 in
+1.53 s**, no request over the limit, busiest connection 35 in a second; three accounts share one connection with one
+login each; a drop → the same client, one connection, everyone back; another order's news is not taken as the reply;
+a master on the pool hears its order before and after a drop. `tests/test_pool.py` 19, `test_follower_watch.py` 6.
+NOT yet measured: 2,000 through the dispatcher (database included) — that is the next bottleneck to measure.
+
 ### 2026-11-21 (c) — every message waited for a once-a-second timer
 
 **Found in the audit:** the cTrader library never writes a message when it is sent; it queues it and a ONE-SECOND
