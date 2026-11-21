@@ -75,7 +75,7 @@ jobs.mark(ids["f2"], "started", session_factory=S)        # the engine stopped h
 sent, logged = [], []
 
 
-async def fake_bounded(mtid, f, snap, etype, oid, frac, job_id=None):
+async def fake_bounded(mtid, f, snap, etype, oid, frac, job_id=None, force=False):
     sent.append((f.id, etype, snap.order_id))
     jobs.mark(job_id, "done", session_factory=S)
 dispatcher._exec_follower_bounded = fake_bounded
@@ -97,6 +97,29 @@ asyncio.new_event_loop().run_until_complete(go())
 s.check("a second restart sends nothing again", sent, [])
 s.teeth("without the jobs written first, a restart has nothing to finish (the old loss)",
         jobs.plan_resume([])[0] == [])
+
+# ── TWO WORKERS (plan step 8): every job is run exactly once, by the worker that owns its follower account ──
+with S() as db:
+    for i in range(40):
+        db.add(DB.CopyFollower(id=f"w{i}", master_id="m2", is_active=True, broker_account_id=f"acct-{i}"))
+    db.commit()
+    ids2 = jobs.create(db, "m2", "mt-2", [SimpleNamespace(id=f"w{i}") for i in range(40)],
+                       {"type": "CLOSE", "snap": pos})
+    db.commit()
+taken = {0: [], 1: []}
+for rnd in range(2):                                      # both workers look twice — a second look must take nothing
+    for w in (0, 1):
+        for j in jobs.owned_pending(w, 2, session_factory=S):
+            if jobs.claim(j.id, session_factory=S):
+                taken[w].append(j.follower_id)
+everyone = sorted(taken[0] + taken[1])
+s.check("40 jobs, two workers: each runs exactly once", (len(everyone), len(set(everyone))), (40, 40))
+s.check("...and only by the worker that owns that follower account",
+        all(jobs.owner_of(f"acct-{int(f[1:])}", 2) == w for w in (0, 1) for f in taken[w]), True)
+s.check("...both workers got a share", (len(taken[0]) > 0, len(taken[1]) > 0), (True, True))
+s.check("a job already taken cannot be taken again", jobs.claim(ids2["w0"], session_factory=S), False)
+s.teeth("without the claim, both workers would have run the same job",
+        len(jobs.owned_pending(0, 1, session_factory=S)) == 0 and len(taken[0]) + len(taken[1]) == 40)
 
 import pathlib
 src = (pathlib.Path(__file__).resolve().parents[1] / "dispatcher.py").read_text(encoding="utf-8")

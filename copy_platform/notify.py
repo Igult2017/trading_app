@@ -18,15 +18,16 @@ log = logging.getLogger("notify")
 CHANNEL = "copy_change"
 
 
-def start_listener(loop, on_change) -> None:
+def start_listener(loop, on_change, channel: str = CHANNEL) -> None:
     """Open a dedicated LISTEN connection; call the async `on_change()` on each NOTIFY.
-    Wired into the asyncio loop via add_reader so it never blocks the reactor."""
+    Wired into the asyncio loop via add_reader so it never blocks the reactor. `channel`: copy_change (masters and
+    followers changed) or copy_jobs (new copy jobs for another worker, plan step 8)."""
     try:
         conn = psycopg2.connect(DATABASE_URL)
         conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
         cur = conn.cursor()
-        cur.execute(f"LISTEN {CHANNEL};")
-        log.info("[notify] listening on '%s'", CHANNEL)
+        cur.execute(f"LISTEN {channel};")
+        log.info("[notify] listening on '%s'", channel)
     except Exception as e:
         log.warning("[notify] could not start listener (%s) — using 60s poll only", e)
         return

@@ -102,11 +102,31 @@ async def dispatch(event: dict, master_id: str) -> None:
     # (https://help.ctrader.com/open-api/) — so an unbounded burst does not go faster, it gets the
     # application throttled. The connection pool's pacing enforces the broker's rule; this stops the
     # queue in front of it growing without limit, and keeps memory flat at any follower count.
+    #
+    # MORE THAN ONE WORKER (plan step 8): each follower ACCOUNT belongs to one worker. This worker runs its own now;
+    # the others' jobs are already written, and a NOTIFY wakes their owners (`jobs.run_owned`). One worker = all here.
+    from config import COPY_WORKER_INDEX, COPY_WORKER_COUNT
+    import jobs as _jobs
+    mine = [f for f in followers if COPY_WORKER_COUNT == 1
+            or _jobs.owner_of(f.broker_account_id) == COPY_WORKER_INDEX]
+    if len(mine) < len(followers):
+        await run_db(_notify_jobs)
     await asyncio.gather(*[
         _exec_follower_bounded(master_trade_id, f, snap, etype, event.get("master_order_id"),
                                event.get("fraction"), job_id=job_ids.get(f.id))
-        for f in followers
+        for f in mine
     ], return_exceptions=True)
+
+
+def _notify_jobs() -> None:
+    """Wake the other workers: there are jobs for followers they own."""
+    try:
+        from sqlalchemy import text
+        with Session() as db:
+            db.execute(text("SELECT pg_notify('copy_jobs', '')"))
+            db.commit()
+    except Exception as exc:
+        log.warning("[dispatch] could not wake the other workers (%s) — their 5 s check picks the jobs up", exc)
 
 
 # One slot per concurrent follower execution, for the whole process.
@@ -114,11 +134,16 @@ _fanout = asyncio.Semaphore(COPY_MAX_CONCURRENT_FOLLOWERS)
 
 
 async def _exec_follower_bounded(master_trade_id, follower, snap, etype, master_order_id=None,
-                                 fraction=None, job_id=None):
+                                 fraction=None, job_id=None, force=False):
     """One follower's copy, inside the fan-out bound — and its job row (`jobs.py`) moved on as it runs."""
     import jobs
     async with _fanout:
-        await run_db(jobs.mark, job_id, "started")
+        # CLAIMED, not just marked (plan step 8): with two or more workers, or the fan-out and the 5 s check racing,
+        # exactly one of them runs it. `force` = a start-up resume of a job that had already started (`jobs.resume`).
+        if force:
+            await run_db(jobs.mark, job_id, "started")
+        elif not await run_db(jobs.claim, job_id):
+            return
         try:
             await _exec_follower(master_trade_id, follower, snap, etype, master_order_id, fraction)
         except Exception as exc:

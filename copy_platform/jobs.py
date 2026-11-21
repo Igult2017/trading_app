@@ -52,6 +52,91 @@ def create(db, master_id: str, master_trade_id: str, followers, event: dict) -> 
     return ids
 
 
+def owner_of(broker_account_id: str | None, count: int | None = None) -> int:
+    """Which worker owns this follower ACCOUNT (plan step 8) — the same stable hash the engine uses for masters, so one
+    account's connection lives in exactly one worker."""
+    import hashlib
+    from config import COPY_WORKER_COUNT
+    n = count or COPY_WORKER_COUNT
+    return int(hashlib.md5((broker_account_id or "").encode()).hexdigest(), 16) % max(1, n)
+
+
+def claim(job_id: str | None, session_factory=None) -> bool:
+    """Take a pending job for THIS worker — atomically, so two workers (or the fan-out and the 5 s check) never both
+    run it. True = it is ours to run now. A job with no id (nothing was written) is always ours."""
+    if not job_id:
+        return True
+    try:
+        if session_factory is None:
+            from db import Session as session_factory
+        from sqlalchemy import text
+        with session_factory() as db:
+            n = db.execute(text("UPDATE copy_jobs SET status = 'started', started_at = :now, "
+                                "attempts = COALESCE(attempts, 0) + 1 WHERE id = :id AND status = 'pending'"),
+                           {"id": job_id, "now": datetime.utcnow()}).rowcount
+            db.commit()
+            return n == 1
+    except Exception as exc:
+        log.warning("[jobs] could not claim %s: %s — running it", job_id, exc)
+        return True
+
+
+def owned_pending(index: int, count: int, session_factory=None) -> list:
+    """Pending jobs whose follower account this worker owns (oldest first)."""
+    if session_factory is None:
+        from db import Session as session_factory
+    from db import CopyJob, CopyFollower
+    with session_factory() as db:
+        rows = (db.query(CopyJob, CopyFollower.broker_account_id)
+                  .join(CopyFollower, CopyFollower.id == CopyJob.follower_id)
+                  .filter(CopyJob.status == "pending").order_by(CopyJob.created_at).limit(500).all())
+        out = [j for j, acct in rows if owner_of(acct, count) == index]
+        db.expunge_all()
+        return out
+
+
+async def run_owned(index: int, count: int, session_factory=None) -> None:
+    """For a worker in a group of 2+: run the pending jobs of the followers it owns, woken by NOTIFY copy_jobs and
+    checked every 5 s as the safety net. A single worker does not run this — its fan-out runs every job itself."""
+    import asyncio
+    import dispatcher
+    from db_io import run_db
+    from db import CopyFollower
+    if session_factory is None:
+        from db import Session as session_factory
+    wake = asyncio.Event()
+
+    async def _wake():
+        wake.set()
+    try:
+        from notify import start_listener
+        start_listener(asyncio.get_running_loop(), _wake, channel="copy_jobs")
+    except Exception as exc:
+        log.warning("[jobs] no NOTIFY listener (%s) — 5 s checks only", exc)
+    while True:
+        try:
+            await asyncio.wait_for(wake.wait(), 5.0)
+        except asyncio.TimeoutError:
+            pass
+        wake.clear()
+        try:
+            for j in await run_db(owned_pending, index, count, session_factory):
+                def _f(fid=j.follower_id):
+                    with session_factory() as db:
+                        f = db.get(CopyFollower, fid)
+                        if f is not None:
+                            db.expunge(f)
+                        return f
+                f = await run_db(_f)
+                if f is None:
+                    continue
+                snap, oid, frac = from_record(j.event)
+                asyncio.ensure_future(dispatcher._exec_follower_bounded(j.master_trade_id, f, snap, j.event_type,
+                                                                        oid, frac, job_id=j.id))
+        except Exception:
+            log.exception("[jobs] owned-jobs pass failed")
+
+
 def mark(job_id: str | None, status: str, error: str | None = None, session_factory=None) -> None:
     """Move one job on. Never raises — losing a status row must not lose the copy it describes."""
     if not job_id:
@@ -123,7 +208,8 @@ async def resume(session_factory=None) -> int:
             continue
         snap, oid, frac = from_record(j.event)
         log.info("[jobs] resuming %s for follower %s (was %s)", j.event_type, j.follower_id, j.status)
-        await dispatcher._exec_follower_bounded(j.master_trade_id, f, snap, j.event_type, oid, frac, job_id=j.id)
+        await dispatcher._exec_follower_bounded(j.master_trade_id, f, snap, j.event_type, oid, frac, job_id=j.id,
+                                                force=(j.status == "started"))
     if rows:
         log.info("[jobs] start-up: %d resent, %d unknown, %d expired", len(send), len(unknown), len(expired))
     return len(send)

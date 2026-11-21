@@ -436,6 +436,18 @@ order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilin
 
 ## Fix log
 
+### 2026-11-21 (g) — more than one machine when needed (plan step 8)
+
+Follower ACCOUNTS are now shared out between workers by the same stable hash used for masters (`jobs.owner_of`), so
+one account's connection lives in exactly one worker. A master event writes jobs for every follower; the master's
+worker runs its own followers at once and wakes the others with `NOTIFY copy_jobs`; each other worker runs the jobs it
+owns (`jobs.run_owned`, also checking every 5 s). Every job is CLAIMED atomically before it runs (`jobs.claim`:
+pending → started only if still pending), so two workers — or the fan-out and the 5 s check — never both run it.
+With one worker (production today) nothing changes. Proof: `tests/test_jobs.py` — 40 jobs, two workers: each run
+exactly once, only by its owner, both got a share; a job already taken cannot be taken again. Not proven against the
+stand-in broker with two worker processes (the plan said so) — proven at the database claim, which is where a double
+run would come from.
+
 ### 2026-11-21 (f) — the repair sweep: copies that went their own way are put right (plan step 7)
 
 Every minute, one account at a time, each pooled follower's open orders and trades are read and compared with EVERY

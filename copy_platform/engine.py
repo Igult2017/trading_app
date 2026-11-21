@@ -98,6 +98,9 @@ class CopyEngine:
             except Exception:
                 log.exception("[engine] could not resume unfinished copy jobs")
         asyncio.ensure_future(_resume())
+        if COPY_WORKER_COUNT > 1:            # plan step 8: run the jobs of the follower accounts this worker owns
+            import jobs as _jobs
+            asyncio.ensure_future(_jobs.run_owned(COPY_WORKER_INDEX, COPY_WORKER_COUNT))
         # THE REPAIR SWEEP (plan step 7, `sweep.py`): every minute each follower's copies are checked against the masters.
         import os as _os
         if _os.environ.get("COPY_USE_POOL", "off").strip().lower() in ("demo", "all"):
