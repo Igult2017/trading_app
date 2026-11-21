@@ -1,6 +1,6 @@
 # Plan — the copier: near-real-time, 2,000+ users on the ONE cTrader app we have (21 Nov 2026)
 
-> **STATUS (21 Nov 2026): APPROVED by him. Step 1 DONE (lanes, deployed). Steps 2-11 in progress.** This supersedes
+> **STATUS (21 Nov 2026): APPROVED by him. Step 1 DONE (lanes, deployed). Instant sending (step 2, fault 1) shipped early — safe on today's path. Steps 2-11 in progress.** This supersedes
 > `docs/copy-gateway-plan.md` (the 2-shared-connections plan).
 
 

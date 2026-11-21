@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Callable, Awaitable
 
 from ctrader_open_api import Client, Protobuf
-from ctrader_protocol import OwnQueueProtocol   # each connection its OWN send queue (OPEN.md D68)
+from ctrader_protocol import OwnQueueProtocol, PER_SECOND   # each connection its OWN send queue (OPEN.md D68)
 from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAApplicationAuthReq, ProtoOAApplicationAuthRes,
     ProtoOAAccountAuthReq, ProtoOAAccountAuthRes,
@@ -175,7 +175,7 @@ class CTraderProvider:
 
         # Only "demo" uses the demo gateway; live AND funded/prop accounts are live.
         host = CT_DEMO_HOST if account_type == "demo" else CT_LIVE_HOST
-        self.client = Client(host, CT_PORT, OwnQueueProtocol)
+        self.client = Client(host, CT_PORT, OwnQueueProtocol, numberOfMessagesToSendPerSecond=int(PER_SECOND))
         self.client.setConnectedCallback(self._on_connected)
         self.client.setDisconnectedCallback(self._on_disconnected)
         self.client.setMessageReceivedCallback(self._on_message)

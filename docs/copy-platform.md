@@ -436,6 +436,18 @@ order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilin
 
 ## Fix log
 
+### 2026-11-21 (c) — every message waited for a once-a-second timer
+
+**Found in the audit:** the cTrader library never writes a message when it is sent; it queues it and a ONE-SECOND
+timer drains the queue (`ctrader_open_api/tcpProtocol.py`, `LoopingCall(_sendStrings).start(1)`), at 5 messages a
+second by default. A copy is 3-4 messages in a row, each waiting for the reply to the one before, so each step waited
+up to a second — most of the 3-5 s a copy took (20 Nov gold: master 02:03:08 → follower 02:03:13). **Fix:**
+`ctrader_protocol.OwnQueueProtocol.send` writes at once while the connection has sent fewer than 45 in the current
+second (cTrader allows 50); beyond that it queues in order, and every connection now drains its queue at 45/s
+(`numberOfMessagesToSendPerSecond`), not 5. Proof: `tests/test_own_queue.py` 9 — on the wire at once (the library's
+own class leaves it waiting), never more than 45 in a second, the rest kept in order. Step 2 (fault 1) of
+`docs/copy-realtime-plan.md`, shipped early because it is safe on today's path.
+
 ### 2026-11-21 (b) — one master trade's events could overtake each other
 
 **The audit (his ask: *"ensure slave copies every trade activity from the master account in almost real time"*).** Every
