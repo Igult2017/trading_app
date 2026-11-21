@@ -117,7 +117,7 @@ import { PYTHON_BIN } from "./lib/pythonBin";
 // The MyFXBook calendar: when we are ALLOWED to scrape (mfbSchedule) and what to do with
 // what came back (myfxbookIngest). The scrape itself runs outside this container.
 import { decideDue, startRun, finishRun, looksBlocked } from "./scrapers/mfbSchedule";
-import { bcDecideDue, bcStartRun, bcFinishRun, bcStore, cleanRows } from "./scrapers/bcSchedule";
+import { bcDecideDue, bcStartRun, bcFinishRun } from "./scrapers/bcSchedule";
 import { ingestMyfxbookEvents } from "./services/myfxbookIngest";
 
 // ── Metrics in-memory cache ───────────────────────────────────────────────────
@@ -3325,31 +3325,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.json({ ok: true, runId, slot: d.slot });
   });
 
-  app.post("/api/internal/barchart/ingest", requireAdminSecret, async (req: Request, res: Response) => {
+  // THE DAY'S LEVELS — the container sends the FINISHED message (his guide applied in `server/python/barchart_levels.py`)
+  // and this posts it. NOTHING IS STORED (his rule, 20 Nov 2026: "scrape the data then find what we need … then
+  // immediately discard that data") — only the run record, so an open cannot run twice. A failure or a block goes to
+  // HIS DM at once, never silently. `BARCHART_TO_DM=true` sends the levels to his DM instead of the channel.
+  app.post("/api/internal/barchart/levels", requireAdminSecret, async (req: Request, res: Response) => {
     const body = (req.body ?? {}) as any;
     const runId: string | null = typeof body.runId === "string" ? body.runId : null;
     const tookMs = Number.isFinite(body.tookS) ? Math.round(body.tookS * 1000) : undefined;
-    if (body.ok !== true) {
-      const error = String(body.error ?? "scraper reported failure");
+    const dm = (process.env.WATCHDOG_CHAT_ID ?? "").trim().replace(/^"|"$/g, "");
+    if (body.ok !== true || typeof body.message !== "string" || !body.message.trim()) {
+      const error = String(body.error ?? "the levels run reported a failure").slice(0, 500);
       const blocked = body.blocked === true || looksBlocked(error);
       if (runId) await bcFinishRun(runId, { ok: false, blocked, tookMs, error });
+      if (dm) await telegramNotificationService.sendMessage(dm,
+        `⚠️ <b>Barchart levels NOT posted</b> (${String(body.slot ?? "?")}) — ${blocked ? "Barchart refused the page" : error}`,
+        { parse_mode: "HTML" }).catch(() => false);
       return res.status(202).json({ ok: false, recorded: true, blocked });
     }
-    try {
-      const rows = cleanRows(body.rows);
-      const symbol = typeof body.symbol === "string" ? body.symbol.slice(0, 20) : "unknown";
-      const slot = typeof body.slot === "string" ? body.slot.slice(0, 10) : "manual";
-      const underlying = Number.isFinite(body.underlying) ? Number(body.underlying) : null;
-      const stored = await bcStore(symbol, slot, underlying, rows);
-      if (runId) await bcFinishRun(runId, { ok: stored > 0, rowCount: stored, tookMs,
-        error: stored > 0 ? undefined : "no usable rows" });
-      return res.json({ ok: stored > 0, rows: stored });
-    } catch (e: any) {
-      const error = `ingest failed: ${e?.message ?? e}`;
-      if (runId) await bcFinishRun(runId, { ok: false, tookMs, error });
-      console.error("[barchart]", error);
-      return res.status(500).json({ ok: false, error });
-    }
+    const toDm = (process.env.BARCHART_TO_DM ?? "").toLowerCase() === "true";
+    const message = body.message.slice(0, 4000);
+    const sent = toDm && dm
+      ? await telegramNotificationService.sendMessage(dm, message, { parse_mode: "HTML" }).catch(() => false)
+      : await telegramNotificationService.sendToChannel(message, { parse_mode: "HTML" }).catch(() => false);
+    if (runId) await bcFinishRun(runId, { ok: !!sent, tookMs, error: sent ? undefined : "Telegram refused the post" });
+    return res.json({ ok: !!sent });
+  });
+
+  // THE SPOT PRICE FOR THE CONVERSION (strike × spot ÷ futures) — the same live FIX quotes the journal ticker reads,
+  // for the levels container, which has no user login. Secret-only, read-only, the mid of bid and ask.
+  app.get("/api/internal/barchart/spot", requireAdminSecret, (req: Request, res: Response) => {
+    const symbol = String(req.query.symbol ?? "");
+    const p = livePrices.get(symbol);
+    if (!p) return res.status(404).json({ ok: false, error: `no live price for ${symbol}` });
+    return res.json({ ok: true, symbol, mid: (p.bid + p.ask) / 2, ageMs: Date.now() - p.receivedAt });
   });
 
   /**

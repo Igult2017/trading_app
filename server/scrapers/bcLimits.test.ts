@@ -23,33 +23,36 @@ process.env.BARCHART_ENABLED = "false";
 check("BARCHART_ENABLED=false → never due", due("2026-11-18T13:05:00Z").reason.startsWith("switched off"), true);
 process.env.BARCHART_ENABLED = "true";
 
-console.log("\nTHE SIX SLOTS — winter (18 Nov 2026: London = UTC, New York = UTC-5, Tokyo = UTC+9)");
-const winter = slotsAround(at("2026-11-18T12:00:00Z")).map((s) => `${s.slot} ${s.at.toISOString().slice(11, 16)}`);
-check("asia 00:05 / 00:20, london 08:05 / 08:20, new york 13:05 / 13:20 UTC", winter,
-  ["asia-1 00:05", "asia-2 00:20", "ln-1 08:05", "ln-2 08:20", "ny-1 13:05", "ny-2 13:20"]);
-check("at 13:05 UTC → ny-1 due", due("2026-11-18T13:05:30Z").slot, "ny-1");
-check("at 13:20 UTC → ny-2 due (15 minutes later)", due("2026-11-18T13:21:00Z").slot, "ny-2");
-check("at 13:04 UTC (before the slot) → nothing", due("2026-11-18T13:04:00Z").due, false);
-check(`at 13:16 UTC (past the ${WINDOW_MS / 60000}-minute window, before ny-2) → nothing`, due("2026-11-18T13:16:00Z").due, false);
-check("Asia: 00:07 UTC Wednesday → asia-1", due("2026-11-18T00:07:00Z").slot, "asia-1");
+console.log("\nTHE THREE SLOTS — 10 min after each open (21 Nov 2026). November: Sydney = UTC+11, London = UTC, NY = UTC-5");
+const winter = slotsAround(at("2026-11-18T12:00:00Z")).map((s) => `${s.slot} ${s.at.toISOString().slice(5, 16)}`);
+check("Sydney 08:10 = 21:10 UTC the evening before; London 08:10; New York 13:10 UTC", winter,
+  ["asia 11-17T21:10", "ln 11-18T08:10", "ny 11-18T13:10"]);
+check("at 13:10 UTC → ny due", due("2026-11-18T13:10:30Z").slot, "ny");
+check("at 13:09 UTC (before the slot) → nothing", due("2026-11-18T13:09:00Z").due, false);
+check(`at 13:21 UTC (past the ${WINDOW_MS / 60000}-minute window) → nothing`, due("2026-11-18T13:21:00Z").due, false);
+check("Sydney Wednesday 08:12 (Tue 21:12 UTC) → asia", due("2026-11-17T21:12:00Z").slot, "asia");
 
-console.log("\nDAYLIGHT SAVING — summer (15 Jul 2026: London = UTC+1, New York = UTC-4)");
-const summer = slotsAround(at("2026-07-15T12:00:00Z")).map((s) => `${s.slot} ${s.at.toISOString().slice(11, 16)}`);
-check("london 07:05 / 07:20, new york 12:05 / 12:20 UTC; asia unchanged", summer,
-  ["asia-1 00:05", "asia-2 00:20", "ln-1 07:05", "ln-2 07:20", "ny-1 12:05", "ny-2 12:20"]);
+console.log("\nDAYLIGHT SAVING — July: Sydney = UTC+10, London = UTC+1, New York = UTC-4");
+const summer = slotsAround(at("2026-07-15T12:00:00Z")).map((s) => `${s.slot} ${s.at.toISOString().slice(5, 16)}`);
+check("Sydney 22:10 UTC the evening before; London 07:10; New York 12:10 UTC", summer,
+  ["asia 07-14T22:10", "ln 07-15T07:10", "ny 07-15T12:10"]);
+
+console.log("\nHIS ANSWER 7 — NO SUNDAY ASIA OPEN (Monday 08:00 in Sydney)");
+check("Sunday 21:12 UTC (Sydney Monday 08:12) → nothing", due("2026-11-22T21:12:00Z").due, false);
+check("Monday 21:12 UTC (Sydney Tuesday 08:12) → asia", due("2026-11-23T21:12:00Z").slot, "asia");
+check("Friday 21:12 UTC (Sydney Saturday) → nothing", due("2026-11-20T21:12:00Z").due, false);
+check("Thursday 21:12 UTC (Sydney Friday) → asia", due("2026-11-19T21:12:00Z").slot, "asia");
 
 console.log("\nONCE PER SLOT, AND BACK OFF WHEN REFUSED");
-const ran: BcRun[] = [{ kind: "ny-1", startedAt: at("2026-11-18T13:05:10Z"), blocked: false }];
-check("ny-1 already ran → not again in its window", due("2026-11-18T13:08:00Z", ran).due, false);
-check("...but ny-2 still runs", due("2026-11-18T13:20:30Z", ran).slot, "ny-2");
-const refused: BcRun[] = [{ kind: "ln-1", startedAt: at("2026-11-18T08:05:10Z"), blocked: true }];
-check("blocked at London → the rest of that day is skipped (ny-1 not run)", due("2026-11-18T13:05:30Z", refused).due, false);
-check("...and the next day starts again (asia-1 on Thursday)", due("2026-11-19T00:05:30Z", refused).slot, "asia-1");
+const ran: BcRun[] = [{ kind: "ny", startedAt: at("2026-11-18T13:10:10Z"), blocked: false }];
+check("ny already ran → not again in its window", due("2026-11-18T13:12:00Z", ran).due, false);
+const refused: BcRun[] = [{ kind: "ln", startedAt: at("2026-11-18T08:10:10Z"), blocked: true }];
+check("blocked at London → the rest of that UTC day is skipped (ny not run)", due("2026-11-18T13:10:30Z", refused).due, false);
+check("...and the next day starts again (London on Thursday)", due("2026-11-19T08:11:00Z", refused).slot, "ln");
 
 console.log("\nWEEKEND");
-check("Saturday 13:05 UTC → nothing", due("2026-11-21T13:05:30Z").due, false);
-check("Sunday 08:05 UTC → nothing", due("2026-11-22T08:05:30Z").due, false);
-check("Monday 00:05 UTC (Tokyo Monday 09:05) → asia-1", due("2026-11-23T00:05:30Z").slot, "asia-1");
+check("Saturday 13:10 UTC → nothing", due("2026-11-21T13:10:30Z").due, false);
+check("Sunday 08:10 UTC → nothing", due("2026-11-22T08:10:30Z").due, false);
 
 console.log(`\n${bad ? `${bad} of ${n} FAILED` : "ALL PASS"} (${n} checks)`);
 process.exit(bad ? 1 : 0);
