@@ -421,8 +421,10 @@ masters AND follower accounts between workers; every copy job is claimed before 
 | # | item | state |
 |---|---|---|
 | 1 | **A real mirrored order has still never happened.** The engine is armed and both followers ready; the next VIX.1 signal is the proof. Look for a `PLACED` row naming the slave account in `/api/admin/copy/activity` | ⏳ waiting on a signal |
-| 2 | **`gateway.py` is built but NOT wired.** `executors/ctrader.py` still opens its own connection per order. Wiring the transport through the gateway is the single riskiest change and was deliberately held back — copy trading only started working on 26 Sep | 🔨 next commit |
-| 3 | **Durable fan-out.** A crash mid-fan-out silently drops the remaining followers. Needs a `dispatching` -> `dispatched` state on the master row and a replay on boot | 🔨 not started |
+| 2 | ~~`gateway.py` built but not wired~~ — **SUPERSEDED 21 Nov**: deleted; followers and masters run on the shared connection pool (`pool.py`, `docs/copy-realtime-plan.md`). This row said "next commit" until 22 Nov | ✅ |
+| 3 | ~~Durable fan-out~~ — **DONE 21 Nov**: every follower's copy is written down before it is sent (`copy_jobs`, `jobs.py`) and resumed on boot. This row said "not started" until 22 Nov | ✅ |
+| 3a | **Demo run of 22 Nov's real-time work** (`.claude/plans/declarative-roaming-bentley.md` step 6): trade by hand, move stop, breakeven, partial close, pending placed/moved/cancelled, and the copier stopped while the master closes — every follower right afterwards. Needs the market open | ⏳ market open |
+| 3b | **His decision:** should the repair check PUT BACK a stop/target a follower changed BY HAND on a copied trade? (`docs/OPEN.md` D-COPY-RT) | ❓ his call |
 | 4 | **The horizontal lever is untested.** `COPY_WORKER_INDEX`/`COPY_WORKER_COUNT` shard masters by hash and production runs `worker 0/1`. Never run above one worker | 🔨 not started |
 | 5 | **Cross-broker (Hola Prime).** Each broker's minimum stop distance (`slDistance`/`tpDistance`) is not read or enforced | ⏸ deferred by him |
 | 6 | **`REMOVE BEFORE LAUNCH`** — the copy diagnostics endpoint is still live | ⏸ before launch |
@@ -432,6 +434,26 @@ masters AND follower accounts between workers; every copy job is claimed before 
 order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilings above.
 
 ## Fix log
+
+### 2026-11-22 — nothing a master does is lost across a gap, and the copier checks only what is live
+
+His words: *"the slave needs to capture master account in real time … everything … one miss leads to slave losses …
+without overloading the api."* What was already real-time and stays so: every master change arrives as a broker message
+on the connection his account is logged in on — by hand, by an EA or by our app. What could still be missed, and the fix:
+- **A restart reloaded each master SILENTLY** (a master close during a restart left the follower open) and the catch-up
+  compared only size → **the master's book** (`master_book.py`, table `copy_master_book`) is kept on disk and compared
+  after every gap; all seven kinds of change are sent. A pending order that FILLED in the gap is told apart from one
+  CANCELLED by the deals of the gap — the old catch-up sent OPEN without the order id, so a follower whose mirror had
+  filled could be entered twice. Proven on production 22 Nov: all five masters "compared with its book … 0 changes".
+- **A follower's stop/target change read "timed out"** after 20 s although applied → confirmed by its own answer.
+- **The follower listener only wrote drift down** → it asks for a check of that account within seconds.
+- **Copy orders queued behind check reads** → two lines per connection, copies first.
+- **Every follower was read every minute** (2,000 = ~33 reads/s) → HIS idea: only followers holding a live copy (three
+  reasons, `sweep.live_followers`), spread over 2 minutes; quiet masters re-read every 5 min. Listening never reduced:
+  cTrader sends a trade only to a connection where the account is logged in (no webhook exists), and a quiet logged-in
+  account costs no requests.
+- **Found on the way: a filled MARKET copy on an account that is also a master was copied onward** (the one-hop rule
+  was enforced for orders only) → fixed on the trade path, reproduced with a real execution event first.
 
 ### 2026-11-21 (i) — measured through the WHOLE copier: the database is now the limit (plan step 10)
 
