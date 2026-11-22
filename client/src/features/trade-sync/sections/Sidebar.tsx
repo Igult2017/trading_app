@@ -18,11 +18,9 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, panel, overview, onExit }: SidebarProps) {
-  // Recent activity is DERIVED from the real mirror feed — never invented copy.
-  const activity = (overview?.feed ?? []).slice(0, 4).map((f) => ({
-    text: `Copied ${f.side} ${f.symbol} ${f.lot} lot`,
-    time: f.time,
-  }));
+  // Recent activity: the copier's latest ACTIONS, each named for what it was (server `lib/copyFeed`, 22 Nov 2026). It was
+  // built from the feed rows and called every one "Copied SELL GBPUSD 1.20 lot" — a stop move and a close included.
+  const activity = (overview?.activity ?? []).slice(0, 5);
   return (
     <aside
       // RIGHT-HAND RAIL. `md:order-last` paints it on the right while the markup keeps it first,

@@ -26,6 +26,7 @@ import { geolocateIp } from "./lib/geoIp";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
 import { startSyncAll, syncAllStatus } from "./services/syncAllQueue";
+import { foldTrades, activityLines, type CopyAction } from "./lib/copyFeed";
 import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, factsToColumns, describeAccounts, newConnectApp } from "./services/brokerAdapters/ctrader";
 import { addCTraderAccount, removeCTraderAccount } from "./services/ctraderRealtime";
 import { disconnectAccount, findAccountToAdopt } from "./services/accountDisconnect";
@@ -3788,16 +3789,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       FROM copy_followers f JOIN copy_masters m ON m.id = f.master_id
                      WHERE f.user_id = $1 AND f.dropped_at IS NULL
                      ORDER BY f.created_at DESC`, [uid]),
-        pool.query(`SELECT cf.id, cf.symbol, cf.action, cf.volume, cf.entry_price, cf.closed_price,
+        // EVERY ACTION OF EACH COPIED TRADE (open, stop moves, partial closes, close) — folded into ONE row per trade
+        // by `lib/copyFeed` below. Shown one row per ACTION until 22 Nov, so one trade with six stop moves read as eight
+        // identical trades in the Mirror feed, Recent activity and History. 300 actions = enough for the latest trades.
+        pool.query(`SELECT cf.id, cf.follower_id, cf.symbol, cf.action, cf.volume, cf.entry_price, cf.closed_price,
                            cf.event_type, COALESCE(cf.executed_at, cf.created_at) AS at,
                            EXTRACT(EPOCH FROM (cf.executed_at - ctm.created_at)) * 1000 AS ms,
+                           ctm.external_id AS master_key, ba.name AS account,
                            m.strategy_name AS source
                       FROM copy_trades_follower cf
                       JOIN copy_followers f ON f.id = cf.follower_id AND f.user_id = $1
                       LEFT JOIN copy_trades_master ctm ON ctm.id = cf.master_trade_id
                       LEFT JOIN copy_masters m ON m.id = f.master_id
+                      LEFT JOIN broker_accounts ba ON ba.id = f.broker_account_id
                      WHERE cf.status = 'executed'
-                     ORDER BY COALESCE(cf.executed_at, cf.created_at) DESC LIMIT 40`, [uid]),
+                     ORDER BY COALESCE(cf.executed_at, cf.created_at) DESC LIMIT 300`, [uid]),
         pool.query(`SELECT m.id, m.strategy_name, m.source_type, m.trading_style, m.require_approval,
                            (SELECT COUNT(*) FROM copy_followers cf2 WHERE cf2.master_id = m.id AND cf2.is_active) AS followers
                       FROM copy_masters m
@@ -3892,6 +3898,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : s < 129600 ? `${Math.round(s / 3600)}h ago` : `${Math.round(s / 86400)}d ago`;
       };
       const short = (id: string) => `Trader ${String(id).slice(0, 6)}`;
+      // The copy ACTIONS, and the copied TRADES they fold into (one row per follower × master trade).
+      const feedActions: CopyAction[] = feedR.rows.map((r: any) => ({
+        followerId: String(r.follower_id), masterKey: r.master_key != null ? String(r.master_key) : null,
+        event: String(r.event_type || ''), side: String(r.action || ''), symbol: String(r.symbol || ''),
+        volume: num(r.volume), entry: r.entry_price != null ? num(r.entry_price) : null,
+        closed: r.closed_price != null ? num(r.closed_price) : null, at: r.at,
+        ms: r.ms != null ? num(r.ms) : null, account: r.account ?? null,
+      }));
+      const copiedTrades = foldTrades(feedActions);
       // EVERY account, switched on for the copier or not - this is "how much I have", not "how much
       // the copier is driving". Narrowing it to the copier-enabled ones is the bug described above.
       const equity = own.rows.reduce((a: number, r: any) => a + num(r.balance), 0);
@@ -3969,11 +3984,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           handle: r.source_type === 'telegram' ? 'Telegram' : (r.source_type || 'cTrader'),
           tag: lotTag(r), pnl: null, status: r.is_active ? 'live' : 'paused',
         })),
-        feed: feedR.rows.slice(0, 8).map((r: any, i: number) => ({
-          id: i + 1, side: r.action === 'SELL' ? 'SELL' : 'BUY', symbol: r.symbol,
-          lot: num(r.volume).toFixed(2), price: String(num(r.closed_price) || num(r.entry_price) || '—'),
-          ms: Math.min(9999, Math.max(0, Math.round(num(r.ms)))), pnl: null, time: ago(r.at),
+        // ONE ROW PER COPIED TRADE, not per action (22 Nov 2026, `lib/copyFeed`).
+        feed: copiedTrades.slice(0, 12).map((t, i) => ({
+          id: i + 1, side: t.side, symbol: t.symbol, account: t.account, lot: t.lot.toFixed(2),
+          entry: t.entry != null ? String(t.entry) : null, close: t.close != null ? String(t.close) : null,
+          status: t.status, stopMoves: t.stopMoves,
+          ms: t.copyMs != null ? Math.min(99_999, Math.max(0, Math.round(t.copyMs))) : null,
+          time: ago(t.updatedAt),
         })),
+        // Each action named for what it was — it said "Copied SELL GBPUSD 1.20 lot" for a stop move too.
+        activity: activityLines(feedActions, 6).map((a) => ({ text: a.text, time: ago(a.at) })),
         // ONLY ACCOUNTS SWITCHED ON FOR THE COPIER. His instruction, 2026-09-29: "If that button is
         // not enabled the account does not appear in copier." This one list feeds BOTH steps of the
         // setup form - "copy from" and "copy into" - so filtering it once removes a switched-off
@@ -4036,10 +4056,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })),
         },
         history: {
-          trades: feedR.rows.map((r: any, i: number) => ({
-            id: i + 1, date: new Date(r.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            symbol: r.symbol, side: r.action === 'SELL' ? 'SELL' : 'BUY', lot: num(r.volume).toFixed(2),
-            source: r.source || 'Copy', pnl: null,
+          // One row per copied TRADE (it listed every stop move as a trade until 22 Nov).
+          trades: copiedTrades.map((t, i) => ({
+            id: i + 1, date: t.openedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            symbol: t.symbol, side: t.side, lot: t.lot.toFixed(2), source: t.account, pnl: null,
           })),
           stats: {
             winRate: closed ? `${Math.round((100 * won) / closed)}%` : '—',

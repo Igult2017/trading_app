@@ -52,16 +52,24 @@ export interface CopyAccount {
   masterId?: string;
 }
 
+/** ONE COPIED TRADE (22 Nov 2026) — all its actions (open, stop moves, partial close, close) folded together on the
+ *  server (`server/lib/copyFeed.ts`). It was one row per action, so one trade showed up many times. */
 export interface FeedRow {
   id: number;
   side: "BUY" | "SELL";
   symbol: string;
+  account: string;                 // the follower account it was copied to
   lot: string;
-  price: string;
-  ms: number;
-  pnl: number | null;
-  time: string;
+  entry: string | null;
+  close: string | null;
+  status: "open" | "partly closed" | "closed" | "order" | "cancelled";
+  stopMoves: number;
+  ms: number | null;               // how long the copy that opened it took
+  time: string;                    // last change, "5m ago"
 }
+
+/** One line of Recent activity — each action named for what it was. */
+export interface ActivityRow { text: string; time: string }
 
 export interface Provider {
   id: string;

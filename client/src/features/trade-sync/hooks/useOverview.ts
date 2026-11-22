@@ -1,12 +1,14 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchJson } from "@/lib/queryClient";
-import type { CopyAccount, FeedRow, Provider, OwnAccount, TradeRow, FollowRequest, Follower } from "../types";
+import type { CopyAccount, FeedRow, ActivityRow, Provider, OwnAccount, TradeRow, FollowRequest, Follower } from "../types";
 
 /** The ONE server payload the whole panel renders from — GET /api/copy/overview. */
 export interface Overview {
   kpis: { totalEquity: number; todayPnl: number; activeCopies: number; masters: number; tradesToday: number };
   copies: (CopyAccount & { followerId: string; masterId: string })[];
   feed: FeedRow[];
+  /** Recent activity — each copy action named for what it was (22 Nov 2026). */
+  activity?: ActivityRow[];
   ownAccounts: (OwnAccount & { connected: boolean; loginId: string; isCtrader: boolean })[];
   providers: (Provider & { requireApproval: boolean })[];
   followStatus: Record<string, { followerId: string; status: "pending" | "following" }>;
