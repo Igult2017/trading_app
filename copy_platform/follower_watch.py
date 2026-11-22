@@ -8,7 +8,8 @@ WHAT IS RECORDED (Activity log + container log), and only for the copier's own t
   * a copy CLOSED while the copier was not working on that account — closed by hand, or by its own stop/target;
   * a copy order REJECTED or CANCELLED by the broker while the copier was not acting on it.
 Commands the copier itself is running hold the account's lock (`pool.account_lock`), so their own news is not
-reported as drift. Nothing here sends anything to the broker — it only listens and writes it down.
+reported as drift. Nothing here sends anything to the broker itself: it writes the drift down and (22 Nov 2026) asks the
+repair check for THAT account at once (`sweep.request_check`) — the check decides, under its own rules, what to fix.
 """
 import logging
 
@@ -56,4 +57,8 @@ def watch(conn, the_pool, acct: int, follower_ids: list[str]) -> None:
             from dispatcher import _log
             for fid in follower_ids:
                 _log(fid, None, "WARNING", "DRIFT", what)
+            # AND NOW CHECKED, NOT ONLY WRITTEN DOWN (22 Nov 2026, plan step 4): this account is checked against its
+            # masters within seconds (`sweep.request_check`) — e.g. a stop removed by hand gets the master's back.
+            import sweep
+            sweep.request_check(acct)
     _watching[acct] = conn.listen(acct, on_message)

@@ -109,6 +109,7 @@ class CopyEngine:
         if _os.environ.get("COPY_USE_POOL", "off").strip().lower() in ("demo", "all"):
             import sweep
             asyncio.ensure_future(sweep.run(self))
+            asyncio.ensure_future(sweep.run_requested(self))   # one account at a time, on request (follower news)
         self._watch_task = asyncio.ensure_future(self._watch_loop())
         asyncio.ensure_future(self._supervise_loop())
         # Instant pickup of new masters; silently falls back to the 60s poll.

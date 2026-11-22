@@ -129,45 +129,84 @@ async def repair(action, followers_by_master: dict, creds, account_type, ident, 
 _masters: dict = {}
 
 
+# ── A CHECK OF ONE ACCOUNT, ON REQUEST (22 Nov 2026, plan step 4) ─────────────────────────────────────────────────────
+# The follower listener (`follower_watch.py`) used to only WRITE DOWN a copy that went its own way. It now asks for a
+# check of THAT account, run ~2 s later (a burst of news about one account becomes one check), instead of waiting for
+# the next full pass. What a check may do is unchanged (`decide`): it never opens a trade.
+SETTLE_S = 2.0
+_wanted: set[int] = set()
+_wake: asyncio.Event | None = None
+
+
+def request_check(acct: int) -> None:
+    """Ask for a check of this follower account (its cTrader account id) as soon as possible."""
+    global _wake
+    _wanted.add(int(acct))
+    if _wake is None:
+        _wake = asyncio.Event()
+    _wake.set()
+
+
+async def run_requested(engine) -> None:
+    """For ever: check the accounts asked for, SETTLE_S after the first ask."""
+    global _wake
+    if _wake is None:
+        _wake = asyncio.Event()
+    while True:
+        await _wake.wait()
+        await asyncio.sleep(SETTLE_S)
+        _wake.clear()
+        only, _ = set(_wanted), _wanted.clear()
+        try:
+            await _pass(engine, only)
+        except Exception:
+            log.exception("[sweep] a requested check failed")
+
+
 async def run(engine) -> None:
     """For ever: every EVERY_S, each pooled follower account, one after another (one read each)."""
+    while True:
+        await asyncio.sleep(EVERY_S)
+        try:
+            await _pass(engine, None)
+        except Exception:
+            log.exception("[sweep] a pass failed — the next one runs in %ss", EVERY_S)
+
+
+async def _pass(engine, only: set[int] | None) -> None:
+    """One check of every pooled follower account — or only those in `only` (cTrader account ids)."""
     import pool
     from db import Session, CopyFollower, BrokerAccount
     from db_io import run_db
     from cred_manager import get_creds
-    while True:
-        await asyncio.sleep(EVERY_S)
-        try:
-            _masters.clear()
-            _masters.update(engine._providers)
+    _masters.clear()
+    _masters.update(engine._providers)
 
-            def _rows():
-                with Session() as db:
-                    fs = db.query(CopyFollower).filter(CopyFollower.is_active.is_(True),
-                                                       CopyFollower.dropped_at.is_(None)).all()
-                    out = []
-                    for f in fs:
-                        b = db.get(BrokerAccount, f.broker_account_id) if f.broker_account_id else None
-                        if b is not None and (b.platform or "").lower() in ("ctrader", "ct"):
-                            db.expunge(f); db.expunge(b)
-                            out.append((f, b))
-                    return out
-            accounts: dict = {}                       # follower account -> (broker row, {master id: follower})
-            for f, b in await run_db(_rows):
-                accounts.setdefault(b.id, (b, {}))[1][f.master_id] = f
-            for b, by_master in accounts.values():
-                kind = b.account_type or "demo"
-                masters = {mid: _masters[mid] for mid in by_master if mid in _masters}
-                if len(masters) != len(by_master) or not pool.enabled_for(kind):
-                    continue                            # a master not running here: its copies cannot be judged
-                creds = await get_creds(b)
-                acct = int(creds["ctraderId"]) if creds and creds.get("ctraderId") else None
-                if acct is None or acct not in pool.POOL._home:
-                    continue
-                res = await _read(pool.POOL._home[acct], pool.POOL, acct)
-                for action, ident, key, mid, detail in decide(res.order, res.position, masters, time.time(),
-                                                              time.monotonic()):
-                    log.warning("[sweep] account %s %s %s: %s", acct, action, ident, detail)
-                    await repair(action, by_master, creds, kind, ident, key, mid, detail, res)
-        except Exception:
-            log.exception("[sweep] a pass failed — the next one runs in %ss", EVERY_S)
+    def _rows():
+        with Session() as db:
+            fs = db.query(CopyFollower).filter(CopyFollower.is_active.is_(True),
+                                               CopyFollower.dropped_at.is_(None)).all()
+            out = []
+            for f in fs:
+                b = db.get(BrokerAccount, f.broker_account_id) if f.broker_account_id else None
+                if b is not None and (b.platform or "").lower() in ("ctrader", "ct"):
+                    db.expunge(f); db.expunge(b)
+                    out.append((f, b))
+            return out
+    accounts: dict = {}                       # follower account -> (broker row, {master id: follower})
+    for f, b in await run_db(_rows):
+        accounts.setdefault(b.id, (b, {}))[1][f.master_id] = f
+    for b, by_master in accounts.values():
+        kind = b.account_type or "demo"
+        masters = {mid: _masters[mid] for mid in by_master if mid in _masters}
+        if len(masters) != len(by_master) or not pool.enabled_for(kind):
+            continue                            # a master not running here: its copies cannot be judged
+        creds = await get_creds(b)
+        acct = int(creds["ctraderId"]) if creds and creds.get("ctraderId") else None
+        if acct is None or acct not in pool.POOL._home or (only is not None and acct not in only):
+            continue
+        res = await _read(pool.POOL._home[acct], pool.POOL, acct)
+        for action, ident, key, mid, detail in decide(res.order, res.position, masters, time.time(),
+                                                      time.monotonic()):
+            log.warning("[sweep] account %s %s %s: %s", acct, action, ident, detail)
+            await repair(action, by_master, creds, kind, ident, key, mid, detail, res)

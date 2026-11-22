@@ -64,7 +64,33 @@ async def go():
     return first, list(logged)
 
 
+import sweep  # noqa: E402
+asked: list = []
+sweep.request_check = lambda acct: asked.append(acct)
 first, after = asyncio.new_event_loop().run_until_complete(go())
 s.check("the drift is written for the follower on that account", first, [("f-1", "DRIFT")])
 s.check("the copier's OWN close (account busy with its command) is not reported as drift", after, first)
+# ── AND THE ACCOUNT IS CHECKED, NOT ONLY WRITTEN DOWN (22 Nov 2026, plan step 4) ────────────────────────────────────
+s.check("drift asks for a check of THAT account (9) — once, not for the copier's own close", asked, [9])
+
+# The requested check runs over ONLY the accounts asked for, once, after the settle time.
+import importlib  # noqa: E402
+sweep = importlib.reload(sweep)
+ran: list = []
+
+
+async def fake_pass(engine, only):
+    ran.append(only)
+sweep._pass, sweep.SETTLE_S = fake_pass, 0.01
+
+
+async def requested():
+    task = asyncio.ensure_future(sweep.run_requested(None))
+    sweep.request_check(9)
+    sweep.request_check(9)
+    sweep.request_check(12)
+    await asyncio.sleep(0.1)
+    task.cancel()
+asyncio.new_event_loop().run_until_complete(requested())
+s.check("a burst of requests becomes ONE check, of exactly the accounts asked for", ran, [{9, 12}])
 s.done()
