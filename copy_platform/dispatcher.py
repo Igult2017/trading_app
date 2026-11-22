@@ -268,7 +268,7 @@ def _save_master_trade(db: DBSession, master_id: str,
 
 async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                          snap: PositionSnapshot, etype: str,
-                         master_order_id=None, fraction=None) -> None:
+                         master_order_id=None, fraction=None, restore: bool = False) -> None:
     fid = follower.id
     # PUTTING A MIRROR ON THE BOOK IS AN ENTRY, so it faces every gate a fill faces: the session
     # filter, the safety guards, risk-% sizing and the 3% per-trade cap. The alternative — place
@@ -466,7 +466,9 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                 sl_price = new_sl
                 # NOTHING TO CHANGE → NOTHING SENT (21 Nov 2026). An amend to the levels the follower already has was
                 # refused by the broker 3 times in a row (XAU/USD 20 Nov 02:12-02:13), each read as "timed out".
-                if same_levels(await run_db(_follower_levels, fid, snap.key), sl_price, tp_price):
+                # A RESTORE (23 Nov 2026) skips this: the record says the copier's levels are there, and the follower's
+                # hand change is exactly what made that untrue.
+                if not restore and same_levels(await run_db(_follower_levels, fid, snap.key), sl_price, tp_price):
                     _log(fid, master_trade_id, "INFO", "SKIP",
                          f"{snap.symbol}: your stop and target are already there — nothing to change")
                     return
@@ -688,6 +690,27 @@ def _follower_levels(follower_id: str, master_ext_id: str) -> tuple[float | None
             return None
         f = lambda v: float(v) if v is not None else None                    # noqa: E731
         return f(row.stop_loss), f(row.take_profit)
+
+
+def _moved_levels(follower_ids: list[str], master_ext_ids) -> dict:
+    """{(follower id, master trade id): (stop, target)} the copier last moved — or last TRIED to move — each copy to:
+    the newest MODIFY, carried out or failed, for the master trades open now (23 Nov 2026, the repair check).
+    A FAILED one counts on purpose: the follower still has the old stop, it differs, and the check sends the master's
+    current levels — a stop move that timed out used to be lost for good. Not the OPEN: a market copy's stop is a
+    distance from its own fill, so its recorded price is off by the slippage."""
+    if not follower_ids or not master_ext_ids:
+        return {}
+    with Session() as db:
+        rows = (db.query(CopyTradeFollower.follower_id, CopyTradeMaster.external_id,
+                         CopyTradeFollower.stop_loss, CopyTradeFollower.take_profit)
+                  .join(CopyTradeMaster, CopyTradeFollower.master_trade_id == CopyTradeMaster.id)
+                  .filter(CopyTradeFollower.follower_id.in_(list(follower_ids)),
+                          CopyTradeMaster.external_id.in_(list(master_ext_ids)),
+                          CopyTradeFollower.event_type == "MODIFY",
+                          CopyTradeFollower.status.in_(("executed", "failed")))
+                  .order_by(CopyTradeFollower.created_at.asc()).all())
+    f = lambda v: float(v) if v is not None else None                        # noqa: E731
+    return {(fid, ext): (f(sl), f(tp)) for fid, ext, sl, tp in rows}         # ascending: the newest wins
 
 
 def same_levels(have: tuple | None, sl, tp) -> bool:

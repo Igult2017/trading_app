@@ -63,7 +63,54 @@ s.teeth("judging against one master alone would have closed it",
         bool(sweep.decide([], [position(6, "cp-777")], {"A": m}, NOW, MONO)))
 # (No "placed after the master's last read" case: a copy is judged only at 2+ minutes old and the master's read must be
 # under 90 s old, so such a copy can never be judged — the check in `decide` is a second guard, not a reachable path.)
+import sweep_decide  # noqa: E402
+both = open(sweep.__file__, encoding="utf-8").read() + open(sweep_decide.__file__, encoding="utf-8").read()
 s.check("nothing in the sweep can OPEN a trade (no such action exists)",
-        "open_position" in open(sweep.__file__, encoding="utf-8").read() or
-        "place_pending" in open(sweep.__file__, encoding="utf-8").read(), False)
+        "open_position" in both or "place_pending" in both, False)
+
+# ── PUT BACK A STOP/TARGET CHANGED BY HAND (his decision "A", 23 Nov 2026) ───────────────────────────────────────────
+# Master trade 500 (stop 1.2) is copied as follower trade 7. The copier last MOVED the copy to stop 1.1 / target 1.4.
+mv = {("A", "500"): (1.1, 1.4)}
+
+
+def pos(sl=1.1, tp=1.4, **kw):
+    p = position(7, "cp-102", sl=sl, **kw)
+    if tp:
+        p.takeProfit = tp
+    return p
+
+
+def acts_for(p, recorded=mv, flagged=None):
+    return [(a[0], a[1], a[2], a[3]) for a in sweep.decide([], [p], {"A": m}, NOW, MONO, recorded, flagged)]
+
+
+s.check("stop moved by hand (1.1 -> 1.05): the copier's levels are put back", acts_for(pos(sl=1.05)),
+        [("restore", 7, 500, "A")])
+s.check("target moved by hand (1.4 -> 1.5): put back", acts_for(pos(tp=1.5)), [("restore", 7, 500, "A")])
+s.check("target REMOVED by hand: put back", acts_for(pos(tp=None)), [("restore", 7, 500, "A")])
+s.check("exactly what the copier set: nothing", acts_for(pos()), [])
+s.check("the broker's echo differing by float noise (1e-12): nothing", acts_for(pos(sl=1.1 + 1e-12)), [])
+s.check("the record says moved, the listener did not see it, no record: nothing (the OPEN's price is never compared)",
+        acts_for(pos(sl=1.05), recorded={}), [])
+s.check("no record, but the listener SAW a hand change: put back", acts_for(pos(sl=1.05), recorded={}, flagged={7}),
+        [("restore", 7, 500, "A")])
+s.check("flagged, but the levels are exactly the copier's (its own late news): nothing",
+        acts_for(pos(), flagged={7}), [])
+s.check("stop removed by hand: the existing 'stop' repair, not a second action",
+        acts_for(pos(sl=0)), [("stop", 7, 500, "A")])
+s.check("a hand-changed trade WITHOUT the copy label: never touched",
+        [a for a in sweep.decide([], [position(7, "his own trade", sl=1.05)], {"A": m}, NOW, MONO, mv, {7})], [])
+s.check("a copy younger than 2 minutes: not judged yet",
+        acts_for(pos(sl=1.05, age_s=30), flagged={7}), [])
+s.teeth("without the comparison the hand-moved stop would be left alone",
+        acts_for(pos(sl=1.05)) == [("restore", 7, 500, "A")])
+
+# At most one restore per trade per 10 minutes — a refused one must not loop every ~2 s.
+sweep._restored.clear()
+s.check("a first restore is due", sweep.restore_due(9, 7, 1000.0), True)
+sweep._restored[(9, 7)] = 1000.0
+s.check("a second one 5 s later is NOT", sweep.restore_due(9, 7, 1005.0), False)
+s.check("10 minutes later it is due again", sweep.restore_due(9, 7, 1000.0 + sweep.RESTORE_GAP_S), True)
+s.check("another trade on the account is not held back", sweep.restore_due(9, 8, 1005.0), True)
+sweep._restored.clear()
 s.done()

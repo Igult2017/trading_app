@@ -9,7 +9,9 @@ WHAT IT MAY DO — ONLY to the copier's own trades (label `cp-<master id>`), and
   * a copy TRADE whose master trade is closed → CLOSE it — only if the master listener was already running when the
     copy opened (otherwise it cannot know which master trade the copy came from, and it leaves it alone);
   * a copy TRADE with NO STOP while its master trade has one → the master's stop sent through the normal stop-change
-    path (`dispatcher._exec_follower` MODIFY), so the follower's own risk cap still applies.
+    path (`dispatcher._exec_follower` MODIFY), so the follower's own risk cap still applies;
+  * a copy TRADE whose stop/target the follower CHANGED BY HAND → the copier's levels put back, through the same
+    normal stop path (his decision "A", 23 Nov 2026) — at most once per 10 minutes per trade.
 It NEVER opens a trade, never touches a trade without the copy label, and writes every repair to the Activity log.
 A copy must be at least `MIN_AGE_S` old before it is judged, so a copy placed seconds ago is never mistaken for one
 whose master has gone.
@@ -18,64 +20,12 @@ import asyncio
 import logging
 import time
 
+from sweep_decide import (MIN_AGE_S, FRESH_S, RESTORE_GAP_S, _key, _differs, decide,   # noqa: F401 (callers use sweep.*)
+                          _hand, _restored, note_hand_change, restore_due, LIVE_WINDOW_H, live_followers)
+
 log = logging.getLogger("copy.sweep")
 
 EVERY_S = 120.0                 # each LIVE follower is checked once per this, spread evenly (22 Nov; was 60 s for ALL)
-MIN_AGE_S = 120.0
-FRESH_S = 90.0                  # the master's read must be at most this old
-
-
-def _key(label: str) -> int | None:
-    try:
-        return int(label[3:]) if label.startswith("cp-") else None
-    except ValueError:
-        return None
-
-
-def decide(follower_orders, follower_positions, masters: dict, now_wall: float, now_mono: float) -> list[tuple]:
-    """What to repair on ONE follower account, judged against EVERY master that account copies. Pure — tests drive it.
-
-    A follower account can copy several masters, so a copy is an orphan only when NONE of them knows it — checking
-    against one master would close another master's copy. And every one of them must have a fresh read.
-    `masters` = {master id: listener with `resting`, `read_at`, `_positions`, `origin`, `started_at`}.
-    Returns [(action, follower order/position id, master key, master id, detail)], action in cancel | close | stop."""
-    out = []
-    if not masters or any(not m.read_at or now_mono - m.read_at > FRESH_S for m in masters.values()):
-        return out                                          # no fresh picture of every master: decide nothing
-    read_wall = min(now_wall - (now_mono - m.read_at) for m in masters.values())
-    started = max(m.started_at or 0 for m in masters.values())
-    resting = set().union(*(m.resting for m in masters.values()))
-    where: dict = {}                                        # master position id -> master id
-    from_orders: dict = {}                                  # master order id -> (master id, master position id)
-    for mid, m in masters.items():
-        for pid in m._positions:
-            where[pid] = mid
-        for pid, oid in m.origin.items():
-            from_orders[oid] = (mid, pid)
-    for o in follower_orders:
-        x = _key(getattr(o.tradeData, "label", "") or "")
-        placed_at = (o.tradeData.openTimestamp or 0) / 1000.0
-        if x is None or now_wall - placed_at < MIN_AGE_S or placed_at >= read_wall:
-            continue
-        if x not in resting and x not in from_orders:
-            out.append(("cancel", int(o.orderId), x, None, "its master order is no longer resting"))
-    for p in follower_positions:
-        x = _key(getattr(p.tradeData, "label", "") or "")
-        opened_at = (p.tradeData.openTimestamp or 0) / 1000.0
-        if x is None or now_wall - opened_at < MIN_AGE_S:
-            continue
-        if x in where:
-            mid, mpid = where[x], x
-        elif x in from_orders and from_orders[x][1] in where:
-            mid, mpid = from_orders[x]
-        else:
-            if started and started < opened_at < read_wall:
-                out.append(("close", int(p.positionId), x, None, "its master trade is closed"))
-            continue
-        msnap = masters[mid]._positions[mpid]
-        if not (p.stopLoss or 0) and msnap.stop_loss:
-            out.append(("stop", int(p.positionId), mpid, mid, f"it has no stop; the master's is {msnap.stop_loss}"))
-    return out
 
 
 async def _read(conn, the_pool, acct: int):
@@ -108,6 +58,18 @@ async def repair(action, followers_by_master: dict, creds, account_type, ident, 
         f = followers_by_master[mid]
         await dispatcher._exec_follower(None, f, _masters[mid]._positions[key], "MODIFY")
         dispatcher._log(f.id, None, "WARNING", "REPAIR", f"copy {ident}: {detail} — stop sent")
+        return
+    if action == "restore":
+        acct = int(creds["ctraderId"])
+        _hand.get(acct, set()).discard(int(ident))
+        if not restore_due(acct, ident, time.monotonic()):
+            return                                  # one was sent under 10 minutes ago — its result is in the log
+        _restored[(acct, int(ident))] = time.monotonic()
+        f = followers_by_master[mid]
+        dispatcher._log(f.id, None, "WARNING", "REPAIR", f"copy {ident}: {detail} — putting the copier's levels back")
+        # `restore=True`: the "already there" check compares with the copier's RECORD, which is exactly what the hand
+        # change made untrue. Everything else — his risk rule, the stop ceiling — runs as on any copied stop move.
+        await dispatcher._exec_follower(None, f, _masters[mid]._positions[key], "MODIFY", restore=True)
         return
     ex = CTraderExecutor(creds, account_type)
     if action == "cancel":
@@ -147,32 +109,6 @@ def request_check(acct: int, live_only: bool = False) -> None:
     if _wake is None:
         _wake = asyncio.Event()
     _wake.set()
-
-
-# ── CHECK ONLY WHAT IS LIVE (22 Nov 2026, plan step 5 — his idea: "give the copier memory … it only focuses on the live
-# ones") ───────────────────────────────────────────────────────────────────────────────────────────────────────────
-# A follower with nothing copied has nothing that can go wrong, so it is not read. "Live" is NOT only "its master holds
-# something now": a master that closed everything while the follower's close failed holds nothing — and that follower
-# is exactly the one to check. So a follower is checked when ANY of: a master of it holds an open trade or order now; a
-# master of it did anything in the last LIVE_WINDOW; it has an unfinished or failed copy in the last LIVE_WINDOW.
-LIVE_WINDOW_H = 24
-
-
-def live_followers(master_live: set[str]) -> set[str]:
-    """Follower ids (copy_followers.id) that hold, or may hold, a live copy. Reads the copier's own records only."""
-    from datetime import datetime, timedelta
-    from db import Session, CopyFollower, CopyTradeMaster, CopyTradeFollower, CopyJob
-    since = datetime.utcnow() - timedelta(hours=LIVE_WINDOW_H)
-    with Session() as db:
-        busy_masters = {m for (m,) in db.query(CopyTradeMaster.master_id).filter(CopyTradeMaster.created_at >= since)
-                        .distinct()} | set(master_live)
-        out = {f for (f,) in db.query(CopyFollower.id).filter(CopyFollower.master_id.in_(busy_masters))} \
-            if busy_masters else set()
-        out |= {f for (f,) in db.query(CopyTradeFollower.follower_id).filter(
-            CopyTradeFollower.created_at >= since, CopyTradeFollower.status == "failed").distinct()}
-        out |= {f for (f,) in db.query(CopyJob.follower_id).filter(
-            CopyJob.created_at >= since, CopyJob.status.in_(("pending", "started", "unknown", "expired"))).distinct()}
-    return {f for f in out if f}
 
 
 async def run_requested(engine) -> None:
@@ -248,7 +184,13 @@ async def _pass(engine, only: dict | None) -> None:
         if gap:
             await asyncio.sleep(gap)            # spread evenly — never a burst of reads
         res = await _read(pool.POOL._home[acct], pool.POOL, acct)
+        if acct in _hand:                           # a hand-change mark on a trade that is gone: nothing left to put back
+            _hand[acct] &= {int(p.positionId) for p in res.position}
+        keys = {str(pid) for m in masters.values() for pid in m._positions}
+        import dispatcher
+        moved = await run_db(dispatcher._moved_levels, [f.id for f in by_master.values()], keys) if keys else {}
+        recorded = {(mid, ext): lv for mid, f in by_master.items() for (fid, ext), lv in moved.items() if fid == f.id}
         for action, ident, key, mid, detail in decide(res.order, res.position, masters, time.time(),
-                                                      time.monotonic()):
+                                                      time.monotonic(), recorded, set(_hand.get(acct, ()))):
             log.warning("[sweep] account %s %s %s: %s", acct, action, ident, detail)
             await repair(action, by_master, creds, kind, ident, key, mid, detail, res)

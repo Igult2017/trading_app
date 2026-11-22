@@ -72,6 +72,11 @@ export const CT_UTILITIES = `
    is kept only so the font shipping tnum later fixes this for free. The practical consequence is
    that digits do not sit on a fixed grid, so number cells must stay RIGHT-ALIGNED (they are) —
    right alignment plus a fixed 2-decimal format keeps the decimal points lined up regardless. */
+/* BODY TEXT IN A BOOK SERIF (23 Nov 2026). His settled rule (10 Sep): Playfair Display is a headline face, 16 px and up;
+   small text in it reads thin and slanted ("always italicised", of Recent activity at 12 px). Georgia is a text serif
+   every system has, so nothing is downloaded. Upright on purpose: nothing upstream may slant it. */
+.ct-app .ct-text-serif{font-family:Georgia,'Times New Roman',serif;font-style:normal;font-weight:400}
+
 .ct-app .font-dm-mono{font-family:'Playfair Display',Georgia,serif;font-variant-numeric:tabular-nums}
 
 /* hidden scrollbars (content stays scrollable) ----------------------*/

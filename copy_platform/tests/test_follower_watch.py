@@ -96,4 +96,54 @@ async def requested():
 asyncio.new_event_loop().run_until_complete(requested())
 s.check("a burst of requests becomes ONE check, of exactly the accounts asked for — forced, or only if live",
         ran, [{9: True, 12: True, 5: False}])
+
+# ── A STOP/TARGET CHANGED BY HAND IS NOTICED (his decision "A", 23 Nov 2026) ─────────────────────────────────────────
+import time  # noqa: E402
+NOW = time.time()
+
+
+def amend(label="cp-123", age_s=600, status=PS.POSITION_STATUS_OPEN, et=T.ORDER_REPLACED):
+    e = ev(et, label)
+    p = e.position
+    p.positionId, p.positionStatus, p.swap = 7, status, 0
+    p.tradeData.symbolId, p.tradeData.volume, p.tradeData.tradeSide, p.tradeData.label = 1, 100, 1, label
+    p.tradeData.openTimestamp = int((NOW - age_s) * 1000)
+    p.stopLoss = 1.05
+    return e
+
+
+s.check("a stop changed on an open copy (REPLACED) is a hand change of trade 7", W.hand_amend(amend(), NOW), 7)
+s.check("the broker setting the opening stop (copy 10 s old) is NOT", W.hand_amend(amend(age_s=10), NOW), None)
+s.check("the follower's own trade (no copy label) is NOT ours", W.hand_amend(amend(label="mine"), NOW), None)
+s.check("a closed copy is NOT (that is the close drift)", W.hand_amend(amend(status=PS.POSITION_STATUS_CLOSED), NOW), None)
+s.check("a fill is NOT a stop change", W.hand_amend(amend(et=T.ORDER_FILLED), NOW), None)
+
+marked: list = []
+import sweep_decide  # noqa: E402
+real_note = sweep_decide.note_hand_change
+sweep.note_hand_change = lambda acct, pid: marked.append((acct, pid))
+asked.clear()
+logged.clear()
+
+
+async def hand():
+    c, p = Conn(), Pool()
+    W._watching.clear()
+    W.watch(c, p, 9, ["f-1"])
+    e = amend()
+    msg = ProtoMessage(payloadType=e.payloadType, payload=e.SerializeToString())
+    async with p.lock:                     # the copier's own stop move: never a hand change
+        c.fn(None, msg)
+    inside = list(marked)
+    c.fn(None, msg)                         # nobody from the copier working on the account: a hand change
+    return inside
+import sys  # noqa: E402
+sys.modules["sweep"].request_check = lambda acct, live_only=False: asked.append(acct)
+inside = asyncio.new_event_loop().run_until_complete(hand())
+s.check("the copier's OWN stop move (account lock held) is not marked", inside, [])
+s.check("a stop changed while the copier was not working on the account is marked for trade 7 on account 9",
+        marked, [(9, 7)])
+s.check("…written to the Activity log for that follower, and a check of account 9 asked for",
+        (logged, asked), ([("f-1", "DRIFT")], [9]))
+sweep.note_hand_change = real_note
 s.done()

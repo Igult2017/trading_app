@@ -15,3 +15,25 @@
 **Companion checks:** secret scan of every added line in `copy_platform/` and `docker-migrate.sql` since 4d9abe00~1 —
 clean. No new web routes and no new dependencies, so no new ZAP surface and no new `npm audit` item; the passive ZAP
 baseline of the live site from this morning (`docs/security/2026-11-22-account-sync.md`) stands.
+
+## Addendum 2026-11-23 — putting back a stop/target changed by hand
+
+**Scope:** `sweep.py` / `sweep_decide.py` (new "restore" repair), `follower_watch.py` (notices stop/target changes),
+`dispatcher._moved_levels` + `_exec_follower(restore=True)`; Recent activity display (`Sidebar.tsx`, one CSS class).
+
+**Outside surface:** none added — no new web address, form, or input. The website change is display only. ZAP scan
+not re-run: nothing it can reach changed (stated, not skipped silently).
+
+**Manual review:**
+- *Who it can act on:* only trades carrying the copier's own `cp-` label, on accounts the copier already holds as
+  followers; never a trade without the label (`test_sweep.py` check). It never opens a trade or changes a size.
+- *What it can send:* the master's CURRENT levels through the follower's own risk rule and 1-3% stop ceiling — a
+  restore cannot widen a follower's risk past his limit (`test_restore_levels.py`: 1.099 sent, not the raw 1.095).
+- *Abuse / load:* a follower changing a stop again and again gets at most ONE restore per trade per 10 minutes
+  (`restore_due`), so neither a person nor a refused amend can make it hammer the broker's per-second limit; checks
+  stay on the low-priority line behind copies.
+- *Injection:* the new query uses the ORM with bound parameters only (`dispatcher._moved_levels`).
+- *Secrets:* diff scanned for tokens/passwords/keys — none.
+
+**Findings:** none High/Critical. Low (accepted, documented in the fix log): a hand change made while the follower
+listener was down, on a copy whose stop the copier never moved, is not detected.

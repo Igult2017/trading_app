@@ -101,15 +101,24 @@ export function Sidebar({ collapsed, setCollapsed, activePage, setActivePage, pa
           <div className="px-6 mb-4 ct-sidebar-label">
             <span className="font-label-xs text-on-surface-variant uppercase">Recent activity</span>
           </div>
-          <div className="px-6 space-y-4 ct-sidebar-text">
+          {/* 23 Nov 2026, his report: "overlapped such that some text have disappeared … always italicised".
+              MEASURED in a browser: this block wore `ct-sidebar-text`, which forbids wrapping, so 4 of 5 lines ran wider
+              than the rail (up to 292 px in 202 px) and were cut. No italic rule reaches it (computed `normal`); the
+              slant was Playfair Display — a headline face — at 12 px, with the time at 9 px and half strength. His
+              settled rule: Playfair is for 16 px+ headlines; body text is a plain book serif at 13 px+.
+              `ct-sidebar-label` still hides the block when the rail is collapsed, without the no-wrap. */}
+          <div className="px-6 space-y-4 ct-sidebar-label">
             {activity.map((a, i) => (
-              <div key={i} className="text-[10px] leading-tight border-l border-surface-container-highest pl-3">
-                <p className="text-on-surface font-body-md">{a.text}</p>
-                <p className="opacity-50 mt-1 font-dm-mono text-[9px]">{a.time}</p>
+              <div key={i} className="border-l border-surface-container-highest pl-3">
+                <p className="ct-text-serif text-[13px] leading-snug text-on-surface break-words">{a.text}</p>
+                <p className="ct-text-serif mt-1 text-[12px] text-on-surface-variant">{a.time}</p>
               </div>
             ))}
             {activity.length === 0 && (
-              <p className="text-[10px] text-on-surface-variant font-body-md">No copied trades yet.</p>
+              <div className="flex items-center gap-2 text-on-surface-variant">
+                <Icon name="history" className="shrink-0 text-[16px]" />
+                <p className="ct-text-serif text-[13px]">No copied trades yet.</p>
+              </div>
             )}
           </div>
         </div>

@@ -424,7 +424,7 @@ masters AND follower accounts between workers; every copy job is claimed before 
 | 2 | ~~`gateway.py` built but not wired~~ — **SUPERSEDED 21 Nov**: deleted; followers and masters run on the shared connection pool (`pool.py`, `docs/copy-realtime-plan.md`). This row said "next commit" until 22 Nov | ✅ |
 | 3 | ~~Durable fan-out~~ — **DONE 21 Nov**: every follower's copy is written down before it is sent (`copy_jobs`, `jobs.py`) and resumed on boot. This row said "not started" until 22 Nov | ✅ |
 | 3a | **Demo run of 22 Nov's real-time work** (`.claude/plans/declarative-roaming-bentley.md` step 6): trade by hand, move stop, breakeven, partial close, pending placed/moved/cancelled, and the copier stopped while the master closes — every follower right afterwards. Needs the market open | ⏳ market open |
-| 3b | **His decision:** should the repair check PUT BACK a stop/target a follower changed BY HAND on a copied trade? (`docs/OPEN.md` D-COPY-RT) | ❓ his call |
+| 3b | ~~His decision: put back a stop/target a follower changed by hand?~~ — **ANSWERED "A" (yes) and BUILT 23 Nov**, see the fix log. Proving it live joins 3a (a follower moves a stop by hand on demo) | ✅ built · ⏳ live proof with 3a |
 | 4 | **The horizontal lever is untested.** `COPY_WORKER_INDEX`/`COPY_WORKER_COUNT` shard masters by hash and production runs `worker 0/1`. Never run above one worker | 🔨 not started |
 | 5 | **Cross-broker (Hola Prime).** Each broker's minimum stop distance (`slDistance`/`tpDistance`) is not read or enforced | ⏸ deferred by him |
 | 6 | **`REMOVE BEFORE LAUNCH`** — the copy diagnostics endpoint is still live | ⏸ before launch |
@@ -434,6 +434,46 @@ masters AND follower accounts between workers; every copy job is claimed before 
 order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilings above.
 
 ## Fix log
+
+### 2026-11-23 — a stop or target the follower changes by hand is put back
+
+His decision **"A"** to: *if a follower moves the stop on a copied trade by hand, should the copier put it back?* — yes.
+
+**What was there:** the repair check (`sweep.py`) put back only a stop that was MISSING. A stop moved by hand stayed
+moved, and the follower listener (`follower_watch.py`) did not even notice stop/target changes — it reported only
+closes and refused orders.
+
+**Two traps found reading the code before building, both avoided:**
+- The copier's record of a copy's OPENING stop is the master-based price, but a market copy's stop is sent as a
+  DISTANCE from the follower's own fill (`executors/ctrader.py` open branch). The broker's stop differs from that
+  record by the slippage on nearly every copy — comparing them would have "put back" stops nobody touched. So the
+  opening record is never compared.
+- The "already there, nothing to send" rule (`dispatcher.py`, 21 Nov) compares with the copier's RECORD — exactly what
+  a hand change makes untrue — so a restore must skip it, or it would send nothing.
+
+**How it works now:**
+1. The follower listener marks a copy whose stop/target changed while the copier was not working on that account
+   (every copier command holds the account's lock, `executors/ctrader.py` `_run_pooled`), ignoring the first 30 s
+   after the copy opened (the broker setting the opening stop) — `follower_watch.hand_amend`. It writes a DRIFT line
+   and asks for a check of that account within ~2 s.
+2. The check (`sweep_decide.decide`) restores a copy when it was marked, OR when its live levels differ (to 1e-7) from
+   the copier's newest stop MOVE for it (`dispatcher._moved_levels`) — unless the live levels are exactly that record.
+   A FAILED stop move counts too: the follower still has the old stop, so the check sends the master's current levels
+   — **a copied stop move that timed out used to be lost for good; it is now retried.**
+3. The restore runs the normal stop path (`_exec_follower(..., "MODIFY", restore=True)`): his risk rule and the
+   1-3% stop ceiling apply exactly as on any copied stop move. At most one restore per trade per 10 minutes
+   (`restore_due`), so a refused one cannot loop.
+
+**Limit, stated:** a hand change made while the listener was down, on a copy whose stop the copier never moved, is not
+caught (nothing trustworthy to compare it with).
+
+**Also:** `sweep.py` was 254 lines before this (over the 200 limit); the pure decisions moved to `sweep_decide.py`
+(`decide`, the restore guard, `live_followers`), re-exported so every `sweep.*` caller is unchanged.
+
+**Proof:** `tests/test_sweep.py` 26 (comparison removed on purpose → 4 fail); `test_follower_watch.py` 16 (marking
+removed → fails); new `test_restore_levels.py` 6 — the REAL `_exec_follower` + risk rule: a restore sends 1.099 (the
+1% stop), not the master's raw 1.095 (flag ignored on purpose → 4 fail); `pg_live_followers.py` +3 on a real Postgres
+(failed moves excluded on purpose → fails). `run_all.py` 29 files pass.
 
 ### 2026-11-22 — nothing a master does is lost across a gap, and the copier checks only what is live
 

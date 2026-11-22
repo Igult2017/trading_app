@@ -1,0 +1,69 @@
+"""PUTTING BACK A STOP CHANGED BY HAND GOES THROUGH HIS RISK RULE (his decision "A", 23 Nov 2026).
+
+The REAL `dispatcher._exec_follower` and the REAL `risk_stop.follower_stop`, with only the outside world stood in for (the
+database, the credentials, the broker). In words:
+  * a normal stop move to levels the copier's record says the follower already has sends NOTHING (the 21 Nov rule);
+  * a RESTORE (`restore=True`) sends them anyway — the record is exactly what the hand change made untrue;
+  * a restore still goes through the stop ceiling: the master's 50-pip stop on 1 lot is 5% of a $10,000 account, so the
+    follower gets the 1% stop (10 pips, 1.0990), never the master's raw 1.0950.
+"""
+import asyncio
+from types import SimpleNamespace
+
+from _harness import Suite
+import dispatcher as D
+from providers.ctrader import PositionSnapshot
+
+s = Suite("COPY — a hand-changed stop is put back through the normal stop path")
+
+snap = PositionSnapshot(position_id=500, symbol="EURUSD", action="BUY", volume_lots=1.0, entry_price=1.1000,
+                        stop_loss=1.0950, take_profit=1.1200)
+follower = SimpleNamespace(id="f-1", master_id="m-1", direction="same", lot_mode="mult", lot_multiplier=1,
+                           fixed_lot=None, risk_percent=1, trade_delay_sec=0, symbol_whitelist=None)
+account = SimpleNamespace(platform="ctrader", balance=10000, is_active=True, account_type="demo")
+sent, logged, recorded = [], [], []
+
+
+class Executor:
+    async def modify_position(self, pid, sl, tp):
+        sent.append((pid, sl, tp))
+        return SimpleNamespace(ok=True, external_id=str(pid), entry_price=None, error=None, broker_ms=None)
+
+
+async def fake_run_db(fn, *a):
+    name = getattr(fn, "__name__", "")
+    if name == "_get_broker_account":
+        return account
+    if name == "check_follower_allowed":
+        return True, None
+    if name == "_find_follower_position_id":
+        return "77", 1.0
+    if name == "_follower_levels":
+        return (1.099, 1.12)                 # the copier's record: the 1% stop it set, and the master's target
+    if name == "_record_follower_trade":
+        recorded.append(a)
+        return None
+    raise AssertionError(f"unexpected database call {name}")
+
+
+async def creds(_):
+    return {"ctraderId": "9"}
+
+D.run_db, D.get_creds, D._get_executor = fake_run_db, creds, lambda b, c: Executor()
+D.is_symbol_allowed = lambda sym, f: True
+D._log = lambda fid, tid, lvl, ev, msg: logged.append((ev, msg))
+D.COPY_ENABLED, D.COPY_DRY_RUN = True, False
+
+loop = asyncio.new_event_loop()
+loop.run_until_complete(D._exec_follower(None, follower, snap, "MODIFY"))
+s.check("a NORMAL stop move to the levels on record sends nothing ('already there')", sent, [])
+s.check("…and says so in the Activity log", any("already there" in m for _, m in logged), True)
+
+loop.run_until_complete(D._exec_follower(None, follower, snap, "MODIFY", restore=True))
+s.check("a RESTORE sends them anyway, to follower trade 77", [x[0] for x in sent], [77])
+s.check("…with the 1% stop (1.099), NOT the master's raw 5% stop (1.095) — the ceiling still applies",
+        [x[1] for x in sent], [1.099])
+s.check("…and the master's target (1.12)", [x[2] for x in sent], [1.12])
+s.check("…and it is recorded as a MODIFY, so the next check compares against it",
+        [r[3] for r in recorded], ["MODIFY"])
+s.done()

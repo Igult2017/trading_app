@@ -54,6 +54,26 @@ try:
     s.check("a follower with a FAILED copy in the last 24 h is live", "f-failed" in got, True)
     s.check("a follower with an UNFINISHED copy job (unknown) is live", "f-job" in got, True)
     s.check("a follower whose master was quiet for 30 h and whose failure is 30 h old is NOT read", "f-quiet" in got, False)
+
+    # ── dispatcher._moved_levels (23 Nov 2026): what the repair check compares a copy's live stop/target against ────────
+    import dispatcher
+    with Session() as db:
+        db.add(CopyTradeMaster(id="mt-9", master_id="m-holding", external_id="900", source="ctrader", symbol="X",
+                               action="BUY", event_type="OPEN", created_at=now))
+        for rid, ev, st, sl, mins in (("o1", "OPEN", "executed", 1.00, 30), ("m1", "MODIFY", "executed", 1.05, 20),
+                                      ("m2", "MODIFY", "failed", 1.08, 10), ("m3", "MODIFY", "skipped", 1.09, 5)):
+            db.add(CopyTradeFollower(id=rid, master_trade_id="mt-9", follower_id="f-holding", symbol="X", action="BUY",
+                                     event_type=ev, status=st, stop_loss=sl, take_profit=1.2,
+                                     created_at=now - timedelta(minutes=mins)))
+        db.add(CopyTradeFollower(id="o2", master_trade_id="mt-9", follower_id="f-recent", symbol="X", action="BUY",
+                                 event_type="OPEN", status="executed", stop_loss=1.0, created_at=now))
+        db.commit()
+    lv = dispatcher._moved_levels(["f-holding", "f-recent"], {"900"})
+    s.check("the NEWEST stop move counts — a FAILED one included (the follower still has the old stop): 1.08",
+            lv.get(("f-holding", "900")), (1.08, 1.2))
+    s.check("a copy the copier only OPENED (never moved) has no record — its opening stop is never compared",
+            ("f-recent", "900") in lv, False)
+    s.check("a master trade not open now is not read", dispatcher._moved_levels(["f-holding"], {"901"}), {})
     s.done()
 finally:
     pg.kill()
