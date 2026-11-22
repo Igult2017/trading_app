@@ -194,6 +194,15 @@ export async function ask(ws: WebSocket, kind: ReqKind, reqType: number, payload
   }
 }
 
+/**
+ * "Is this answer for THIS account?" — required on every per-account question, because the question
+ * may be asked on a live-feed connection that several accounts share (sync plan step 5).
+ */
+export const forAcct = (acctId: number) => (p: any) => Number(p?.ctidTraderAccountId) === acctId;
+
+/** How each sync reached cTrader since start-up — the step 5 measurement (target: no new connections). */
+export const syncPathStats = { onFeed: 0, ownConnection: 0 };
+
 export async function appAuth(ws: WebSocket, app?: string) {
   const { clientId, clientSecret } = appCreds(app);
   if (!clientId || !clientSecret) throw new Error('CTRADER_CLIENT_ID or CTRADER_CLIENT_SECRET is not configured');
@@ -291,6 +300,14 @@ export interface CTraderAccount {
 }
 
 async function fetchAccountsFromEndpoint(wsUrl: string, accessToken: string, app?: string): Promise<CTraderAccount[]> {
+  // ON A LIVE-FEED CONNECTION FIRST (sync plan step 5) — it is already logged in as the app, so this is
+  // one request and no new connection. The answer is matched on the token it echoes, and the hub lets
+  // one account-list question at a time down each connection, so two users can never be handed each
+  // other's lists. No feed of this environment → the own connection below, as before.
+  const { onAnyFeed } = await import('../ctraderHub');
+  const viaFeed = await onAnyFeed(wsUrl === LIVE_WS, app, (ws) => accountsOn(ws, accessToken)).catch(() => null);
+  if (viaFeed) { syncPathStats.onFeed++; return viaFeed.value; }
+  syncPathStats.ownConnection++;
   // A LEASE FROM THE POOL BEFORE THE SOCKET. Everything Node opens is counted, so a burst of
   // add-account clicks can never use up the app's connections and leave the signal platform unable
   // to reconnect. See ctraderConnPool.
@@ -301,18 +318,24 @@ async function fetchAccountsOnce(wsUrl: string, accessToken: string, app?: strin
   const ws = await openWS(wsUrl);
   try {
     await appAuth(ws, app);
-    const payload = await ask(ws, 'normal', PT_ACCOUNTS_REQ, { accessToken }, PT_ACCOUNTS_RES);
-    return (payload?.ctidTraderAccount ?? []).map((a: any): CTraderAccount => ({
-      ctidTraderAccountId: String(a.ctidTraderAccountId),
-      brokerName:          a.brokerName ?? '',
-      traderLogin:         String(a.traderLogin ?? ''),
-      isLive:              a.isLive ?? false,
-      balance:             (a.balance ?? 0) / 100,
-      currency:            a.depositCurrency ?? '',
-    }));
+    return await accountsOn(ws, accessToken);
   } finally {
     ws.close();
   }
+}
+
+/** The account-list question, on a connection already logged in as the app. */
+async function accountsOn(ws: WebSocket, accessToken: string): Promise<CTraderAccount[]> {
+  const payload = await ask(ws, 'normal', PT_ACCOUNTS_REQ, { accessToken }, PT_ACCOUNTS_RES, 20000,
+                            (p: any) => p?.accessToken === undefined || p.accessToken === accessToken);
+  return (payload?.ctidTraderAccount ?? []).map((a: any): CTraderAccount => ({
+    ctidTraderAccountId: String(a.ctidTraderAccountId),
+    brokerName:          a.brokerName ?? '',
+    traderLogin:         String(a.traderLogin ?? ''),
+    isLive:              a.isLive ?? false,
+    balance:             (a.balance ?? 0) / 100,
+    currency:            a.depositCurrency ?? '',
+  }));
 }
 
 export async function getCTraderAccounts(accessToken: string, app?: string): Promise<CTraderAccount[]> {
@@ -343,13 +366,35 @@ export async function fetchCTraderBalance(
   app?:        string,
 ): Promise<{ balance: number; currency: string } | null> {
   const acctId = Number(ctraderId);
+  // ON THE ACCOUNT'S LIVE-FEED CONNECTION FIRST (sync plan step 5) — already logged in, so one request
+  // and no new connection. No feed → the own connection below, as before.
+  try {
+    const { onFeed } = await import('../ctraderHub');
+    const viaFeed = await onFeed(acctId, isLive, app, (ws) => balanceOn(ws, acctId, ctraderId));
+    if (viaFeed) { syncPathStats.onFeed++; return viaFeed.value; }
+  } catch (err: any) {
+    console.warn(`[cTrader] balance on the live feed failed for ${ctraderId} (${err.message}) — own connection`);
+  }
+  syncPathStats.ownConnection++;
   // Counted against Node's connection budget like everything else — see ctraderConnPool.
   const lease = await acquire('task', 'balance');
   const ws = await openWS(isLive ? LIVE_WS : DEMO_WS).catch((e) => { lease.release(); throw e; });
   try {
     await appAuth(ws, app);
     await ask(ws, 'normal', PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken }, PT_ACCT_AUTH_RES);
-    const t = await ask(ws, 'normal', PT_TRADER_REQ, { ctidTraderAccountId: acctId }, PT_TRADER_RES, 10000);
+    return await balanceOn(ws, acctId, ctraderId);
+  } catch (err: any) {
+    console.error(`[cTrader] fetchCTraderBalance failed for account ${ctraderId}: ${err.message}`);
+    return null;
+  } finally { ws.close(); lease.release(); }
+}
+
+/** The balance question, on a connection where this account is already logged in. */
+async function balanceOn(ws: WebSocket, acctId: number, ctraderId: string)
+    : Promise<{ balance: number; currency: string }> {
+  {
+    const t = await ask(ws, 'normal', PT_TRADER_REQ, { ctidTraderAccountId: acctId }, PT_TRADER_RES, 10000,
+                        forAcct(acctId));
     console.log(`[cTrader] PT_TRADER_RES raw for ${ctraderId}:`, JSON.stringify(t));
     // PT_TRADER_RES payload may have balance nested under `trader` or flat — handle both
     const trader = t?.trader ?? t;
@@ -362,10 +407,7 @@ export async function fetchCTraderBalance(
     const currency   = trader?.depositCurrency ?? '';
     console.log(`[cTrader] PT_TRADER_RES for ${ctraderId}: rawBalance=${rawBalance} moneyDigits=${moneyDigits} -> ${balance} currency=${currency}`);
     return { balance, currency };
-  } catch (err: any) {
-    console.error(`[cTrader] fetchCTraderBalance failed for account ${ctraderId}: ${err.message}`);
-    return null;
-  } finally { ws.close(); lease.release(); }
+  }
 }
 
 // ── Deal pagination helper ────────────────────────────────────────────────────
@@ -377,7 +419,8 @@ async function fetchDealsInRange(ws: WebSocket, acctId: number, from: number, to
   // ⚠ HISTORICAL, AND THIS FUNCTION RECURSES — a full range splits and asks twice more. Unpaced,
   // that is a burst of scarce-budget requests back to back, which is the shape a limiter punishes.
   const dp    = await ask(ws, 'history', PT_DEALS_REQ,
-                          { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to, maxRows }, PT_DEALS_RES);
+                          { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to, maxRows }, PT_DEALS_RES,
+                          20000, forAcct(acctId));
   const deals = dp?.deal ?? [];
   if (deals.length < maxRows || from + 1 >= to) return deals;
   const mid   = Math.floor((from + to) / 2);
@@ -818,7 +861,8 @@ async function fetchEntryOrderLevels(ws: WebSocket, acctId: number, from: number
   try {
     // Historical: the order list shares the scarce ~5/s budget with deals and candles.
     const payload = await ask(ws, 'history', PT_ORDERS_REQ,
-                              { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to }, PT_ORDERS_RES);
+                              { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to }, PT_ORDERS_RES,
+                              20000, forAcct(acctId));
     for (const o of (payload?.order ?? [])) {
       const sl = Number(o?.stopLoss), tp = Number(o?.takeProfit);
       // Only orders that actually carried levels. A closing STOP_LOSS_TAKE_PROFIT order has neither,
@@ -861,6 +905,25 @@ export async function fetchCTraderTrades(
   // CONNECTIONS exist; this gate caps how many REQUESTS are in flight across all of them. A burst of
   // requests down a few connections is what earns a rate-limit refusal, and history is the scarce
   // budget at 5 per second.
+  //
+  // ⚠ SINCE 22 NOV (sync plan step 5) THE OWN CONNECTION IS ONLY THE FALLBACK. An account with a live
+  // feed is already logged in on a shared connection that holds its symbol list, so the sync asks its
+  // history questions THERE: no new connection, no new app or account login. Answers are matched to
+  // this account (`forAcct`), since other accounts share that connection.
+  try {
+    const { onFeed } = await import('../ctraderHub');
+    const viaFeed = await onFeed(acctId, isLive, app,
+                                 (fws, symbolMap) => tradesOn(fws, acctId, symbolMap, fromMs, toMs));
+    if (viaFeed) {
+      syncPathStats.onFeed++;
+      console.log(`[cTrader] sync of ${ctraderId} ran on its live-feed connection (no new connection) — `
+                  + `feed ${syncPathStats.onFeed}, own ${syncPathStats.ownConnection} since start`);
+      return viaFeed.value;
+    }
+  } catch (err: any) {
+    console.warn(`[cTrader] sync on the live feed failed for ${ctraderId} (${err.message}) — own connection`);
+  }
+  syncPathStats.ownConnection++;
   const lease = await acquire('task', 'trade-sync');
   const ws = await openWS(wsUrl).catch((e) => { lease.release(); throw e; });
   try {
@@ -874,6 +937,17 @@ export async function fetchCTraderTrades(
     for (const s of (symPayload?.symbol ?? [])) {
       if (s.symbolId && s.symbolName) symbolMap[s.symbolId] = s.symbolName;
     }
+    return await tradesOn(ws, acctId, symbolMap, fromMs, toMs);
+  } finally {
+    ws.close();
+    lease.release();
+  }
+}
+
+/** The history questions of one sync, on a connection where this account is already logged in. */
+async function tradesOn(ws: WebSocket, acctId: number, symbolMap: Record<number, string>,
+                        fromMs: number, toMs: number): Promise<RawBrokerTrade[]> {
+  {
 
     // Fetch deals in 7-day chunks; 250ms pause between chunks prevents rate limiting
     const CHUNK_MS  = 7 * 24 * 60 * 60 * 1000;
@@ -946,8 +1020,5 @@ export async function fetchCTraderTrades(
                    `— every position may still be open`);
     }
     return out;
-  } finally {
-    ws.close();
-    lease.release();
   }
 }

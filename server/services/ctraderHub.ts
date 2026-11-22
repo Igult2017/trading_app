@@ -472,6 +472,36 @@ export async function openPositionIds(accountId: string): Promise<string[] | nul
   return list.map((p: any) => String(p?.positionId)).filter((id: string) => id && id !== 'undefined');
 }
 
+/**
+ * Run `work` on the live-feed connection this cTrader account is ALREADY logged in on — no new
+ * connection, no new login (sync plan step 5). `null` when it has no feed here: the caller then uses
+ * its own connection, as before. Wrapped in `{ value }` so a work result of null is not "no feed".
+ */
+export async function onFeed<T>(ctid: number, isLive: boolean, app: string | undefined,
+                                work: (ws: WebSocket, symbolMap: Record<number, string>) => Promise<T>)
+    : Promise<{ value: T } | null> {
+  const key = hubKey(isLive ? LIVE_WS : DEMO_WS, app);
+  const hub = hubs.find((h) => h.key === key && !h.closing && h.members.has(ctid)
+                               && h.ws.readyState === WebSocket.OPEN);
+  if (!hub) return null;
+  return { value: await work(hub.ws, hub.members.get(ctid)!.symbolMap) };
+}
+
+/** One account-list question at a time per connection: its answer can only be matched on the token. */
+const listLock = new WeakMap<WebSocket, Promise<unknown>>();
+
+/** Run `work` on ANY open live-feed connection of this environment and app (already app-logged-in). */
+export async function onAnyFeed<T>(isLive: boolean, app: string | undefined,
+                                   work: (ws: WebSocket) => Promise<T>): Promise<{ value: T } | null> {
+  const key = hubKey(isLive ? LIVE_WS : DEMO_WS, app);
+  const hub = hubs.find((h) => h.key === key && !h.closing && h.ws.readyState === WebSocket.OPEN);
+  if (!hub) return null;
+  const prev = listLock.get(hub.ws) ?? Promise.resolve();
+  const mine = prev.then(() => work(hub.ws));
+  listLock.set(hub.ws, mine.catch(() => {}));
+  return { value: await mine };
+}
+
 export function isAttached(accountId: string): boolean { return hubOf.has(accountId); }
 export function attachedIds(): string[] { return [...hubOf.keys()]; }
 
