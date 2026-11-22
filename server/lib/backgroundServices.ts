@@ -53,12 +53,14 @@ export function startBackgroundServices(): void {
   void removeOrphanedCopyLinks();
 
   scraperScheduler.start();
-  startAutoSync();              // the reconciliation sweep (daily) for every API-connected account
+  // Live feeds FIRST, and the sweep waits for them: a sync asks on its account's feed connection when
+  // there is one, so starting both at once opened a new connection for every boot sync (22 Nov).
+  const feedsReady = startCTraderRealtime();   // instant cTrader trade recording
+  startAutoSync(feedsReady);    // the reconciliation sweep (daily) for every API-connected account
   // Asks the broker what it is holding every 5 min and recovers any close the live feed missed.
   // THE LAYER THAT LETS THE SWEEP BE DAILY: without it a missed close waits up to 36 hours.
   startMissedCloseWatch();
   startHealthWatchdog();        // coded health alerts (token / scanner / engine)
-  startCTraderRealtime();       // instant cTrader trade recording
   startUsageReporter();         // this program's cTrader connections, beside the signal engine's and the copier's
   startPublishScheduler();      // scheduled blog posts go live when their time arrives
   startSettingsVault();         // encrypted copy of every setting to his private GitHub repo (off until VAULT_* set)

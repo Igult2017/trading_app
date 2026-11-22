@@ -328,13 +328,16 @@ async function fetchAccountsOnce(wsUrl: string, accessToken: string, app?: strin
 async function accountsOn(ws: WebSocket, accessToken: string): Promise<CTraderAccount[]> {
   const payload = await ask(ws, 'normal', PT_ACCOUNTS_REQ, { accessToken }, PT_ACCOUNTS_RES, 20000,
                             (p: any) => p?.accessToken === undefined || p.accessToken === accessToken);
+  // ⚠ THE LIST CARRIES NO BROKER NAME, BALANCE OR CURRENCY (`ProtoOACtidTraderAccount` has only the id,
+  // isLive, traderLogin and two timestamps — checked against the installed proto 22 Nov). Those were read
+  // from here and were always blank; `describeAccounts` fills them from each account's own details.
   return (payload?.ctidTraderAccount ?? []).map((a: any): CTraderAccount => ({
     ctidTraderAccountId: String(a.ctidTraderAccountId),
-    brokerName:          a.brokerName ?? '',
+    brokerName:          '',
     traderLogin:         String(a.traderLogin ?? ''),
     isLive:              a.isLive ?? false,
-    balance:             (a.balance ?? 0) / 100,
-    currency:            a.depositCurrency ?? '',
+    balance:             0,
+    currency:            '',
   }));
 }
 
@@ -364,7 +367,7 @@ export async function fetchCTraderBalance(
   ctraderId:   string,
   isLive:      boolean = false,
   app?:        string,
-): Promise<{ balance: number; currency: string } | null> {
+): Promise<CTraderAccountFacts | null> {
   const acctId = Number(ctraderId);
   // ON THE ACCOUNT'S LIVE-FEED CONNECTION FIRST (sync plan step 5) — already logged in, so one request
   // and no new connection. No feed → the own connection below, as before.
@@ -389,25 +392,113 @@ export async function fetchCTraderBalance(
   } finally { ws.close(); lease.release(); }
 }
 
-/** The balance question, on a connection where this account is already logged in. */
-async function balanceOn(ws: WebSocket, acctId: number, ctraderId: string)
-    : Promise<{ balance: number; currency: string }> {
-  {
-    const t = await ask(ws, 'normal', PT_TRADER_REQ, { ctidTraderAccountId: acctId }, PT_TRADER_RES, 10000,
-                        forAcct(acctId));
-    console.log(`[cTrader] PT_TRADER_RES raw for ${ctraderId}:`, JSON.stringify(t));
-    // PT_TRADER_RES payload may have balance nested under `trader` or flat — handle both
-    const trader = t?.trader ?? t;
-    const rawBalance = trader?.balance ?? 0;
-    // cTrader scales `balance` by moneyDigits (raw / 10^moneyDigits), NOT a fixed
-    // /100. DEMO accounts often report moneyDigits=0, so the old /100 collapsed
-    // their balance toward $0. Default to 2 (the common live case) when absent.
-    const moneyDigits = trader?.moneyDigits ?? 2;
-    const balance = rawBalance / Math.pow(10, moneyDigits);
-    const currency   = trader?.depositCurrency ?? '';
-    console.log(`[cTrader] PT_TRADER_RES for ${ctraderId}: rawBalance=${rawBalance} moneyDigits=${moneyDigits} -> ${balance} currency=${currency}`);
-    return { balance, currency };
+/**
+ * What cTrader itself says about one trading account (sync plan step 6) — so the page shows the broker
+ * or prop firm, the leverage and the currency from the broker, never from what a user typed.
+ */
+export interface CTraderAccountFacts {
+  balance:       number;
+  currency:      string;                      // '' when it could not be read
+  brokerName?:   string;                      // the broker / prop firm, e.g. "Pepperstone"
+  leverage?:     number;                      // 1:N, as N
+  positionMode?: 'hedged' | 'netted' | 'spread_betting';
+}
+
+const PT_ASSET_LIST_REQ = 2112;   // PROTO_OA_ASSET_LIST_REQ (checked against the installed proto, 22 Nov)
+const PT_ASSET_LIST_RES = 2113;
+/** Asset id → name, per broker (`broker|assetId`). Asset ids belong to the broker's server, not to cTrader. */
+const assetNames = new Map<string, string>();
+
+/** The account currency's NAME. The account details carry only its asset id (`depositAssetId`). */
+async function currencyOf(ws: WebSocket, acctId: number, broker: string, assetId: unknown): Promise<string> {
+  if (assetId === undefined || assetId === null) return '';
+  const key = `${broker}|${assetId}`;
+  if (!assetNames.has(key)) {
+    try {
+      const r = await ask(ws, 'normal', PT_ASSET_LIST_REQ, { ctidTraderAccountId: acctId }, PT_ASSET_LIST_RES, 10000,
+                          forAcct(acctId));
+      for (const a of (r?.asset ?? [])) if (a?.name) assetNames.set(`${broker}|${a.assetId}`, String(a.name));
+    } catch (err: any) {
+      console.warn(`[cTrader] asset list failed for ${acctId}: ${err.message} — currency left as stored`);
+    }
   }
+  return assetNames.get(key) ?? '';
+}
+
+const MODES = ['hedged', 'netted', 'spread_betting'] as const;
+
+/** The account-details question, on a connection where this account is already logged in. */
+async function balanceOn(ws: WebSocket, acctId: number, ctraderId: string): Promise<CTraderAccountFacts> {
+  const t = await ask(ws, 'normal', PT_TRADER_REQ, { ctidTraderAccountId: acctId }, PT_TRADER_RES, 10000,
+                      forAcct(acctId));
+  // PT_TRADER_RES payload may have balance nested under `trader` or flat — handle both
+  const trader = t?.trader ?? t;
+  const rawBalance = trader?.balance ?? 0;
+  // cTrader scales `balance` by moneyDigits (raw / 10^moneyDigits), NOT a fixed
+  // /100. DEMO accounts often report moneyDigits=0, so the old /100 collapsed
+  // their balance toward $0. Default to 2 (the common live case) when absent.
+  const moneyDigits = trader?.moneyDigits ?? 2;
+  const balance = rawBalance / Math.pow(10, moneyDigits);
+  const brokerName = String(trader?.brokerName ?? '').trim() || undefined;
+  // ⚠ THERE IS NO CURRENCY FIELD on these details — only the asset id. This read `trader.depositCurrency`
+  // until 22 Nov, a field that does not exist, so the currency was never updated from its USD default.
+  const currency = await currencyOf(ws, acctId, brokerName ?? '', trader?.depositAssetId);
+  const levCents = Number(trader?.leverageInCents);
+  const leverage = Number.isFinite(levCents) && levCents > 0 ? Math.round(levCents / 100) : undefined;
+  // The JSON gateway NAMES enums ("HEDGED"); the protobuf path sends the number (0) — both handled.
+  const rawMode = trader?.accountType;
+  const positionMode = typeof rawMode === 'number' ? MODES[rawMode]
+    : (MODES as readonly string[]).includes(String(rawMode ?? '').toLowerCase())
+      ? String(rawMode).toLowerCase() as CTraderAccountFacts['positionMode'] : undefined;
+  console.log(`[cTrader] account details for ${ctraderId}: balance=${balance} ${currency || '?'} `
+              + `broker=${brokerName ?? '?'} leverage=${leverage ?? '?'} mode=${positionMode ?? '?'}`);
+  return { balance, currency, brokerName, leverage, positionMode };
+}
+
+/**
+ * Fill in broker name, balance and currency for every account of one sign-in, so the "pick your
+ * accounts" screen shows them. Asked at SIGN-IN only: one connection per environment that has accounts,
+ * each account logged in on it in turn. A failure leaves that account's fields blank, never the sign-in.
+ */
+export async function describeAccounts(accessToken: string, accounts: CTraderAccount[], app?: string): Promise<void> {
+  for (const live of [true, false]) {
+    const mine = accounts.filter((a) => a.isLive === live);
+    if (!mine.length) continue;
+    await withConnection('task', 'describe-accounts', async () => {
+      const ws = await openWS(live ? LIVE_WS : DEMO_WS);
+      try {
+        await appAuth(ws, app);
+        for (const a of mine) {
+          const id = Number(a.ctidTraderAccountId);
+          try {
+            await ask(ws, 'normal', PT_ACCT_AUTH_REQ, { ctidTraderAccountId: id, accessToken }, PT_ACCT_AUTH_RES,
+                      20000, forAcct(id));
+            const f = await balanceOn(ws, id, a.ctidTraderAccountId);
+            a.brokerName = f.brokerName ?? '';
+            a.balance = f.balance;
+            a.currency = f.currency;
+          } catch (err: any) {
+            console.warn(`[cTrader] details for ${a.ctidTraderAccountId} at sign-in failed: ${err.message}`);
+          }
+        }
+      } finally { ws.close(); }
+    }).catch((err: any) => console.warn(`[cTrader] account details at sign-in failed: ${err.message}`));
+  }
+}
+
+/**
+ * The broker_accounts columns to write from cTrader's facts — ONE place, used by every saver, so the
+ * sync, the sign-in and the refresh button cannot drift apart. A value cTrader did not give is left
+ * out, never blanked.
+ */
+export function factsToColumns(f: CTraderAccountFacts, storedCurrency?: string | null) {
+  const cols: Record<string, unknown> = { balance: String(f.balance) };
+  const currency = f.currency || storedCurrency;
+  if (currency) cols.currency = currency;
+  if (f.brokerName) cols.brokerName = f.brokerName;
+  if (f.leverage) cols.leverage = f.leverage;
+  if (f.positionMode) cols.positionMode = f.positionMode;
+  return cols as { balance: string; currency?: string; brokerName?: string; leverage?: number; positionMode?: string };
 }
 
 // ── Deal pagination helper ────────────────────────────────────────────────────

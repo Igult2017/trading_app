@@ -25,7 +25,7 @@ import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { geolocateIp } from "./lib/geoIp";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
-import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, newConnectApp } from "./services/brokerAdapters/ctrader";
+import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, factsToColumns, describeAccounts, newConnectApp } from "./services/brokerAdapters/ctrader";
 import { addCTraderAccount, removeCTraderAccount } from "./services/ctraderRealtime";
 import { disconnectAccount, findAccountToAdopt } from "./services/accountDisconnect";
 import { sessionAt } from "./lib/forexSession";
@@ -5344,7 +5344,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive, creds.app);
       if (!bal) return res.status(502).json({ error: "Balance fetch failed — check logs" });
 
-      await storage.updateBrokerAccount(account.id, { balance: String(bal.balance), currency: bal.currency || account.currency || undefined });
+      await storage.updateBrokerAccount(account.id, factsToColumns(bal, account.currency));
       // Carry it to the account's session too — see storage.seedSessionStartingBalance.
       await storage.seedSessionStartingBalance(account.id, bal.balance);
       return res.json({ balance: bal.balance, currency: bal.currency });
@@ -5565,6 +5565,8 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
       // If multiple accounts, store choices in DB and redirect to selection UI
       // (DB storage survives server restarts; token = brokerAccountId is already a secret UUID)
       if (ctAccounts.length > 1) {
+        // The list itself carries no broker / balance / currency — ask each account (step 6).
+        await describeAccounts(tokens.accessToken, ctAccounts, oauthApp);
         const pendingCreds = JSON.stringify({
           multiPending: true,
           app: oauthApp,
@@ -5662,7 +5664,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
             const isLive = freshAccount.accountType?.toLowerCase() !== 'demo';
             const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive, creds.app);
             if (bal !== null) {
-              await storage.updateBrokerAccount(freshAccount.id, { balance: String(bal.balance), currency: bal.currency || freshAccount.currency || undefined });
+              await storage.updateBrokerAccount(freshAccount.id, factsToColumns(bal, freshAccount.currency));
               await storage.seedSessionStartingBalance(freshAccount.id, bal.balance);
               console.log(`[cTrader] balance updated on connect: ${bal.balance} ${bal.currency}`);
             }
@@ -5797,7 +5799,7 @@ CTRADER_REFRESH_TOKEN=${tokens.refreshToken}</pre>
           if (!creds.accessToken || !creds.ctraderId) return;
           const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, freshAccount.accountType?.toLowerCase() !== 'demo', creds.app);
           if (bal !== null) {
-            await storage.updateBrokerAccount(freshAccount.id, { balance: String(bal.balance), currency: bal.currency || freshAccount.currency || undefined });
+            await storage.updateBrokerAccount(freshAccount.id, factsToColumns(bal, freshAccount.currency));
             await storage.seedSessionStartingBalance(freshAccount.id, bal.balance);
             console.log(`[cTrader] balance updated on select: ${bal.balance} ${bal.currency}`);
           } else {

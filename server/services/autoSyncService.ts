@@ -12,7 +12,7 @@ import { refreshAccountType } from './accountTypeSync';
 import { fetchTradesForAccount, API_PLATFORMS } from './brokerAdapters/index';
 import { processIncomingTrades } from './brokerSyncService';
 import { safeDecrypt, safeEncrypt } from '../lib/crypto';
-import { refreshAccessToken, fetchCTraderBalance } from './brokerAdapters/ctrader';
+import { refreshAccessToken, fetchCTraderBalance, factsToColumns } from './brokerAdapters/ctrader';
 import { currentToken, mirrorToAccounts, readToken, renewToken } from './ctraderTokenStore';
 import { backfillCtraderTokenRecords } from './ctraderTokenBackfill';
 import type { BrokerAccount } from '../../shared/schema';
@@ -284,8 +284,9 @@ async function updateCTraderBalance(account: BrokerAccount): Promise<void> {
     const isLive = (fresh ?? account).accountType?.toLowerCase() !== 'demo';
     const bal = await fetchCTraderBalance(creds.accessToken, creds.ctraderId, isLive, creds.app);
     if (bal !== null) {
+      // Balance, currency, broker / prop firm, leverage, hedged/netted — all from cTrader (factsToColumns).
       await db.update(brokerAccounts)
-        .set({ balance: String(bal.balance), currency: bal.currency || (fresh ?? account).currency })
+        .set(factsToColumns(bal, (fresh ?? account).currency))
         .where(eq(brokerAccounts.id, account.id));
       // ...and into the account's session, if it never got a starting balance. This is the path
       // that fixes accounts connected BEFORE the seeding existed: the next sync fills them in.
@@ -644,7 +645,16 @@ async function reportDuplicateGuard(): Promise<void> {
   }
 }
 
-export function startAutoSync(): void {
+/** Longest the boot sweep waits for the live feeds — a broker outage must not hold it up for long. */
+const FEEDS_WAIT_MS = 60_000;
+
+/**
+ * @param feedsReady  settles when the live feeds have logged in. ⚠ THE BOOT SWEEP WAITS FOR IT (22 Nov,
+ *   sync plan step 5): a sync asks on its account's live-feed connection when there is one, and the
+ *   first deploy measured 12 requests on NEW connections because the sweep started in the same
+ *   half-second the feeds were still logging in.
+ */
+export function startAutoSync(feedsReady: Promise<unknown> = Promise.resolve()): void {
   console.log(`[AutoSync] Starting — every ${SYNC_INTERVAL_MS / 60_000} min for all API-connected `
               + `accounts, looking back ${(OVERLAP_MS / 3_600_000).toFixed(1)}h `
               + `(${LOOKBACK_RATIO}x the interval, derived — the two cannot drift apart)`);
@@ -667,6 +677,9 @@ export function startAutoSync(): void {
     catch (err: any) { console.error('[AutoSync] cTrader token backfill failed: ' + (err?.message ?? err)); }
     try { await repairApiConnectionType(); }
     catch (err: any) { console.error('[AutoSync] connectionType repair failed: ' + (err?.message ?? err)); }
+    const feeds = feedsReady.catch((err: any) =>
+      console.warn('[AutoSync] live feeds did not start before the sweep: ' + (err?.message ?? err)));
+    await Promise.race([feeds, new Promise((r) => setTimeout(r, FEEDS_WAIT_MS))]);
   };
   void bootSteps().finally(sweep);
   setInterval(sweep, SYNC_INTERVAL_MS);

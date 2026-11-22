@@ -93,8 +93,9 @@ check('the auth limit is still 10 attempts per 15 minutes',
 // ── 4. THE TRADE RECORDERS REACH PRODUCTION ─────────────────────────────────
 // This is the defect he actually reported: a connected account showing no trades.
 check('the shared services module starts the 15-minute sync',
-      /startAutoSync\(\);/.test(bg), true);
-check('...and the live cTrader feed', /startCTraderRealtime\(\);/.test(bg), true);
+      /^\s*startAutoSync\(feedsReady\);/m.test(bg), true);
+// Since 22 Nov the feeds start FIRST and the sweep is handed their promise to wait for.
+check('...and the live cTrader feed', /^\s*const feedsReady = startCTraderRealtime\(\);/m.test(bg), true);
 check('...and the scraper and health watchdog',
       /scraperScheduler\.start\(\);/.test(bg) && /startHealthWatchdog\(\);/.test(bg), true);
 check('...all behind the single primary-worker check',

@@ -13,7 +13,7 @@
  */
 import { WebSocketServer, WebSocket } from 'ws';
 import { _internals, onFeed } from '../ctraderHub';
-import { fetchCTraderTrades, fetchCTraderBalance, getCTraderAccounts, syncPathStats, openWS,
+import { fetchCTraderTrades, fetchCTraderBalance, getCTraderAccounts, syncPathStats, openWS, factsToColumns,
          LIVE_WS, DEMO_WS } from '../brokerAdapters/ctrader';
 
 const DEALS_REQ = 2133, DEALS_RES = 2134, ORDERS_REQ = 2175, ORDERS_RES = 2176, TRADER_REQ = 2121,
@@ -27,7 +27,8 @@ const check = (label: string, got: unknown, want: unknown) => {
 };
 
 // ── the stand-in: holds questions of one kind until two are waiting (or 150 ms), then answers in REVERSE ──
-let connections = 0;
+let connections = 0, assetLists = 0;
+const ASSET_LIST_REQ = 2112, ASSET_LIST_RES = 2113;
 const logins: number[] = [];
 const held = new Map<number, Array<() => void>>();
 function hold(kind: number, answer: () => void) {
@@ -50,8 +51,19 @@ wss.on('connection', (sock) => {
       executionTimestamp: 1_700_000_000_000, filledVolume: 10_000_000, moneyDigits: 2,
       closePositionDetail: { entryPrice: 1.1, grossProfit: id, swap: 0 } }] }));
     if (t === ORDERS_REQ) say(ORDERS_RES, { ctidTraderAccountId: id, order: [] });
-    if (t === TRADER_REQ) hold(t, () => say(TRADER_RES, { ctidTraderAccountId: id,
-      trader: { ctidTraderAccountId: id, balance: id * 100, moneyDigits: 2, depositCurrency: 'USD' } }));
+    // Account details as cTrader sends them: NO currency name, only its asset id (step 6). Both accounts
+    // are in asset 3, but 111 is at Pepperstone (3 = EUR) and 222 at FTMO (3 = GBP) — brokers number their
+    // assets differently, so a remembered name that ignores the broker hands one account the other's.
+    if (t === TRADER_REQ) hold(t, () => say(TRADER_RES, { ctidTraderAccountId: id, trader: {
+      ctidTraderAccountId: id, balance: id * 100, moneyDigits: 2, depositAssetId: 3,
+      brokerName: id === 111 ? 'Pepperstone' : 'FTMO', leverageInCents: id === 111 ? 50_000 : 10_000,
+      accountType: id === 111 ? 'NETTED' : 0 } }));
+    if (t === ASSET_LIST_REQ) {
+      assetLists++;
+      say(ASSET_LIST_RES, { ctidTraderAccountId: id, asset: id === 111
+        ? [{ assetId: 1, name: 'USD' }, { assetId: 3, name: 'EUR' }]
+        : [{ assetId: 1, name: 'USD' }, { assetId: 3, name: 'GBP' }] });
+    }
     if (t === ACCOUNTS_REQ) hold(t + (role === 'live' ? 1000 : 0), () => say(ACCOUNTS_RES, {
       accessToken: p.accessToken,
       ctidTraderAccount: role === 'live' ? [] : [{ ctidTraderAccountId: p.accessToken === 'tok-A' ? 111 : 222, isLive: false }],
@@ -80,12 +92,27 @@ check('two accounts syncing at once on one connection each get ONLY their own tr
 check('...with their own profit', [t111[0]?.profit, t222[0]?.profit], [1.11, 2.22]);
 const [b111, b222] = await Promise.all([fetchCTraderBalance('tok', '111', false), fetchCTraderBalance('tok', '222', false)]);
 check('...and their own balance', [b111?.balance, b222?.balance], [111, 222]);
+
+console.log('\nACCOUNT DETAILS FROM cTRADER (step 6)\n');
+check('the broker / prop firm comes from cTrader', [b111?.brokerName, b222?.brokerName], ['Pepperstone', 'FTMO']);
+check('the currency is the NAME of the account\'s asset, looked up at ITS broker', [b111?.currency, b222?.currency],
+      ['EUR', 'GBP']);
+check('leverage 1:N from leverageInCents', [b111?.leverage, b222?.leverage], [500, 100]);
+check('hedged / netted, whether named or numbered', [b111?.positionMode, b222?.positionMode], ['netted', 'hedged']);
+const again = await fetchCTraderBalance('tok', '111', false);
+const again2 = await fetchCTraderBalance('tok', '222', false);
+check('the asset list is asked once per broker, then remembered — each broker\'s own',
+      [assetLists, again?.currency, again2?.currency], [2, 'EUR', 'GBP']);
+check('the columns written: every fact cTrader gave', factsToColumns(b111!, 'USD'),
+      { balance: '111', currency: 'EUR', brokerName: 'Pepperstone', leverage: 500, positionMode: 'netted' });
+check('...and a fact it did NOT give is left out, never blanked (stored currency kept)',
+      factsToColumns({ balance: 5, currency: '' }, 'JPY'), { balance: '5', currency: 'JPY' });
 const [lA, lB] = await Promise.all([getCTraderAccounts('tok-A'), getCTraderAccounts('tok-B')]);
 check('two users asking for their account lists at once each get only their own',
       [lA.map((a) => a.ctidTraderAccountId), lB.map((a) => a.ctidTraderAccountId)], [['111'], ['222']]);
 check('NO new connection was opened for any of it', connections - opened, 0);
 check('...and nobody logged in again (no app or account login sent)', logins.length, 0);
-check('every one was counted as "on the feed", none as "own connection"', syncPathStats, { onFeed: 8, ownConnection: 0 });
+check('every one was counted as "on the feed", none as "own connection"', syncPathStats, { onFeed: 10, ownConnection: 0 });
 check('an account with no feed here is reported as "no feed"', await onFeed(333, false, undefined, async () => 1), null);
 
 for (const h of hubs) h.ws.close();

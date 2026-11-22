@@ -138,7 +138,8 @@ check('...and it ignores a zero or missing balance',
 // card empty on exactly that path — the multi-account picker was missed on the first attempt.
 const routeLines = routes.split(/\r?\n/);
 const writeAt = routeLines
-  .map((l, i) => (l.includes('updateBrokerAccount') && l.includes('balance: String(bal.balance)') ? i : -1))
+  // Since 22 Nov every saver writes cTrader's facts through ONE helper, `factsToColumns(bal, …)`.
+  .map((l, i) => (l.includes('updateBrokerAccount') && l.includes('factsToColumns(bal') ? i : -1))
   .filter(i => i >= 0);
 check('routes.ts has the expected number of balance writes', writeAt.length, 3);
 const seeded = writeAt.filter(i =>

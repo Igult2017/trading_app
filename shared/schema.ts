@@ -806,7 +806,11 @@ export const brokerAccounts = pgTable("broker_accounts", {
   currency:       text("currency").default("USD"),
   balance:        decimal("balance",  { precision: 14, scale: 2 }),
   equity:         decimal("equity",   { precision: 14, scale: 2 }),
-  leverage:       integer("leverage"),
+  leverage:       integer("leverage"),               // 1:N as N — from cTrader (`leverageInCents`) since 22 Nov
+  // FROM cTRADER, NEVER TYPED (sync plan step 6, 22 Nov 2026). His words: "Account name should also come
+  // from ctrader which is the broker or the propfirm of that account." `name` stays the user's own label.
+  brokerName:     text("broker_name"),
+  positionMode:   text("position_mode"),             // hedged | netted | spread_betting
   isActive:       boolean("is_active").default(true),
   // ── IS THIS ACCOUNT USED IN THE COPIER AT ALL ────────────────────────────────────────────────
   // His instruction, 2026-09-28: "a button that user can click to be listed in the copier list of

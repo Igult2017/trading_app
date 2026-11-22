@@ -165,7 +165,9 @@ check('a periodic deep sweep exists', /const DEEP_LOOKBACK_MS/.test(auto), true)
 check('...and it reaches back further than the incremental window',
       /DEEP_LOOKBACK_MS\s*=\s*7\s*\*\s*24\s*\*\s*3_600_000/.test(auto), true);
 check('the repair for accounts already mislabelled runs at boot',
-      /repairApiConnectionType\(\)[\s\S]{0,220}\.finally\(sweep\)/.test(auto), true);
+      // 400, was 220: since 22 Nov the boot steps also wait for the live feeds before the sweep, which
+      // lengthened the gap; the ORDER this protects (repair, then sweep) is unchanged.
+      /repairApiConnectionType\(\)[\s\S]{0,400}\.finally\(sweep\)/.test(auto), true);
 check('...and it keys on the CREDENTIALS, not on the label it is fixing',
       /c\.accessToken\s*&&\s*c\.ctraderId/.test(auto), true);
 

@@ -71,6 +71,10 @@ ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS connection_type    TEXT DEF
 ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS copy_enabled       BOOLEAN DEFAULT TRUE;
 ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS currency           TEXT DEFAULT 'USD';
 ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS server             TEXT;
+-- From cTrader's own account details (22 Nov 2026, sync plan step 6): the broker / prop firm and
+-- hedged/netted. Never typed by the user; `name` stays his own label.
+ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS broker_name        TEXT;
+ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS position_mode      TEXT;
 ALTER TABLE broker_accounts ADD COLUMN IF NOT EXISTS password_enc       TEXT;
 
 -- ── 3. synced_trades ──────────────────────────────────────────────────────────
