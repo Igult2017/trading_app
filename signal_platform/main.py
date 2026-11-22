@@ -225,6 +225,9 @@ async def _startup() -> None:
     # one cTrader app and the admin capacity page adds them up (`data/ctrader_usage.py`).
     from data import ctrader_usage as _usage
     asyncio.create_task(_usage.report_forever())
+    # A KEEP-ALIVE on the price-reading connection (cTrader drops one that is silent for 10 s) — sync plan step 3.
+    from data import ctrader_session as _sess_ka
+    asyncio.create_task(_sess_ka.keepalive_forever())
 
     log.info("[boot] checking the cTrader history feed (EUR/USD H1)...")
     from core.ctrader_probe import ensure_market_data

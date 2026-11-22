@@ -328,3 +328,25 @@ def reset_connection() -> None:
             pass
     _reader = None
     _writer = None
+
+
+# ── KEEP-ALIVE ON THE PRICE-READING CONNECTION (22 Nov 2026, sync plan step 3) ────────────────────────────────────────
+# cTrader drops a connection that sends nothing for 10 s. This one sent no keep-alive at all and stayed up only because
+# something asked for prices or positions every few seconds — a quiet spell (a slow weekend scan, a paused tracker)
+# could end it and the next request would pay for a fresh login. Taken under the request lock so it never lands between
+# a request and its reply; cTrader does not answer a keep-alive, so nothing waits for one.
+KEEPALIVE_S = 8.0
+
+
+async def keepalive_forever() -> None:
+    from data.ctrader_client import _req_lock
+    while True:
+        await asyncio.sleep(KEEPALIVE_S)
+        if _writer is None or _writer.is_closing() or _req_lock.locked():
+            continue                                    # nothing open, or a request is talking right now
+        try:
+            async with _req_lock:
+                if _writer is not None and not _writer.is_closing():
+                    await send(_writer, _HEARTBEAT_EVENT, b"")
+        except Exception as exc:
+            log.debug(f"[ctrader] keep-alive not sent: {type(exc).__name__}: {exc}")

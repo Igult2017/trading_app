@@ -20,8 +20,7 @@ THE PUBLIC INTERFACE IS UNCHANGED — `place_stop`, `cancel`, `amend_sltp`. `pla
 import asyncio
 import logging
 
-from execution.connection import (COMMAND_TIMEOUT, NotSent, load_symbol_map, load_symbol_spec,
-                                  open_authenticated)
+from execution.connection import COMMAND_TIMEOUT, NotSent, load_symbol_map, load_symbol_spec
 from execution.orders import OrderResult, build_amend, build_cancel, build_stop, read_execution
 
 log = logging.getLogger(__name__)
@@ -80,13 +79,6 @@ class StopOrderClient:
     # ── internals ──────────────────────────────────────────────────────────────
 
     async def _run(self, cmd: tuple) -> OrderResult:
-        # AT MOST `CTRADER_SIGNAL_ORDER_CONNS` OF THESE OPEN AT ONCE (22 Nov 2026, `data/ctrader_usage.py`): the website and
-        # the copier share this cTrader app, so a burst of stop moves must not open a dozen connections on top of theirs.
-        from data import ctrader_usage
-        async with ctrader_usage.order_slot():
-            return await self._run_held(cmd)
-
-    async def _run_held(self, cmd: tuple) -> OrderResult:
         try:
             return await self._converse(cmd)
         except NotSent as exc:
@@ -103,22 +95,25 @@ class StopOrderClient:
             log.error(f"[execution] {cmd[0]} failed: {type(exc).__name__}: {exc}", exc_info=True)
             return OrderResult(ok=False, error=f"{type(exc).__name__}: {exc}")
         finally:
-            # ALWAYS closed, on every path including the timeout. A leaked socket here would
-            # accumulate in a process that runs for weeks, and is one more connection cTrader counts.
-            writer, self._writer = self._writer, None
-            if writer is not None and not writer.is_closing():
-                writer.close()
+            self._writer = None     # the connection itself belongs to `order_line.LINE`, which keeps it open
 
     async def _converse(self, cmd: tuple) -> OrderResult:
         from data import ctrader_session as sess
 
-        acct = int(self.creds["ctraderId"])
-        reader, writer = await open_authenticated(self.creds, self.account_type)
-        self._writer = writer
+        # ONE ORDER CONNECTION, KEPT OPEN (22 Nov 2026, `execution/order_line.py`). This opened a NEW connection, logged
+        # the app and account in and hung up — for every command. The website and the copier share this cTrader app.
+        from execution.order_line import LINE
+        async with LINE.use(self.creds, self.account_type) as (reader, writer):
+            self._writer = writer
+            return await self._converse_on(sess, reader, writer, cmd, LINE)
 
+    async def _converse_on(self, sess, reader, writer, cmd: tuple, line) -> OrderResult:
+        acct = int(self.creds["ctraderId"])
         symbol_map, spec = {}, None
         if cmd[0] == "stop":
-            symbol_map = await load_symbol_map(reader, writer, acct)
+            # THE SYMBOL LIST IS KEPT for the life of the connection's owner — it was ~312 KB downloaded per order.
+            symbol_map = line.symbol_maps.get(acct) or await load_symbol_map(reader, writer, acct)
+            line.symbol_maps[acct] = symbol_map
             # THE CONTRACT SIZE COMES FROM THE BROKER, NOT FROM A CONSTANT. The symbol LIST carries
             # no lotSize (it is `ProtoOALightSymbol`), which is why sizing assumed a 100,000-unit
             # forex lot for every instrument and gold went out 1,000x too large. One extra round
@@ -126,7 +121,9 @@ class StopOrderClient:
             from shared.symbols import resolve_symbol_id
             sid = resolve_symbol_id(cmd[1], symbol_map)
             if sid is not None:
-                spec = await load_symbol_spec(reader, writer, acct, sid)
+                spec = line.specs.get((acct, sid)) or await load_symbol_spec(reader, writer, acct, sid)
+                if spec is not None:
+                    line.specs[(acct, sid)] = spec
                 if spec is None:
                     log.warning(f"[execution] no symbol spec for {cmd[1]} — sizing falls back to "
                                 f"the per-instrument default, and the broker's limits are unchecked")
@@ -134,6 +131,13 @@ class StopOrderClient:
         req, err = self._build(acct, cmd, symbol_map, spec)
         if err:
             raise NotSent(err)                      # e.g. the symbol is not on this account
+        # A NEW ORDER CARRIES AN ID WE CHOSE, which cTrader echoes on its reply — on a connection that stays open, another
+        # order's news can arrive while this one waits, and this is how its own answer is told apart.
+        self._client_id = None
+        if cmd[0] == "stop":
+            import uuid
+            self._client_id = uuid.uuid4().hex[:24]
+            req.clientOrderId = self._client_id
 
         # FROM HERE ON the order may be live, so a failure is UNKNOWN rather than "not sent".
         await sess.send(writer, req.payloadType, req.SerializeToString())
@@ -155,6 +159,25 @@ class StopOrderClient:
         _, symbol, side, volume, stop_price, sl, tp, expiry_ms, lots, label, comment = cmd
         return build_stop(acct, symbol, side, volume, stop_price, sl, tp, expiry_ms, symbol_map,
                           spec=spec, lots=lots, label=label, comment=comment)
+
+    def _mine(self, msg, cmd: tuple) -> bool:
+        """Is this execution event / order error about THIS command? (22 Nov 2026, the order connection stays open.)
+        A new order: our `clientOrderId`. A cancel or a waiting order's change: its order id. A stop change or a close:
+        its position id. Nothing to match by -> accepted, as before."""
+        def sub(name):
+            return getattr(msg, name) if name in msg.DESCRIPTOR.fields_by_name and msg.HasField(name) else None
+        order, position = sub("order"), sub("position")
+        verb = cmd[0]
+        if verb == "stop":
+            got = getattr(order, "clientOrderId", "") if order is not None else ""
+            return not got or not getattr(self, "_client_id", None) or got == self._client_id
+        if verb in ("cancel", "amend_order"):
+            got = (order.orderId if order is not None else 0) or int(getattr(msg, "orderId", 0) or 0)
+            return not got or int(got) == int(cmd[1])
+        if verb in ("amend", "close"):
+            got = (position.positionId if position is not None else 0) or int(getattr(msg, "positionId", 0) or 0)
+            return not got or int(got) == int(cmd[1])
+        return True
 
     async def _await_verdict(self, sess, reader, cmd: tuple) -> OrderResult:
         """Read until the broker gives a verdict.
@@ -199,6 +222,8 @@ class StopOrderClient:
 
             event = ProtoOAExecutionEvent()
             event.ParseFromString(msg.payload)
+            if not self._mine(event, cmd):
+                continue                                  # another order's news on this account — not our answer
             verdict = read_execution(event,
                                      is_cancel=(cmd[0] == "cancel"),
                                      is_amend=(cmd[0] in ("amend", "amend_order")))

@@ -86,16 +86,19 @@ class _Conn(Int32StringReceiver):
                 p = ev.position
                 p.positionId, p.positionStatus, p.swap, p.price = f.next_id + 100_000, 1, 0, 1.1
                 p.tradeData.symbolId, p.tradeData.volume, p.tradeData.tradeSide = req.symbolId, req.volume, req.tradeSide
+            other = M.ProtoOAExecutionEvent(ctidTraderAccountId=req.ctidTraderAccountId,
+                                            executionType=T.ORDER_ACCEPTED)
+            other.order.orderId, other.order.orderStatus, other.order.clientOrderId = 1, 1, "someone-else"
+            other.order.orderType = 3
+            other.order.tradeData.symbolId, other.order.tradeData.volume, other.order.tradeData.tradeSide = 1, 1, 1
+            if f.noise == "first":                     # another order's news on the same account, just BEFORE ours
+                self.reply(other)
             self.reply(ev)
-            if f.noise:                                # another order's news on the same account, straight after
-                other = M.ProtoOAExecutionEvent(ctidTraderAccountId=req.ctidTraderAccountId,
-                                                executionType=T.ORDER_ACCEPTED)
-                other.order.orderId, other.order.orderStatus, other.order.clientOrderId = 1, 1, "someone-else"
-                other.order.orderType = 3
-                other.order.tradeData.symbolId, other.order.tradeData.volume, other.order.tradeData.tradeSide = 1, 1, 1
+            if f.noise is True:                        # ... or straight after
                 self.reply(other)
             return
         if pt == _pt(M.ProtoOASymbolsListReq):
+            f.symbol_lists += 1
             req = M.ProtoOASymbolsListReq(); req.ParseFromString(msg.payload)
             res = M.ProtoOASymbolsListRes(ctidTraderAccountId=req.ctidTraderAccountId)
             s = res.symbol.add(); s.symbolId, s.symbolName, s.enabled = 1, "EURUSD", True
@@ -128,6 +131,7 @@ class FakeCTrader(protocol.ServerFactory):
         self.breaches = 0
         self.next_id = 1000
         self.noise = False
+        self.symbol_lists = 0
 
     def drop_all(self):
         for c in list(self.conns):
@@ -158,6 +162,8 @@ class _Control(protocol.Protocol):
                 f.drop_all()
             elif cmd == "noise on":
                 f.noise = True
+            elif cmd == "noise first":
+                f.noise = "first"
             elif cmd == "noise off":
                 f.noise = False
             elif cmd.startswith("push "):            # the account places a STOP order — pushed to whoever listens
@@ -175,7 +181,7 @@ class _Control(protocol.Protocol):
                 f.orders.clear()
             self.transport.write(json.dumps({
                 "conns": len(f.conns), "app_logins": f.app_logins, "requests": f.requests, "breaches": f.breaches,
-                "orders": len(f.orders), "account_logins": dict(f.account_logins)}).encode() + b"\n")
+                "orders": len(f.orders), "account_logins": dict(f.account_logins), "symbol_lists": f.symbol_lists}).encode() + b"\n")
 
 
 if __name__ == "__main__":
