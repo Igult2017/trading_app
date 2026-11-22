@@ -86,6 +86,12 @@ TRADE_MINUTES_PER_CALL = 6
 KEEP_MIN = 90
 MAX_PAGES = 15
 _minutes: dict[int, dict[float, tuple[float, float]]] = {}
+# MINUTES REFUSED AS TOO BIG (22 Nov 2026). A minute over `MAX_PAGES` was not kept AND not remembered, so every scan
+# downloaded it again — 15 pages each for two busy minutes, ~7-8 s added to every scan for 90 minutes (scans 12-15 s
+# instead of 4-8 s, live log 22 Nov). The answer is the same (the minute stays out); it is only no longer re-asked.
+# A minute that FAILED (network, refusal) is NOT put here — that one must be tried again.
+_too_big: set[int] = set()
+TOO_BIG = "too-big"
 
 
 def parse_trades(rows: list, start: int, end: int) -> dict[float, tuple[float, float]]:
@@ -100,7 +106,8 @@ def parse_trades(rows: list, start: int, end: int) -> dict[float, tuple[float, f
     return {p: (v[0], v[1]) for p, v in out.items()}
 
 
-async def _minute(client, m: int) -> dict[float, tuple[float, float]] | None:
+async def _minute(client, m: int) -> dict[float, tuple[float, float]] | str | None:
+    """The minute's prints; `TOO_BIG` when it needs more than `MAX_PAGES` pages; None when it could not be read."""
     for name, url in TRADE_SOURCES:
         try:
             rows, params = [], {"symbol": SYMBOL, "startTime": m * 1000, "endTime": m * 1000 + 59_999, "limit": 1000}
@@ -113,8 +120,8 @@ async def _minute(client, m: int) -> dict[float, tuple[float, float]] | None:
                 if len(page) < 1000 or int(page[-1]["T"]) > m * 1000 + 59_999:
                     return parse_trades(rows, m, m + 59)
                 params = {"symbol": SYMBOL, "fromId": int(page[-1]["a"]) + 1, "limit": 1000}
-            log.warning(f"[pix] {name} minute {m}: over {MAX_PAGES} pages — not kept")
-            return None
+            log.warning(f"[pix] {name} minute {m}: over {MAX_PAGES} pages — not kept, and not asked for again")
+            return TOO_BIG
         except Exception as exc:
             log.warning(f"[pix] {name} trades for minute {m} failed: {type(exc).__name__}: {exc}")
     return None
@@ -124,13 +131,16 @@ async def refresh_prints(client: httpx.AsyncClient | None = None, now: float | N
     """Fetch the newest closed minutes not yet kept (up to `TRADE_MINUTES_PER_CALL`), drop the old. Never raises."""
     now = time.time() if now is None else now
     last_closed = int(now) // 60 * 60 - 60
-    want = [m for m in range(last_closed - 60 * (KEEP_MIN - 1), last_closed + 1, 60) if m not in _minutes]
+    want = [m for m in range(last_closed - 60 * (KEEP_MIN - 1), last_closed + 1, 60)
+            if m not in _minutes and m not in _too_big]
     own = client is None
     client = client or httpx.AsyncClient(timeout=TIMEOUT_S)
     try:
         for m in sorted(want, reverse=True)[:TRADE_MINUTES_PER_CALL]:     # newest first: the tap is recent
             got = await _minute(client, m)
-            if got is not None:
+            if got == TOO_BIG:
+                _too_big.add(m)
+            elif got is not None:
                 _minutes[m] = got
     except Exception as exc:
         log.warning(f"[pix] trade refresh failed: {type(exc).__name__}: {exc}")
@@ -139,6 +149,7 @@ async def refresh_prints(client: httpx.AsyncClient | None = None, now: float | N
             await client.aclose()
     for m in [k for k in _minutes if k < last_closed - 60 * KEEP_MIN]:
         del _minutes[m]
+    _too_big.difference_update({k for k in _too_big if k < last_closed - 60 * KEEP_MIN})
 
 
 def prints(tf: str) -> dict[int, dict[float, tuple[float, float]]]:

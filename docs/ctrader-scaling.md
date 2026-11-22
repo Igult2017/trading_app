@@ -22,6 +22,19 @@ starts**.
 meaning had moved, and one said the **opposite** of what the code now does. What rested on them is
 corrected too.
 
+#### ⚠ CORRECTED 22 Nov 2026 — the account-sync plan (`.claude/plans/declarative-roaming-bentley.md`, steps 1-9) changed these. Where a row below disagrees, THIS block is current.
+
+| fact now | where | measured |
+|---|---|---|
+| Accounts per live-feed connection is **5** (the setting's default; notch 5 of 1→2→5→10→20→50). Step 10 — the next notch — is **blocked**: production has exactly 5 cTrader accounts, already on 1 connection, and no fills over the weekend to prove routing (`docs/OPEN.md` D-SYNC8) | [`ctraderHub.ts:81`](../server/services/ctraderHub.ts#L81) | boot line `5 account(s) on 1 socket(s)` |
+| Requests are paced **per connection** (35 ordinary / 4 history per rolling 1.1 s) and a "rate limited" answer is waited out and RESENT on the same connection (1 s, 2 s, 4 s). The row below saying nothing reacts to rate limits is out of date | [`ctraderPace.ts`](../server/services/brokerAdapters/ctraderPace.ts), `ctrader.ask()` | `__tests__/ctraderPace.check.ts` |
+| A sync asks its history, balance and account details on the account's **existing live-feed connection** — no new connection, no new login; its own connection is only the fallback for an account with no feed | `ctraderHub.onFeed` / `onAnyFeed` | log `own 0 since start` after the 13cb56d8 deploy (was 2-4 new connections per sync) |
+| **Either** cTrader server returns the WHOLE account list (live and demo); it is now asked of one server | `ctrader.getCTraderAccounts` | `live server: 4 (0 live), demo server: 4 (0 live)` |
+| The safety sweep is **daily** (`SYNC_INTERVAL_MINUTES` 1440, looking back 36 h), plus the 5-minute missed-close check — not every 15 minutes | [`autoSyncService.ts`](../server/services/autoSyncService.ts) | boot line `every 1440 min` |
+| ONE way to renew a token — always through the shared record | `autoSyncService.refreshCTraderToken` | `__tests__/ctraderTokenOnePath.check.ts` |
+| All three programs report their cTrader connections to `ctrader_usage`; the admin capacity page adds them up | `server/services/ctraderUsage.ts`, `signal_platform/data/ctrader_usage.py`, `copy_platform/usage.py` | website pool 8/8 → **1/8** on 22 Nov |
+| The signal engine places orders on **one kept-open connection** (it opened one per order) and its price connection sends keep-alives | `signal_platform/execution/order_line.py`, `data/ctrader_session.keepalive_forever` | `signal_platform/tests/test_ctrader_usage.py` |
+
 | fact | where |
 |---|---|
 | Sockets are **no longer one-per-account**. They live in the hub; the feed keeps only the lifecycle | [`ctraderRealtime.ts:19`](../server/services/ctraderRealtime.ts#L19), [`ctraderHub.ts`](../server/services/ctraderHub.ts) |

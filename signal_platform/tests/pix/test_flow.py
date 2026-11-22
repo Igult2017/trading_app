@@ -166,6 +166,43 @@ BT._cache.clear()
 check("both sources fail → ('', {}), never raises",
       run(BT.flows("M5", 2, client=FakeClient([TimeoutError("slow"), FakeResp(500, {})]), now=T0 + 1000)), ("", {}))
 
+print("\nA MINUTE TOO BIG TO KEEP IS NOT DOWNLOADED AGAIN EVERY SCAN (22 Nov)")
+# Live log 22 Nov: two busy minutes refused at 15 pages were re-downloaded on EVERY scan (scans 12-15 s, not 4-8 s).
+FULL = [{"T": 0, "p": "1", "q": "1", "m": False, "a": i} for i in range(1000)]   # a full page: there is always more
+NOW = 1_800_000_000.0
+LAST = int(NOW) // 60 * 60 - 60
+saved_n = BT.TRADE_MINUTES_PER_CALL
+BT.TRADE_MINUTES_PER_CALL = 1                                    # ask for the newest minute only
+BT._minutes.clear(); BT._too_big.clear()
+big = FakeClient([FakeResp(200, FULL)] * BT.MAX_PAGES)
+run(BT.refresh_prints(client=big, now=NOW))
+check("a minute over the page limit is refused, not kept", (LAST in BT._minutes, LAST in BT._too_big), (False, True))
+class AskLog:                                                    # records WHICH minute each request asks for
+    def __init__(self):
+        self.starts = []
+
+    async def get(self, url, params=None):
+        self.starts.append((params or {}).get("startTime"))
+        return FakeResp(200, [])
+
+
+again = AskLog()
+run(BT.refresh_prints(client=again, now=NOW + 5))
+check("...and the next scan does NOT ask for it again — it moves on to the next minute",
+      (LAST * 1000 in again.starts, (LAST - 60) * 1000 in again.starts), (False, True))
+BT._minutes.clear(); BT._too_big.clear()
+failing = FakeClient([TimeoutError("slow"), TimeoutError("slow")])
+run(BT.refresh_prints(client=failing, now=NOW))
+retry = FakeClient([FakeResp(200, [{"T": LAST * 1000 + 5, "p": "100", "q": "2", "m": False, "a": 1}])])
+run(BT.refresh_prints(client=retry, now=NOW + 5))
+check("a minute that FAILED (network) is still tried again on the next scan, and kept",
+      (len(retry.calls), BT._minutes.get(LAST)), (1, {100.0: (2.0, 0.0)}))
+BT._too_big.add(LAST - 60 * (BT.KEEP_MIN + 5))
+run(BT.refresh_prints(client=FakeClient([]), now=NOW))
+check("a refused minute is forgotten once it leaves the 90-minute window", min(BT._too_big, default=LAST) >= LAST - 60 * BT.KEEP_MIN, True)
+BT.TRADE_MINUTES_PER_CALL = saved_n
+BT._minutes.clear(); BT._too_big.clear()
+
 print("\nTHE CHECK PIX RUNS ONCE THE ZONE HAS PROVED ITSELF (pix.make_check)")
 from strategies.pix import make_check  # noqa: E402
 from strategies.pix_entry import Entry  # noqa: E402
