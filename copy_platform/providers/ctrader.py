@@ -790,6 +790,10 @@ class CTraderProvider:
             if self._reconciled and (frozenset(self._positions), frozenset(self._book_orders())) != before:
                 return                  # a live event changed the book meanwhile — compared again on the next read
             events = master_book.diff(base_pos, base_ord, fresh, fresh_orders, filled_from)
+            if not self._reconciled:
+                # SAID EVERY LOGIN, changes or not: "compared, nothing changed" must be tellable from "never answered".
+                log.info(f"[{self.master_id}] compared with its book after logging in: {len(fresh)} open positions, "
+                         f"{len(fresh_orders)} orders — {len(events)} change(s) made while away, sent")
             self._positions, self._orders, self._reconciled = dict(fresh), dict(fresh_orders), True
             for ev in events:
                 key = (f"pos:{ev['snap'].position_id}" if ev.get("snap") is not None
