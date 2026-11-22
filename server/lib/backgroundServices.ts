@@ -23,6 +23,8 @@ import { startCTraderRealtime } from "../services/ctraderRealtime";
 import { startPublishScheduler } from "../services/publishScheduler";
 import { startSettingsVault } from "./settingsVault";
 import { log } from "../static";
+import { startUsageReporter } from '../services/ctraderUsage';
+
 
 // In PM2 cluster mode each worker gets NODE_APP_INSTANCE = '0', '1', '2'…
 // Background tasks that write to the DB or call external services must only run in one worker —
@@ -57,6 +59,7 @@ export function startBackgroundServices(): void {
   startMissedCloseWatch();
   startHealthWatchdog();        // coded health alerts (token / scanner / engine)
   startCTraderRealtime();       // instant cTrader trade recording
+  startUsageReporter();         // this program's cTrader connections, beside the signal engine's and the copier's
   startPublishScheduler();      // scheduled blog posts go live when their time arrives
   startSettingsVault();         // encrypted copy of every setting to his private GitHub repo (off until VAULT_* set)
 

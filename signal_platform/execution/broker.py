@@ -80,6 +80,13 @@ class StopOrderClient:
     # ── internals ──────────────────────────────────────────────────────────────
 
     async def _run(self, cmd: tuple) -> OrderResult:
+        # AT MOST `CTRADER_SIGNAL_ORDER_CONNS` OF THESE OPEN AT ONCE (22 Nov 2026, `data/ctrader_usage.py`): the website and
+        # the copier share this cTrader app, so a burst of stop moves must not open a dozen connections on top of theirs.
+        from data import ctrader_usage
+        async with ctrader_usage.order_slot():
+            return await self._run_held(cmd)
+
+    async def _run_held(self, cmd: tuple) -> OrderResult:
         try:
             return await self._converse(cmd)
         except NotSent as exc:

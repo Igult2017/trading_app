@@ -221,6 +221,11 @@ async def _startup() -> None:
     else:
         log.info("[boot] real-time watchers are OFF (trade_watcher_enabled=false)")
 
+    # WHAT THIS ENGINE HOLDS AT cTRADER, every 30 s, beside the website's and the copier's (22 Nov 2026) — all three share
+    # one cTrader app and the admin capacity page adds them up (`data/ctrader_usage.py`).
+    from data import ctrader_usage as _usage
+    asyncio.create_task(_usage.report_forever())
+
     log.info("[boot] checking the cTrader history feed (EUR/USD H1)...")
     from core.ctrader_probe import ensure_market_data
     market_data_ok = await ensure_market_data(settings, write_status, bootstrap_ctrader_tokens)

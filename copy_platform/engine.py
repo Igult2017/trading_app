@@ -98,6 +98,9 @@ class CopyEngine:
             except Exception:
                 log.exception("[engine] could not resume unfinished copy jobs")
         asyncio.ensure_future(_resume())
+        # WHAT THE COPIER HOLDS AT cTRADER, every 30 s, beside the website's and the signal engine's (`usage.py`).
+        import usage
+        asyncio.ensure_future(usage.report_forever(self))
         if COPY_WORKER_COUNT > 1:            # plan step 8: run the jobs of the follower accounts this worker owns
             import jobs as _jobs
             asyncio.ensure_future(_jobs.run_owned(COPY_WORKER_INDEX, COPY_WORKER_COUNT))

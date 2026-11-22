@@ -156,4 +156,21 @@ s.check("accounts of a DIFFERENT app never share a connection (cTrader would ref
 s.teeth("the per-connection cap is what opens a second connection",
         P._conn_for(10_000, "demo", "app") is not home[1])
 
+# AT THE COPIER'S CONNECTION LIMIT (22 Nov 2026): a new account SHARES the least-loaded connection, never opens another —
+# the website, the signal engine and the copier share one cTrader app and their limits add up to 20.
+Q = pool.Pool()
+_lim = pool.POOL_MAX_CONNS
+pool.POOL_MAX_CONNS = 2
+try:
+    made = []
+    for a in range(1, 2 * pool.ACCOUNTS_PER_CONN + 6):
+        c = Q._conn_for(a, "demo", "app")
+        c.creds[a] = {}
+        c.client = c.client or object()        # as if connected
+        made.append(c)
+    s.check("at the limit of 2, no third connection is opened", len({id(c) for c in made}), 2)
+    s.check("...the extra accounts share the least-loaded one", Q.count(), 2)
+finally:
+    pool.POOL_MAX_CONNS = _lim
+
 s.done()

@@ -261,6 +261,17 @@ export const copyExecutionLogs = pgTable("copy_execution_logs", {
   createdAt:   timestamp("created_at").defaultNow(),
 });
 
+/** One row per program that talks to cTrader (web, signal, copier) — its connections, limit and accounts, every 30 s
+ *  (22 Nov 2026). All three share ONE cTrader app; the admin capacity page adds them up. */
+export const ctraderUsage = pgTable("ctrader_usage", {
+  process:   text("process").primaryKey(),
+  held:      integer("held").notNull().default(0),
+  maxHeld:   integer("max_held").notNull().default(0),
+  accounts:  integer("accounts").notNull().default(0),
+  detail:    jsonb("detail"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** One follower's copy of one master event, written BEFORE it is sent (copy_platform/jobs.py, 21 Nov 2026). */
 export const copyJobs = pgTable("copy_jobs", {
   id:            varchar("id").primaryKey().default(sql`gen_random_uuid()`),

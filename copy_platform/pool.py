@@ -31,6 +31,10 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
 log = logging.getLogger("copy.pool")
 
 ACCOUNTS_PER_CONN = max(1, int(os.environ.get("COPY_ACCOUNTS_PER_CONN", "50")))
+# THE COPIER'S SHARE OF THE ONE cTRADER APP (22 Nov 2026, `usage.py`): the pool may hold at most this many connections;
+# beyond it a new account goes on the least-loaded existing connection instead of opening another. With the copier's
+# own-connection limit (COPY_OWN_CONNS, 3) the copier's total is 9 — the website (8) and the signal engine (3) make 20.
+POOL_MAX_CONNS = max(1, int(os.environ.get("COPY_POOL_MAX_CONNS", "6")))
 HEARTBEAT_S = 8.0                       # cTrader: "every 10 seconds"
 _PT = {k: v().payloadType for k, v in dict(
     app=ProtoOAApplicationAuthRes, acct=ProtoOAAccountAuthRes, err=ProtoOAErrorRes,
@@ -201,6 +205,11 @@ class Pool:
         from config import CT_DEMO_HOST, CT_LIVE_HOST, CT_PORT
         conns = self._conns.setdefault((env, app), [])
         c = min((x for x in conns if len(x.creds) < ACCOUNTS_PER_CONN), key=lambda x: len(x.creds), default=None)
+        if c is None and conns and self.count() >= POOL_MAX_CONNS:
+            # AT THE COPIER'S CONNECTION LIMIT: share the least-loaded connection rather than open another.
+            c = min(conns, key=lambda x: len(x.creds))
+            log.warning("[pool:%s] at the %d-connection limit — account %s shares connection #%d (%d accounts)",
+                        env, POOL_MAX_CONNS, acct, c.index, len(c.creds) + 1)
         if c is None:
             c = Conn(env, CT_DEMO_HOST if env == "demo" else CT_LIVE_HOST, CT_PORT, len(conns))
             conns.append(c)
@@ -244,6 +253,13 @@ class Pool:
                     out[int(cr["ctraderId"])] = f"{type(exc).__name__}: {exc}"
         await asyncio.gather(*(_one(c, lst) for c, lst in by_conn.items()))
         return out
+
+    def count(self) -> int:
+        """Connections this pool has made."""
+        return sum(1 for conns in self._conns.values() for c in conns if c.client is not None)
+
+    def accounts(self) -> int:
+        return len(self._home)
 
     def account_lock(self, acct: int) -> asyncio.Lock:
         return self._locks.setdefault(int(acct), asyncio.Lock())

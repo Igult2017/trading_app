@@ -1213,6 +1213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/admin/ctrader-capacity", requireAdmin, async (_req: Request, res: Response) => {
+    const { readUsage } = await import("./services/ctraderUsage");
     const hub  = hubStats();
     const pool = poolStats();
     res.json({
@@ -1227,6 +1228,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // carry feeds for if every socket filled up. NOT a user count and NOT a tested limit — the
       // database pool (20, db.ts:65) and the 2 shared CPUs bind well before this does.
       feedCeilingIfSocketsFill: pool.max * ACCOUNTS_PER_CONN,
+      // ALL THREE PROGRAMS ON THE ONE SHARED cTRADER APP (22 Nov 2026, services/ctraderUsage.ts): website, signal
+      // engine and copier each report what they hold; `held` / `max` are the totals of the rows still being written.
+      wholeApp:          await readUsage().catch(() => null),
     });
   });
 

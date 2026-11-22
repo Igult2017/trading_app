@@ -433,6 +433,19 @@ CREATE TABLE IF NOT EXISTS copy_execution_logs (
   created_at  TIMESTAMP DEFAULT NOW()
 );
 
+-- ── ctrader_usage (22 Nov 2026) ───────────────────────────────────────────────
+-- ONE row per program that talks to cTrader (web, signal, copier), rewritten every 30 s: how many cTrader connections
+-- it holds, its own limit, and how many accounts ride on them. All three share ONE cTrader app, so the admin capacity
+-- page adds these up against the app's connection ceiling. A row older than 2 minutes is a program that stopped.
+CREATE TABLE IF NOT EXISTS ctrader_usage (
+  process     TEXT        PRIMARY KEY,
+  held        INTEGER     NOT NULL DEFAULT 0,
+  max_held    INTEGER     NOT NULL DEFAULT 0,
+  accounts    INTEGER     NOT NULL DEFAULT 0,
+  detail      JSONB,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- ── copy_jobs (21 Nov 2026) ───────────────────────────────────────────────────
 -- One row per follower per master event, written BEFORE the copy is sent (copy_platform/jobs.py), so a crash
 -- part-way through a fan-out is finished at the next start-up instead of silently losing the remaining followers.

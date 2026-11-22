@@ -267,6 +267,13 @@ class CTraderExecutor:
                 stop_listening()
 
     async def _run_own_connection(self) -> ExecResult:
+        # AT MOST `usage.OWN_CONNS` OF THESE AT ONCE (22 Nov 2026): the website and the signal engine share this cTrader
+        # app, so a fan-out to accounts not yet on the pool must not open one connection per follower at the same moment.
+        import usage
+        async with usage.own_slot():
+            return await self._run_own_connection_held()
+
+    async def _run_own_connection_held(self) -> ExecResult:
         loop = asyncio.get_event_loop()
         self._result_future = loop.create_future()
         self._client = self._make_client()
