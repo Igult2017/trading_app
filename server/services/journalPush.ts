@@ -38,7 +38,9 @@ const KEEPALIVE_MS = 25_000;
 /** Nothing about a journal event is secret to its own user, but the payload is still kept minimal. */
 export type JournalEvent =
   | { type: 'trade-recorded'; externalId?: string; symbol?: string; count?: number }
-  | { type: 'trades-changed' };
+  | { type: 'trades-changed' }
+  // Sync All's progress, one account after another (syncAllQueue.ts). The user's own account names only.
+  | { type: 'sync-all'; run: unknown };
 
 function write(res: Response, line: string): boolean {
   try { res.write(line); return true; } catch { return false; }

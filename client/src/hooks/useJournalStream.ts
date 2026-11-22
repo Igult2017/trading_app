@@ -30,9 +30,20 @@ const AFFECTED = [
   ["/api/notifications"],
 ];
 
-export function useJournalStream(enabled = true): void {
+/** One pushed event, as the server sent it (`server/services/journalPush.ts` JournalEvent). */
+export type JournalStreamEvent = { type: string; [k: string]: unknown };
+
+/**
+ * @param onEvent  optional — told every event. Sync All's progress (`type: 'sync-all'`, 22 Nov) goes ONLY
+ *   here: it is not a journal change, so it must not refetch the journal on every step of a run.
+ */
+export function useJournalStream(enabled = true, onEvent?: (e: JournalStreamEvent) => void): void {
   // Survives re-renders so a parent re-rendering cannot open a second stream.
   const running = useRef(false);
+  // The LATEST listener, read at the moment an event arrives — so the stream is never reopened just
+  // because the page passed a new function on a re-render.
+  const listener = useRef(onEvent);
+  listener.current = onEvent;
 
   useEffect(() => {
     if (!enabled || running.current) return;
@@ -63,7 +74,11 @@ export function useJournalStream(enabled = true): void {
         buffer = parts.pop() ?? "";
         for (const part of parts) {
           if (part.startsWith(":")) continue;               // keep-alive comment
-          if (/^event:\s*journal$/m.test(part)) invalidate();
+          if (!/^event:\s*journal$/m.test(part)) continue;
+          let event: JournalStreamEvent | null = null;
+          try { event = JSON.parse(/^data:\s*(.*)$/m.exec(part)?.[1] ?? "null"); } catch { /* not JSON */ }
+          if (event) listener.current?.(event);
+          if (event?.type !== "sync-all") invalidate();
         }
       }
     };

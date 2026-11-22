@@ -4,7 +4,7 @@
  * The defect this guards (2026-09-14): both Sync buttons threw the reply away, so a dozen successful
  * syncs showed him nothing. The replies below are the server's real wording (server/routes.ts).
  */
-import { summarise, syncOne, type SyncResult } from "./accountSync";
+import { summariseRun, pendingIds, syncOne, type SyncResult, type SyncAllRun } from "./accountSync";
 
 let pass = 0, fail = 0;
 function check(name: string, got: unknown, want: unknown) {
@@ -47,12 +47,21 @@ async function main() {
   check("network down -> said so, and never throws", await syncOne(TT, {}, async () => { throw new TypeError("Failed to fetch"); }),
         { ok: false, text: "couldn't reach the server — check your connection and try again." });
 
-  console.log("\nSYNC ALL — one line per account");
-  const both = summarise([{ account: TT, result: { ok: true, text: FOUND } }, { account: CT, result: { ok: true, text: NONE } }]);
-  check("names each account by name and number", both.text, `TT (5834793): ${FOUND}  ·  ctrader (5296567): ${NONE}`);
-  check("all fine -> ok", both.ok, true);
-  check("one failed -> not ok", summarise([{ account: TT, result: { ok: true, text: FOUND } },
-                                           { account: CT, result: { ok: false, text: "x" } }]).ok, false);
+  // SYNC ALL is run by the server since 22 Nov; the page shows the run it is pushed (syncAllQueue.ts).
+  console.log("\nSYNC ALL — one line per account, from the server's run");
+  const mid: SyncAllRun = { startedAt: "t", items: [
+    { accountId: "1", label: "Pepperstone", status: "done", message: FOUND },
+    { accountId: "2", label: "FTMO", status: "syncing" },
+    { accountId: "3", label: "TT", status: "queued" },
+    { accountId: "4", label: "EA", status: "skipped", message: "sends its trades through the EA on its own" } ] };
+  check("while running: says one at a time, each step so far, the current one syncing",
+        summariseRun(mid).text,
+        `Syncing one at a time — Pepperstone: ${FOUND}  ·  FTMO: syncing…  ·  EA: sends its trades through the EA on its own`);
+  check("while running: queued + syncing accounts show as busy", [...pendingIds(mid)], ["2", "3"]);
+  const end: SyncAllRun = { ...mid, finishedAt: "t2", items: [mid.items[0], { ...mid.items[1], status: "error", message: "x" }] };
+  check("finished: nothing shows as busy", pendingIds(end).size, 0);
+  check("one failed -> not ok", summariseRun(end).ok, false);
+  check("all fine -> ok", summariseRun({ ...end, items: [mid.items[0]] }).ok, true);
 
   // TEETH — the old behaviour (fire, ignore the reply) cannot pass the first check above.
   const ignoresReply = async (): Promise<SyncResult> => ({ ok: true, text: "synced." });

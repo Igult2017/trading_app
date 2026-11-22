@@ -35,10 +35,48 @@ export function label(account: SyncTarget): string {
   return account.loginId ? `${account.name} (${account.loginId})` : account.name;
 }
 
-/** One answer for several accounts: a part per account, and a failure if any of them failed. */
-export function summarise(results: { account: SyncTarget; result: SyncResult }[]): SyncResult {
+// ── SYNC ALL, RUN BY THE SERVER (22 Nov 2026, sync plan step 7) ──────────────────────────────────────
+// It used to run here, every account at once, and was lost if the page closed. The server now syncs them
+// one after another and pushes each step (`server/services/syncAllQueue.ts`); the page only shows it.
+
+export type SyncAllStatus = "queued" | "syncing" | "done" | "error" | "skipped" | "still-running";
+export interface SyncAllItem { accountId: string; label: string; status: SyncAllStatus; message?: string }
+export interface SyncAllRun { startedAt: string; finishedAt?: string; items: SyncAllItem[] }
+
+/** Ask the server to start Sync All (or return the run already going). null = it could not be asked. */
+export async function startSyncAll(headers: HeadersInit, fetchImpl: FetchLike = (u, i) => fetch(u, i))
+    : Promise<{ run: SyncAllRun | null; error?: string }> {
+  try {
+    const res = await fetchImpl("/api/broker-accounts/sync-all", { method: "POST", headers });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { run: null, error: body.error ?? `Sync All could not start (error ${res.status}).` };
+    return { run: body.run ?? null };
+  } catch {
+    return { run: null, error: "couldn't reach the server — check your connection and try again." };
+  }
+}
+
+/** The run in progress or just finished, for a page opened while one runs. null = none or unreachable. */
+export async function readSyncAll(headers: HeadersInit, fetchImpl: FetchLike = (u, i) => fetch(u, i))
+    : Promise<SyncAllRun | null> {
+  try {
+    const res = await fetchImpl("/api/broker-accounts/sync-all", { method: "GET", headers });
+    return res.ok ? ((await res.json()).run ?? null) : null;
+  } catch { return null; }
+}
+
+/** The accounts this run has not finished with yet — the ones to show as syncing. */
+export function pendingIds(run: SyncAllRun | null): Set<string> {
+  if (!run || run.finishedAt) return new Set();
+  return new Set(run.items.filter(i => i.status === "queued" || i.status === "syncing").map(i => i.accountId));
+}
+
+/** One answer for the whole run: a part per account, and a failure if any of them failed. */
+export function summariseRun(run: SyncAllRun): SyncResult {
+  const said = run.items.filter(i => i.status !== "queued");
   return {
-    ok: results.every(r => r.result.ok),
-    text: results.map(r => `${label(r.account)}: ${r.result.text}`).join("  ·  "),
+    ok: said.every(i => i.status !== "error"),
+    text: (run.finishedAt ? "" : "Syncing one at a time — ")
+      + said.map(i => `${i.label}: ${i.status === "syncing" ? "syncing…" : i.message ?? i.status}`).join("  ·  "),
   };
 }

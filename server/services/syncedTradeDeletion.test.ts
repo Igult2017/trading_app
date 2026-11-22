@@ -52,6 +52,7 @@ const STORAGE   = SRC('server/storage.ts');
 const SYNC      = SRC('server/services/brokerSyncService.ts');
 const ROUTES    = SRC('server/routes.ts');
 const AUTOSYNC  = SRC('server/services/autoSyncService.ts');
+const SYNCALL   = SRC('server/services/syncAllQueue.ts');
 const SCHEMA    = SRC('shared/schema.ts');
 
 console.log('\nA TRADE HE DELETED STAYS DELETED\n');
@@ -170,12 +171,15 @@ console.log('   only pressing Sync counts as him asking:');
 const codeOf = (src: string) => src.split('\n')
   .filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l))
   .join('\n');
-// TWO BUTTONS HE PRESSES, and only those: Sync (`/sync`) and "Re-sync everything" (`/resync-all`, his
-// 26 Oct ask — it rebuilds trades he deleted, which is the point of it). Updated 22 Nov 2026: this read
-// "exactly ONE" and had failed since that second button shipped.
-const manualCallers = [ROUTES, AUTOSYNC, SYNC]
+// THREE BUTTONS HE PRESSES, and only those: Sync (`/sync`), "Re-sync everything" (`/resync-all`, his
+// 26 Oct ask — it rebuilds trades he deleted, which is the point of it) and Sync All (`syncAllQueue.ts`,
+// 22 Nov — pressing Sync on every account, so it behaves as Sync does). Updated 22 Nov 2026: this read
+// "exactly ONE" and had failed since the second button shipped.
+const manualCallers = [ROUTES, AUTOSYNC, SYNC, SYNCALL]
   .reduce((n, src) => n + (codeOf(src).match(/manual:\s*true/g) ?? []).length, 0);
-check('exactly TWO callers pass manual: true', manualCallers, 2);
+check('exactly THREE callers pass manual: true', manualCallers, 3);
+check('...one is Sync All, which syncs each account as its own Sync button does',
+      /syncAccount\(a,\s*\{\s*deep:\s*true,\s*manual:\s*true\s*\}\)/.test(SYNCALL), true);
 check('...one is the manual Sync route',
       /syncAccount\(account,\s*\{\s*deep:\s*true,\s*manual:\s*true\s*\}\)/.test(ROUTES), true);
 check('...the other is "Re-sync everything", inside its own route',
@@ -184,7 +188,7 @@ check('...the other is "Re-sync everything", inside its own route',
 check('syncAccount accepts and forwards it',
       /opts:\s*\{\s*deep\?:\s*boolean;\s*manual\?:\s*boolean;\s*full\?:\s*boolean\s*\}/.test(AUTOSYNC)
       && /\{\s*manual:\s*opts\.manual\s*\}/.test(AUTOSYNC), true);
-teeth('a third caller setting manual: true would be caught', manualCallers === 2);
+teeth('a fourth caller setting manual: true would be caught', manualCallers === 3);
 
 // ── 5. THE DELETE ROUTE MARKS, AND THE ACCIDENT PATH STILL HEALS ─────────────────────────────────
 console.log();

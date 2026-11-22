@@ -350,6 +350,12 @@ export async function getCTraderAccounts(accessToken: string, app?: string): Pro
     ...(liveResult.status === 'fulfilled' ? liveResult.value : []),
     ...(demoResult.status === 'fulfilled' ? demoResult.value : []),
   ];
+  // ⚠ OPEN QUESTION, MEASURED HERE (22 Nov, docs/OPEN.md D-SYNC5): does ONE server's list already hold
+  // both live and demo accounts? If it does, the second question — which opens its own connection when
+  // the user has no feed on that server — can be dropped. Counts only, no account numbers.
+  const tally = (r: PromiseSettledResult<CTraderAccount[]>) => r.status === 'fulfilled'
+    ? `${r.value.length} (${r.value.filter((a) => a.isLive).length} live)` : 'failed';
+  console.log(`[cTrader] account list — live server: ${tally(liveResult)}, demo server: ${tally(demoResult)}`);
   if (accounts.length === 0) {
     const reasons = [
       liveResult.status === 'rejected'  ? `live: ${(liveResult  as any).reason?.message}` : null,

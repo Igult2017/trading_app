@@ -25,6 +25,7 @@ import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { geolocateIp } from "./lib/geoIp";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
+import { startSyncAll, syncAllStatus } from "./services/syncAllQueue";
 import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, factsToColumns, describeAccounts, newConnectApp } from "./services/brokerAdapters/ctrader";
 import { addCTraderAccount, removeCTraderAccount } from "./services/ctraderRealtime";
 import { disconnectAccount, findAccountToAdopt } from "./services/accountDisconnect";
@@ -5242,6 +5243,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateBrokerAccount(account.id, { syncStatus: 'error', lastSyncError: (err.message ?? 'Sync failed').slice(0, 255) });
       return res.status(500).json({ error: err.message ?? 'Sync failed' });
     }
+  });
+
+  /**
+   * SYNC ALL ON THE SERVER (22 Nov 2026, sync plan step 7). One click queues every account of this user;
+   * the server syncs them one after another and pushes each step to his open tabs, so he can leave the
+   * page. One run per user — a second click gets the run already going (`alreadyRunning`).
+   */
+  app.post("/api/broker-accounts/sync-all", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    try {
+      return res.status(202).json(await startSyncAll(user.id));
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message ?? 'Could not start Sync All' });
+    }
+  });
+
+  /** Where this user's Sync All is — for a page opened while one runs, or just after. null = none. */
+  app.get("/api/broker-accounts/sync-all", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    return res.json({ run: syncAllStatus(user.id) });
   });
 
   /**

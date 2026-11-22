@@ -5,7 +5,9 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { queryClient } from "@/lib/queryClient";
 import Brand from '@/components/Brand';
-import { label, summarise, syncOne, type SyncResult } from "@/lib/accountSync";
+import { label, syncOne, startSyncAll, readSyncAll, pendingIds, summariseRun,
+         type SyncResult, type SyncAllRun } from "@/lib/accountSync";
+import { useJournalStream } from "@/hooks/useJournalStream";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface BrokerAccount {
@@ -664,26 +666,35 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
   // away (Sync All did not even wait for it), so a dozen successful syncs showed him nothing. They now
   // wait, show the server's own answer, and refuse a second click while one is running. `finally`
   // releases the busy state however the sync ends — a lock with no release is a trap.
+  // SYNC ALL IS RUN BY THE SERVER (22 Nov 2026). It used to sync every account at once from this page and
+  // was lost if the page closed. Now one click hands the whole list to the server, which syncs them one
+  // after another and pushes each step here; leaving and coming back shows where it is.
+  function showRun(run: SyncAllRun | null) {
+    if (!run) return;
+    setSyncing(pendingIds(run));
+    setSyncNote(summariseRun(run));
+    if (run.finishedAt) fetchAccounts();
+  }
+  useJournalStream(!!session, (e) => { if (e.type === "sync-all") showRun(e.run as SyncAllRun); });
+  useEffect(() => {
+    if (!session) return;
+    void (async () => { const run = await readSyncAll(await authHeaders()); if (run && !run.finishedAt) showRun(run); })();
+  }, [session]);
+
   async function handleSyncAll() {
     if (syncing.size) return;
-    // A logged-out account is deliberately left out: it has no credentials to sync with, and
-    // asking anyway would just produce a failure line against an account that is working exactly
-    // as intended. The server refuses it too (`autoSyncService.syncAccount`) — this only keeps the
-    // button from reporting an error he did not cause.
+    // A logged-out account is deliberately left out: it has no credentials to sync with. The server
+    // skips it too (`syncAllQueue.whyNot`) — this only answers at once when there is nothing to do.
     const api = accounts.filter(a => a.connectionType === "api" && a.syncStatus !== DISCONNECTED);
     if (!api.length) {
       setSyncNote({ ok: true, text: "No API-connected accounts to sync — EA accounts send their trades on their own." });
       return;
     }
     setSyncing(new Set(api.map(a => a.id)));
-    setSyncNote(null);
-    try {
-      const headers = await authHeaders();
-      setSyncNote(summarise(await Promise.all(api.map(async account => ({ account, result: await syncOne(account, headers) })))));
-    } finally {
-      setSyncing(new Set());
-      fetchAccounts();
-    }
+    setSyncNote({ ok: true, text: "Sync All started — your accounts are synced one at a time. You can leave this page." });
+    const { run, error } = await startSyncAll(await authHeaders());
+    if (error) { setSyncing(new Set()); setSyncNote({ ok: false, text: error }); return; }
+    showRun(run);
   }
 
   async function handleSync(account: BrokerAccount) {
