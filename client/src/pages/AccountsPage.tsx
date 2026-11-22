@@ -1,5 +1,5 @@
 import { useState, useEffect, CSSProperties } from "react";
-import { Wrench, RefreshCw, Pencil, Trash2, Copy, Check, ExternalLink, BarChart2, DollarSign, LogOut, Plug, History } from "lucide-react";
+import { Trash2, Copy, Check, ExternalLink, History } from "lucide-react";
 import { SiBinance, SiBuiltbybit, SiCoinbase } from "react-icons/si";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
@@ -8,27 +8,11 @@ import Brand from '@/components/Brand';
 import { label, syncOne, startSyncAll, readSyncAll, pendingIds, summariseRun,
          type SyncResult, type SyncAllRun } from "@/lib/accountSync";
 import { useJournalStream } from "@/hooks/useJournalStream";
-
-// ── Types ─────────────────────────────────────────────────────────────────────
-interface BrokerAccount {
-  id: string;
-  name: string;
-  loginId: string;
-  server: string | null;
-  platform: string;
-  accountType: string;
-  connectionType: string;
-  currency: string;
-  balance: string | null;
-  syncStatus: string;
-  lastSyncAt: string | null;
-  lastSyncError: string | null;
-  tradeCount: number;
-  webhookToken: string | null;
-  defaultSessionId: string | null;
-  isActive: boolean;
-  copyEnabled?: boolean;
-}
+// His new design (22 Nov 2026): the page's parts, its account shape and its light + dark colours.
+import { type BrokerAccount, DISCONNECTED, DARK, LIGHT, displayName } from "@/components/accounts/accountTypes";
+import { AccountRow, AccountsColumnHeads } from "@/components/accounts/AccountRow";
+import { AccountsHeader, AccountsFilters, type TypeFilter } from "@/components/accounts/AccountsHeader";
+import { AccountsPager, SyncLogDialog, RepairPickerDialog } from "@/components/accounts/AccountsDialogs";
 
 // ── Platform list ─────────────────────────────────────────────────────────────
 const PLATFORMS = [
@@ -56,40 +40,6 @@ async function authHeaders(): Promise<HeadersInit> {
   };
 }
 
-// ── Sync status badge ─────────────────────────────────────────────────────────
-/** An account he has logged out of. Its row, its trades and its journal are all still there —
- *  `server/services/accountDisconnect.ts` says exactly what is kept and why. */
-export const DISCONNECTED = "disconnected";
-
-function SyncBadge({ status, lastSyncAt, lastSyncError }: { status: string; lastSyncAt: string | null; lastSyncError?: string | null }) {
-  const out = status === DISCONNECTED;
-  const color = out ? "#94a3b8"
-    : status === "ok" ? "#4ade80" : status === "error" ? "#ef4444" : status === "syncing" ? "#facc15" : "#64748b";
-  const label = out ? "Logged out"
-    : status === "ok" && lastSyncAt
-    ? new Date(lastSyncAt).toLocaleDateString()
-    : status === "error" ? "Error" : status === "syncing" ? "Syncing…" : "Pending";
-  return (
-    <span title={out
-            ? (lastSyncAt
-                ? `Signed out. Your trades and journal are kept — reconnecting picks up from ${new Date(lastSyncAt).toLocaleString()}.`
-                : "Signed out. Your trades and journal are kept.")
-            : status === "error" && lastSyncError ? lastSyncError : undefined}
-          style={{ color, fontWeight: 600, fontSize: 15.5, cursor: out || (status === "error" && lastSyncError) ? "help" : "default" }}>
-      {label}
-      {out && lastSyncAt && (
-        <span style={{ display: "block", color: "#64748b", fontWeight: 400, fontSize: 12.5 }}>
-          resumes from {new Date(lastSyncAt).toLocaleDateString()}
-        </span>
-      )}
-      {status === "error" && lastSyncError && (
-        <span style={{ display: "block", color: "#94a3b8", fontWeight: 400, fontSize: 12.5, maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {lastSyncError}
-        </span>
-      )}
-    </span>
-  );
-}
 
 // ── Copy-to-clipboard button ──────────────────────────────────────────────────
 function CopyBtn({ text }: { text: string }) {
@@ -539,6 +489,21 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
   const [resyncing,        setResyncing]        = useState<Set<string>>(new Set());
   const [deleting,         setDeleting]         = useState(false);
   const [delErr,           setDelErr]           = useState<string>("");
+  // HIS NEW DESIGN (22 Nov 2026, sync plan step 9): filter, Demo/Live pills, the sync log, the repair picker,
+  // and the account limit read from the server (it used to be a "/20" typed into the page).
+  const [query,            setQuery]            = useState("");
+  const [typeFilter,       setTypeFilter]       = useState<TypeFilter>("ALL");
+  const [logsAcc,          setLogsAcc]          = useState<BrokerAccount | null>(null);
+  const [repairOpen,       setRepairOpen]       = useState(false);
+  const [limit,            setLimit]            = useState<number | null>(null);
+  const T = darkMode ? DARK : LIGHT;
+  useEffect(() => {
+    if (!session) return;
+    void (async () => {
+      const r = await fetch("/api/broker-accounts/limit", { headers: await authHeaders() }).catch(() => null);
+      if (r?.ok) setLimit((await r.json()).limit ?? null);
+    })();
+  }, [session]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -831,19 +796,22 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
     // cTrader redirect is handled inside AddAccountForm.handleSubmit — nothing to do here
   }
 
-  const totalPages = Math.max(1, Math.ceil(accounts.length / pageSize));
-  const paged = accounts.slice((page - 1) * pageSize, page * pageSize);
+  const q = query.trim().toLowerCase();
+  const filtered = accounts.filter(a =>
+    (typeFilter === "ALL" || (a.accountType || "demo").toUpperCase() === typeFilter
+       || (typeFilter === "LIVE" && a.accountType === "funded"))
+    && (!q || [displayName(a), a.name, a.loginId, a.platform].some(v => (v ?? "").toLowerCase().includes(q))));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paged = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
-    <div className="accounts-root" style={{ ...(s.root as CSSProperties), ...(darkMode ? {} : { background: 'var(--jr-bg, #EEF2F7)', color: 'var(--jr-text, #1E293B)' }) }}>
-      <style>{`* { box-sizing: border-box; } ::-webkit-scrollbar { height: 4px; width: 4px; background: #0b1220; } ::-webkit-scrollbar-thumb { background: #1e293b; } @keyframes acct-spin { to { transform: rotate(360deg); } } .acct-spin { animation: acct-spin 0.9s linear infinite; } @media (prefers-reduced-motion: reduce) { .acct-spin { animation: none; } }`}</style>
-
-      {/* Top Banner */}
-      <div style={s.banner as CSSProperties}>
-        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "#38bdf8", color: "#070d1a", fontSize: 12.5, fontWeight: 800, flexShrink: 0, lineHeight: 1 }}>i</span>
-        <span>Issues syncing? Try an account history repair</span>
-        <Wrench size={13} color="#64748b" style={{ flexShrink: 0 }} />
-      </div>
+    <div className={`accounts-root relative min-h-full pb-16 ${T.page}`}>
+      <div className="relative mx-auto max-w-[1400px] px-4 pt-6 sm:px-8 sm:pt-8">
+      <AccountsHeader T={T} accounts={accounts} limit={limit} syncingAll={syncing.size > 0}
+                      onRepair={() => setRepairOpen(true)}
+                      onAdd={() => { setModalOpen(true); setShowForm(false); setSelectedPlatform(null); }}
+                      onSyncAll={handleSyncAll} />
 
       {/* cTrader multi-account picker */}
       {ctSelectAccounts.length > 0 && (
@@ -878,170 +846,66 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 
       {/* OAuth / info message */}
       {info && (
-        <div style={{ background: "#0c2a1a", border: "1px solid #166534", padding: "10px 24px", fontSize: 15.5, color: "#4ade80", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div role="status" className={`mb-5 flex items-center justify-between gap-3 rounded-2xl bg-[#10B981]/12 px-5 py-3 text-[15px] ${T.good}`}>
           <span>{info}</span>
-          <button onClick={() => setInfo(null)} style={{ background: "none", border: "none", color: "#4ade80", cursor: "pointer", fontSize: 18 }}>✕</button>
+          <button type="button" onClick={() => setInfo(null)} aria-label="Dismiss" className={`rounded-md px-2 text-lg ${T.focus}`}>✕</button>
         </div>
       )}
 
       {/* Manual sync answer — red when any account failed, so a failure never reads as a success */}
       {syncNote && (
-        <div role="status" style={{ background: syncNote.ok ? "#0c2a1a" : "#2a0c0c", border: "1px solid " + (syncNote.ok ? "#166534" : "#991b1b"), padding: "10px 24px", fontSize: 15.5, color: syncNote.ok ? "#4ade80" : "#fca5a5", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <div role="status" className={`mb-5 flex items-center justify-between gap-3 rounded-2xl px-5 py-3 text-[15px] ${syncNote.ok
+               ? `bg-[#10B981]/12 ${T.good}` : `bg-[#EF4444]/12 ${T.bad}`}`}>
           <span>{syncNote.text}</span>
-          <button onClick={() => setSyncNote(null)} aria-label="Dismiss sync result" style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 18 }}>✕</button>
+          <button type="button" onClick={() => setSyncNote(null)} aria-label="Dismiss sync result" className={`rounded-md px-2 text-lg ${T.focus}`}>✕</button>
         </div>
       )}
 
-      <div style={{ padding: isMobile ? "0 12px 20px" : "0 24px 24px", flex: 1 }}>
-        {/* Tab row */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 0 0", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-          <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
-            <button style={{ ...s.tab, ...s.tabActive } as CSSProperties}>Accounts</button>
-            <button style={s.tab as CSSProperties}>Portfolios <span style={s.proBadge as CSSProperties}>Pro</span></button>
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <span style={s.counter as CSSProperties}>{accounts.length}/20</span>
-            <button style={s.addBtn as CSSProperties} onClick={() => { setModalOpen(true); setShowForm(false); setSelectedPlatform(null); }}>
-              <span style={{ fontSize: 19, lineHeight: 1 }}>+</span> {isMobile ? "Add" : "Add Account"}
-            </button>
-            <button style={{ ...s.syncBtn, ...(syncing.size ? { opacity: 0.6, cursor: "wait" } : {}) } as CSSProperties}
-                    onClick={handleSyncAll} disabled={syncing.size > 0}>
-              <RefreshCw size={13} className={syncing.size ? "acct-spin" : undefined} /> {syncing.size ? "Syncing…" : isMobile ? "Sync" : "Sync All"}
-            </button>
-          </div>
+      <section aria-label="Trading accounts">
+        <AccountsFilters T={T} query={query} onQuery={(v) => { setQuery(v); setPage(1); }}
+                         type={typeFilter} onType={(v) => { setTypeFilter(v); setPage(1); }} />
+        <AccountsColumnHeads T={T} />
+        <div className="space-y-2.5">
+          {loading ? (
+            [0, 1, 2].map(i => <div key={i} className={`h-[72px] animate-pulse rounded-2xl ${T.surface}`} />)
+          ) : paged.length === 0 ? (
+            <div className={`flex flex-col items-center justify-center rounded-2xl py-16 text-center ${T.surface}`}>
+              <p className={`text-lg font-medium ${T.text}`}>
+                {accounts.length ? "No accounts match this filter." : "No accounts yet."}</p>
+              <p className={`mt-1 text-sm ${T.faint}`}>
+                {accounts.length ? "Clear the search or change Demo / Live." : "Add Account connects your first broker."}</p>
+              {accounts.length > 0 && (
+                <button type="button" onClick={() => { setQuery(""); setTypeFilter("ALL"); }}
+                        className={`mt-4 rounded-xl px-4 py-2 text-sm ${T.secondaryBtn} ${T.focus}`}>Reset filters</button>)}
+            </div>
+          ) : paged.map(a => (
+            <AccountRow key={a.id} a={a} T={T} platformIcon={<PlatformIcon id={a.platform.toLowerCase()} size={28} />}
+              syncing={syncing.has(a.id)} resyncing={resyncing.has(a.id)}
+              act={{
+                onAnalytics: a.defaultSessionId && onViewSession ? () => onViewSession(a.defaultSessionId!) : undefined,
+                onCopyToggle: () => handleToggleCopy(a),
+                onRepair: () => { setSyncNote(null); setConfirmResync(a); },
+                onSync: () => handleSync(a),
+                onLogs: () => setLogsAcc(a),
+                onLogout: () => handleDisconnect(a),
+                onReconnect: () => handleReconnect(a),
+                onEdit: () => setEditAccount(a),
+                onDelete: () => { setDelErr(""); setConfirmDel(a); },
+                onWebhook: () => setWebhookAcc(a),
+                onRefreshBalance: () => handleRefreshBalance(a),
+              }} />
+          ))}
         </div>
-
-        {/* Table */}
-        <div style={{ ...s.tableWrap, overflowX: "auto" } as CSSProperties}>
-          <table style={{ ...s.table, minWidth: 620 } as CSSProperties}>
-            <thead>
-              <tr>
-                {["Name", "Number", "Server", "Type", "Platform", "Balance", "Connection", "Last Sync", "Actions"].map(h => (
-                  <th key={h} style={{ ...s.th, ...(h === "Platform" ? { textAlign: "center" } : {}) } as CSSProperties}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={9} style={{ ...s.td, textAlign: "center", color: "#38bdf8", padding: 24 } as CSSProperties}>Loading accounts…</td></tr>
-              ) : paged.length === 0 ? (
-                <tr><td colSpan={9} style={{ ...s.td, textAlign: "center", color: "#64748b", padding: 28 } as CSSProperties}>
-                  No accounts yet. Click <strong style={{ color: "#38bdf8" }}>+ Add Account</strong> to connect your first broker.
-                </td></tr>
-              ) : paged.map(a => (
-                <tr key={a.id} style={s.tr as CSSProperties}>
-                  <td
-                    style={{ ...s.td, cursor: a.defaultSessionId && onViewSession ? "pointer" : "default", color: a.defaultSessionId && onViewSession ? "#38bdf8" : undefined } as CSSProperties}
-                    onClick={() => a.defaultSessionId && onViewSession && onViewSession(a.defaultSessionId)}
-                    title={a.defaultSessionId && onViewSession ? "Click to view performance dashboard" : undefined}
-                  >{a.name}</td>
-                  <td style={{ ...s.td, color: "#38bdf8", fontWeight: 700 } as CSSProperties}>{a.loginId}</td>
-                  <td style={{ ...s.td, maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis" } as CSSProperties}>{a.server ?? "—"}</td>
-                  <td style={{ ...s.td, color: a.accountType === "live" ? "#4ade80" : a.accountType === "funded" ? "#a78bfa" : "#ef4444", fontWeight: 700 } as CSSProperties}>
-                    {a.accountType.toUpperCase()}
-                  </td>
-                  <td style={s.td as CSSProperties}>
-                    {/* Brand icon only — no text label, centered in the column. */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }} title={a.platform.toUpperCase()}>
-                      <PlatformIcon id={a.platform.toLowerCase()} size={28} />
-                    </div>
-                  </td>
-                  <td style={s.td as CSSProperties}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span>{a.balance ? `$${parseFloat(a.balance).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}</span>
-                      {a.platform?.toLowerCase() === "ctrader" && (
-                        <button style={s.actionBtn as CSSProperties} title="Refresh balance" onClick={() => handleRefreshBalance(a)}>
-                          <DollarSign size={13} color="#4ade80" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                  <td style={s.td as CSSProperties}>{a.connectionType === "webhook" ? "EA" : "API"}</td>
-                  <td style={s.td as CSSProperties}><SyncBadge status={a.syncStatus} lastSyncAt={a.lastSyncAt} lastSyncError={a.lastSyncError} /></td>
-                  <td style={s.td as CSSProperties}>
-                    <div style={{ display: "flex", gap: isMobile ? 2 : 5, alignItems: "center" }}>
-                      {a.defaultSessionId && onViewSession && (
-                        <button style={s.actionBtn as CSSProperties} title="View Performance Dashboard" onClick={() => onViewSession(a.defaultSessionId!)}>
-                          <BarChart2 size={14} color="#4ade80" />
-                        </button>
-                      )}
-                      {/* ON EVERY ROW, not just API accounts. The switch decides whether the copier
-                          offers the account at all, and a row with no switch would be stuck visible
-                          there for good.
-
-                          ⚠ AND IT NO LONGER PUBLISHES THE ACCOUNT (2026-09-29). It used to set the
-                          master row public, so switching an account on for HIS OWN copier also
-                          showed it to every other user — his ruling: "Every ctrader account added by
-                          a logged in user remains private by default until the user sets it to
-                          public." Nothing on this page makes an account visible to anyone else any
-                          more, and the wording says only what the button does. */}
-                      <button style={s.actionBtn as CSSProperties}
-                        title={a.copyEnabled
-                          ? `Used in your copier — ${a.name} can copy your other accounts, and be copied by them. Private to you. Click to remove it from the copier.`
-                          : `Not in your copier. Click to use ${a.name} for copying between your own accounts.`}
-                        aria-pressed={!!a.copyEnabled}
-                        onClick={() => handleToggleCopy(a)}>
-                        <Copy size={14} color={a.copyEnabled ? "#4ade80" : "#475569"} />
-                      </button>
-                      <button style={s.actionBtn as CSSProperties} title="Webhook / Settings" onClick={() => setWebhookAcc(a)}><Wrench size={14} color="#f59e0b" /></button>
-                      <button style={{ ...s.actionBtn, ...(syncing.has(a.id) ? { cursor: "wait" } : {}) } as CSSProperties}
-                        title={syncing.has(a.id) ? "Syncing…" : "Sync — fetch the last week's closed trades"} disabled={syncing.has(a.id)} onClick={() => handleSync(a)}>
-                        <RefreshCw size={14} color="#94a3b8" className={syncing.has(a.id) ? "acct-spin" : undefined} />
-                      </button>
-                      {/* RE-SYNC EVERYTHING. Only for accounts the app fetches from — an EA
-                          account pushes its own trades and has no history to ask for. */}
-                      {a.connectionType === "api" && (
-                        <button style={{ ...s.actionBtn, ...(resyncing.has(a.id) ? { cursor: "wait" } : {}) } as CSSProperties}
-                          title={resyncing.has(a.id)
-                            ? "Re-syncing the whole history…"
-                            : `Re-sync everything — fetch ${a.name}'s full two-year history again, including trades you deleted from the journal`}
-                          disabled={resyncing.has(a.id)}
-                          onClick={() => { setSyncNote(null); setConfirmResync(a); }}>
-                          <History size={14} color={resyncing.has(a.id) ? "#64748b" : "#38bdf8"} className={resyncing.has(a.id) ? "acct-spin" : undefined} />
-                        </button>
-                      )}
-                      {/* LOG OUT / RECONNECT — the non-destructive pair, sitting before Delete so
-                          the safe action is the one nearest to hand. Only cTrader accounts have a
-                          sign-in to come back through; an EA account has no tokens to clear. */}
-                      {a.platform?.toLowerCase() === "ctrader" && (
-                        a.syncStatus === DISCONNECTED
-                          ? <button style={s.actionBtn as CSSProperties}
-                              title={`Sign back in to ${a.name}. Its trades and journal are still here — only what happened while it was logged out will be added.`}
-                              onClick={() => handleReconnect(a)}>
-                              <Plug size={14} color="#4ade80" />
-                            </button>
-                          : <button style={s.actionBtn as CSSProperties}
-                              title={`Log out of ${a.name}. Nothing is deleted — its synced trades, journal entries and dashboard all stay, and signing back in carries on from where it left off.`}
-                              onClick={() => handleDisconnect(a)}>
-                              <LogOut size={14} color="#facc15" />
-                            </button>
-                      )}
-                      <button style={s.actionBtn as CSSProperties} title="Edit" onClick={() => setEditAccount(a)}><Pencil size={14} color="#38bdf8" /></button>
-                      <button style={s.actionBtn as CSSProperties} title="Delete account" onClick={() => { setDelErr(""); setConfirmDel(a); }}><Trash2 size={14} color="#ef4444" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "14px 0 0", fontSize: 15.5, color: "#64748b", flexWrap: "wrap" }}>
-          <span>Page Size:</span>
-          <select style={s.pageSelect as CSSProperties} value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}>
-            {[10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
-          <span>{Math.min((page - 1) * pageSize + 1, accounts.length)} to {Math.min(page * pageSize, accounts.length)} of {accounts.length}</span>
-          <div style={{ display: "flex", gap: 4 }}>
-            {[["«", 1], ["‹", page - 1], ["›", page + 1], ["»", totalPages]].map(([label, target]) => (
-              <button key={label} style={s.pageBtn as CSSProperties} onClick={() => setPage(Math.max(1, Math.min(totalPages, Number(target))))}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <AccountsPager T={T} total={filtered.length} page={safePage} pageSize={pageSize}
+                       onPage={(p) => setPage(Math.max(1, Math.min(totalPages, p)))}
+                       onPageSize={(n) => { setPageSize(n); setPage(1); }} />
+      </section>
       </div>
+
+      <SyncLogDialog account={logsAcc} onClose={() => setLogsAcc(null)} headers={authHeaders} />
+      <RepairPickerDialog open={repairOpen} accounts={accounts} onClose={() => setRepairOpen(false)}
+                          onPick={(a) => { setRepairOpen(false); setSyncNote(null); setConfirmResync(a); }} />
+
 
       {/* Add Account Modal */}
       {modalOpen && (
@@ -1180,22 +1044,6 @@ export default function AccountsPage({ openModal = false, darkMode = true, onVie
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const s: Record<string, CSSProperties> = {
-  root:    { minHeight: "100%", background: "#070d1a", fontFamily: "'Montserrat','Segoe UI',sans-serif", color: "#cbd5e1", display: "flex", flexDirection: "column" },
-  banner:  { background: "#0c1a2e", borderBottom: "1px solid #1a3050", padding: "10px 24px", fontSize: 15.5, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 },
-  tab:     { background: "none", border: "none", color: "#64748b", fontSize: 17.5, fontWeight: 500, cursor: "pointer", padding: "6px 0", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
-  tabActive:{ color: "#38bdf8", borderBottom: "2px solid #38bdf8", fontWeight: 700 },
-  proBadge:{ background: "#1e40af", color: "#93c5fd", fontSize: 12.5, fontWeight: 700, padding: "2px 6px" },
-  counter: { background: "#1e293b", border: "1px solid #334155", padding: "4px 10px", fontSize: 15.5, color: "#94a3b8" },
-  addBtn:  { background: "transparent", border: "1.5px solid #38bdf8", color: "#38bdf8", padding: "7px 16px", fontSize: 15.5, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
-  syncBtn: { background: "transparent", border: "1.5px solid #334155", color: "#94a3b8", padding: "7px 16px", fontSize: 15.5, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" },
-  tableWrap:{ border: "1px solid #1e293b", overflow: "hidden" },
-  table:   { width: "100%", borderCollapse: "collapse", background: "#0b1220" },
-  th:      { padding: "12px 14px", textAlign: "left", fontSize: 14.5, fontWeight: 600, color: "#64748b", borderBottom: "1px solid #1e293b", whiteSpace: "nowrap" },
-  tr:      { borderBottom: "1px solid #111d30" },
-  td:      { padding: "13px 14px", fontSize: 15.5, color: "#cbd5e1", whiteSpace: "nowrap" },
-  actionBtn:{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: "2px 4px" },
-  pageSelect:{ background: "#1e293b", border: "1px solid #334155", color: "#cbd5e1", padding: "3px 8px", fontSize: 14.5, cursor: "pointer" },
-  pageBtn: { background: "none", border: "1px solid #1e293b", color: "#64748b", padding: "3px 8px", cursor: "pointer", fontSize: 14.5 },
   overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" },
   modal:   { background: "#0d1827", border: "1px solid #1e3050", width: 560, maxWidth: "95vw", maxHeight: "90vh", overflowY: "auto", position: "relative", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" },
   modalHeader:{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 24px 14px", position: "sticky", top: 0, background: "#0d1827", zIndex: 1, borderBottom: "1px solid #1e3050" },
