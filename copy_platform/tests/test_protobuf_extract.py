@@ -124,7 +124,8 @@ s.check("every Protobuf.extract call passes exactly one argument", bad, [])
 # authenticated on the shared connection. The count is a canary: it catches a call site QUIETLY
 # DISAPPEARING (a reply silently stopping being handled), which the one-argument rule above cannot
 # see. So it is updated deliberately when a real one is added, never to make a red suite green.
-s.check("...and all fourteen call sites are still present", total, 14)
+# 15 since 22 Nov: the deals made during a gap (`ProtoOADealListRes`, the master's book catch-up) are read too.
+s.check("...and all fifteen call sites are still present", total, 15)
 
 
 # ── TEETH ───────────────────────────────────────────────────────────────────

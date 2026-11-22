@@ -158,4 +158,29 @@ s.check("...and is kept in a COMMENT, so nobody rebuilds it",
 s.teeth("the old shape really did collapse several masters into one",
         _live("links: selfRows") and not _live("mirrorBrokerAccountIds:"))
 
+# ── A FILLED MARKET COPY IS NOT COPIED ON EITHER (22 Nov 2026) ─────────────────────────────────────
+# The label check ran on the ORDER path only; a filled market copy reached the TRADE path and came out as OPEN.
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAPositionStatus as PS  # noqa: E402
+
+
+def market_fill(label):
+    e = ProtoOAExecutionEvent()
+    e.executionType = T.ORDER_FILLED
+    e.order.orderId, e.order.orderType = 555, ProtoOAOrderType.Value("MARKET")
+    e.order.tradeData.symbolId, e.order.tradeData.volume, e.order.tradeData.tradeSide = 22, 1_000_000, 1
+    pos = e.position
+    pos.positionId, pos.positionStatus = 777, PS.POSITION_STATUS_OPEN
+    pos.tradeData.symbolId, pos.tradeData.volume, pos.tradeData.tradeSide = 22, 1_000_000, 1
+    pos.price, pos.swap = 4380.0, 0
+    if label:
+        e.order.tradeData.label = e.order.clientOrderId = pos.tradeData.label = label
+    p = provider()
+    asyncio.new_event_loop().run_until_complete(p._handle_execution(e))
+    return [x["type"] for x in p.events]
+
+
+s.check("a filled MARKET copy (our cp- label) on an account that is also a master is NOT copied on",
+        market_fill("cp-123"), [])
+s.check("...while the account owner's own market trade still is", market_fill(""), ["OPEN"])
+
 s.done()

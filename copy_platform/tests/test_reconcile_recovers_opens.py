@@ -32,8 +32,20 @@ socket — the same approach as `test_provider_resilience.py`.
 import asyncio
 
 from _harness import Suite
+import master_book
+import db_io
 import providers.ctrader as prov
 from providers.ctrader import CTraderProvider, PositionSnapshot
+
+# THE MASTER'S BOOK, in memory instead of the database (22 Nov 2026): `BOOKS[master_id]` is what the copier remembered.
+BOOKS: dict = {}
+master_book.load = lambda mid, session_factory=None: BOOKS.get(mid)
+master_book.save = lambda mid, pos, orders, session_factory=None: BOOKS.__setitem__(mid, (dict(pos), dict(orders)))
+
+
+async def _run_db_inline(fn, *a, **k):
+    return fn(*a, **k)
+db_io.run_db = _run_db_inline
 
 s = Suite("RECONCILE — a missed OPEN is recovered, and the initial load stays silent")
 
@@ -81,8 +93,9 @@ def run_reconcile(provider, positions):
 
     async def drive():
         provider._dispatch(None, Msg())
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        # Since 22 Nov the comparison runs as its own task (it may read the book and the deals) — let it finish.
+        for _ in range(20):
+            await asyncio.sleep(0)
     asyncio.set_event_loop(provider._loop)
     provider._loop.run_until_complete(drive())
 
@@ -128,10 +141,10 @@ run_reconcile(p, [FakePos(9)])
 s.check("a position already known emits NOTHING", seen3, [])
 
 
-# ── 4. ⚠ THE INITIAL LOAD MUST STAY SILENT ─────────────────────────────────
-# The regression that would be far worse than the bug being fixed: emitting OPENs on the first
-# reconcile after auth would copy every position already open on the master, on EVERY restart of
-# the engine. The `if not self._reconciled` branch records without diffing, and must keep doing so.
+# ── 4. ⚠ A MASTER SEEN FOR THE FIRST TIME STAYS SILENT ──────────────────────
+# Copying every position already open on a NEW master would be wrong — that is his history, not a trade to copy now.
+# Since 22 Nov this is "no book yet", not "every restart": a restart WITH a book sends what changed (section 6).
+BOOKS.clear()
 seen4: list = []
 p = make_provider()
 p._reconciled = False                # cold start, straight after authentication
@@ -152,6 +165,20 @@ p.on_event = capturing(seen5)
 run_reconcile(p, [FakePos(12)])
 s.check("one pass closes the gone one and opens the new one",
         sorted(seen5), [("CLOSE", 11), ("OPEN", 12)])
+
+
+# ── 6. A RESTART WITH A BOOK SENDS WHAT CHANGED WHILE THE COPIER WAS DOWN (22 Nov 2026) ──────────────────────────
+# The old first load was silent: a master close during a restart left the follower's trade OPEN.
+BOOKS.clear()
+BOOKS["test-master"] = ({20: snapshot(20), 21: snapshot(21)}, {})   # remembered before the restart
+seen6: list = []
+p = make_provider()
+p._reconciled = False                # cold start
+p.on_event = capturing(seen6)
+run_reconcile(p, [FakePos(21), FakePos(22)])   # 20 closed and 22 opened while the copier was down
+s.check("after a restart, a trade the master CLOSED while we were down is closed on the follower, a new one opened",
+        sorted(seen6), [("CLOSE", 20), ("OPEN", 22)])
+s.check("...and the book now holds what the master has", sorted(BOOKS["test-master"][0]), [21, 22])
 
 
 # ── TEETH ──────────────────────────────────────────────────────────────────

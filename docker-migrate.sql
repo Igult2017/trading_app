@@ -468,6 +468,15 @@ CREATE TABLE IF NOT EXISTS copy_jobs (
   finished_at     TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_copy_jobs_unfinished ON copy_jobs (status, created_at);
+
+-- THE MASTER'S BOOK (22 Nov 2026, `copy_platform/master_book.py`): what each master holds — open trades with size,
+-- stop and target, and resting entry orders — remembered across a restart, so every change made while the copier was
+-- down reaches the followers (it used to reload each master silently). One row per master, rewritten as events arrive.
+CREATE TABLE IF NOT EXISTS copy_master_book (
+  master_id  VARCHAR   PRIMARY KEY,
+  book       JSONB     NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
 -- The delay of each copy by the broker's own clock at both ends (plan step 9, 21 Nov 2026).
 ALTER TABLE copy_jobs ADD COLUMN IF NOT EXISTS master_ms   BIGINT;
 ALTER TABLE copy_jobs ADD COLUMN IF NOT EXISTS follower_ms BIGINT;

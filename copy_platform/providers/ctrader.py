@@ -20,6 +20,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOASymbolByIdReq, ProtoOASymbolByIdRes,
     ProtoOAReconcileReq, ProtoOAReconcileRes,
     ProtoOAExecutionEvent,
+    ProtoOADealListReq, ProtoOADealListRes,
 )
 from ctrader_open_api.messages.OpenApiModelMessages_pb2 import (
     ProtoOAExecutionType, ProtoOAOrderType, ProtoOAPositionStatus,
@@ -131,6 +132,14 @@ def _is_our_own_copy(order) -> bool:
                for v in (getattr(order.tradeData, "label", ""), getattr(order, "clientOrderId", "")))
 
 
+def _is_our_own_copy_position(pos, order=None) -> bool:
+    """Is this TRADE one this engine placed? Its label travels from the order onto the position (`mirror.mirror_label`
+    and `executors/ctrader.open_position` stamp "cp-…"); the order on the same message is checked too."""
+    if str(getattr(getattr(pos, "tradeData", None), "label", "") or "").startswith(_OUR_COPY_PREFIX):
+        return True
+    return order is not None and _is_our_own_copy(order)
+
+
 def _protection(pos, order, field: str) -> float | None:
     """A stop or target, read from the position, or from the order when the position has none yet.
 
@@ -197,6 +206,14 @@ class CTraderProvider:
     resting: set = set()
     read_at: float = 0.0
     started_at: float = 0.0
+    # THE BOOK'S ORDER HALF (22 Nov 2026, `master_book.py`): each resting entry order as a snapshot, not just its id.
+    _orders: dict | None = None
+    _catching_up: bool = False
+
+    def _book_orders(self) -> dict:
+        if self._orders is None:
+            self._orders = {}
+        return self._orders
 
     @property
     def origin(self) -> dict:
@@ -410,6 +427,8 @@ class CTraderProvider:
             self.read_at = time.monotonic()
             fresh: dict[int, PositionSnapshot] = {}
             for pos in res.position:
+                if _is_our_own_copy_position(pos):
+                    continue                      # a copy this engine placed is never a master trade (one hop)
                 # A FAILURE TO READ A POSITION MUST NEVER LOOK LIKE A CLOSED ONE. If `_snap` raises,
                 # the position is simply absent from `fresh` — and the diff below reads "absent" as
                 # "closed on the master" and emits a synthetic CLOSE, which would close the
@@ -429,70 +448,33 @@ class CTraderProvider:
                         fresh[pid] = prev
                     continue
                 fresh[snap.position_id] = snap
-            if not self._reconciled:
-                # Initial load after auth — record, no diff.
-                self._positions = fresh
-                self._reconciled = True
-                log.info(f"[{self.master_id}] loaded {len(self._positions)} open positions")
-            else:
-                # Periodic safety reconcile — a position that vanished was closed on
-                # the master (possibly via a missed event); emit a synthetic CLOSE.
-                for pid, prev in list(self._positions.items()):
-                    if pid not in fresh:
-                        self._positions.pop(pid, None)
-                        log.info(f"[{self.master_id}] reconcile: position {pid} closed externally")
-                        self._lane().run([f"pos:{pid}"], lambda p=prev: self.on_event(
-                            {"type": "CLOSE", "snap": p}, self.master_id))
-                # A POSITION THAT APPEARED IS AN ENTRY THE LIVE EVENT MISSED — EMIT OPEN.
-                #
-                # ⚠ THIS USED TO BE SILENT, AND THE SILENCE WAS THE BUG. The comment here read
-                # "do NOT emit OPEN (the live execution event already handles opens; avoids
-                # double-copying)" — an assumption that holds only while no event is ever dropped.
-                # The live feed DOES drop them. On 18 Oct his EURUSD short of 1.5 lots reached the
-                # journal in 43ms and the journal logged "the live feed missed them" for a close,
-                # while this engine's newest master trade was still SIX DAYS old. Nothing was
-                # dispatched, so there was no master row, no follower decision, and NO LOG LINE AT
-                # ALL — which is why he reported the copy log as broken when it was faithfully
-                # reporting nothing.
-                #
-                # It left a worse tail too: the position was adopted silently, so when it later
-                # closed, the loop above emitted a CLOSE for something the follower had never
-                # opened — the "No open follower position for master pos ..." skips already sitting
-                # in his log from September.
-                #
-                # DOUBLE-COPYING IS NOT A RISK HERE, and that is checked rather than hoped:
-                # `dispatcher.dispatch` counts this master's OPEN rows against its CLOSE rows for
-                # the same position id and refuses a second OPEN while one is already open
-                # (dispatcher.py:127-135). If the live event did arrive, this one is dropped there.
-                #
-                # ⚠ THE INITIAL LOAD ABOVE MUST STAY SILENT. It is the `if not self._reconciled`
-                # branch, and it records what is already open without diffing. Emitting OPENs there
-                # would copy every position already on the master every time the engine restarts.
-                for pid, snap in fresh.items():
-                    if pid in self._positions:
-                        # A PARTIAL CLOSE WHOSE LIVE EVENT WAS MISSED — same recovery as a missed
-                        # open. Compared against the snapshot the live path keeps up to date, so a
-                        # reduction already copied live is not copied a second time.
-                        prev_snap = self._positions[pid]
-                        frac = _reduced_fraction(prev_snap.volume_lots, snap.volume_lots)
-                        if frac:
-                            self._positions[pid] = snap
-                            log.info(f"[{self.master_id}] reconcile: position {pid} was partly "
-                                     f"closed ({frac:.0%}) — the live event was missed, recovering")
-                            self._lane().run([f"pos:{pid}"], lambda sn=snap, fr=frac: self.on_event(
-                                {"type": "REDUCE", "snap": sn, "fraction": fr}, self.master_id))
-                        continue
-                    self._positions[pid] = snap
-                    log.info(f"[{self.master_id}] reconcile: position {pid} opened externally "
-                             f"({snap.symbol} {snap.action}) — the live event was missed, recovering")
-                    self._lane().run([f"pos:{pid}"], lambda sn=snap: self.on_event(
-                        {"type": "OPEN", "snap": sn}, self.master_id))
+            # ── THE CATCH-UP: EVERY DIFFERENCE BETWEEN WHAT WE REMEMBER AND WHAT THE MASTER HAS NOW (22 Nov 2026) ──
+            # Replaces a SILENT first load (anything done while the copier was down never reached a follower — a master
+            # close during a restart left the follower open) and a periodic compare of size and existence only (a missed
+            # breakeven or a moved / cancelled pending order was never noticed). `master_book.diff` sends all seven
+            # kinds of change; the book survives restarts on disk. Double copies stay impossible: the dispatcher refuses
+            # a second OPEN for a position already open (`dispatcher.dispatch`), and a trade that came from a pending
+            # order carries that order id, so a follower whose mirror filled is not entered again.
+            fresh_orders = self._read_orders(res)
+            unsized = [s for s in fresh.values() if s.volume_lots <= 0 and s.position_id not in self._positions]
+            if fresh_orders is None or unsized:
+                # A size cannot be read yet (its contract spec is on its way and re-drives this read). Nothing is
+                # compared on a guess: a 0-lot trade would be copied as nothing and then never looked at again.
+                log.info(f"[{self.master_id}] catch-up waits for a contract spec — nothing compared on a guess")
+                return
+            asyncio.ensure_future(self._catch_up(fresh, fresh_orders))
 
         elif ptype == ProtoOAExecutionEvent().payloadType:
             event = Protobuf.extract(message)
             # IN ORDER, PER TRADE (21 Nov 2026, `lanes.py`): a move, fill or close waits for the earlier events about
             # the same order/position, so it can never overtake a follower copy that is still being placed.
-            self._lane().run(lanes.event_keys(event), lambda e=event: self._handle_execution(e))
+            self._lane().run(lanes.event_keys(event), lambda e=event: self._handle_and_remember(e))
+
+        elif ptype == ProtoOADealListRes().payloadType:
+            # The deals made during a gap — which pending order became which trade (`_fills`).
+            fut = getattr(self, "_deals_wait", None)
+            if fut is not None and not fut.done():
+                fut.set_result(Protobuf.extract(message))
 
         # ── THE END OF THE SILENCE (added 2026-11-07) ───────────────────────────────────────────
         # This chain used to STOP HERE, with no `else`. Every other message the broker sent was
@@ -549,6 +531,14 @@ class CTraderProvider:
         # old 2/3/4 code misclassified every fill).
         pos = event.position if event.HasField("position") else None
         if pos is None:
+            return
+
+        # ⚠ A COPY TAKES ONE HOP — ON THE TRADE PATH TOO (22 Nov 2026). His rule (27 Sep): "a slave that copied a trade
+        # from a master cannot act as a master for another slave for the trade it copied." It was enforced for ORDERS
+        # only (`_handle_order` -> `_is_our_own_copy`); a FILLED MARKET COPY came on down here and was emitted as OPEN,
+        # so on an account that is also a master it was copied onward. Reproduced 22 Nov with a real execution event
+        # (label "cp-123" in, ["OPEN"] out). Every event about a trade this engine placed is ignored here.
+        if _is_our_own_copy_position(pos, event.order if event.HasField("order") else None):
             return
 
         pid    = pos.positionId
@@ -615,6 +605,7 @@ class CTraderProvider:
             elif et in (ProtoOAExecutionType.ORDER_CANCELLED, ProtoOAExecutionType.ORDER_EXPIRED,
                         ProtoOAExecutionType.ORDER_REJECTED, ProtoOAExecutionType.ORDER_FILLED):
                 self.resting = set(self.resting) - {oid}
+                self._book_orders().pop(oid, None)     # gone from the book too — a fill is a trade now
         kind = _ORDER_EVENT.get(et)
         if kind is None or not event.HasField("order"):
             return
@@ -649,6 +640,8 @@ class CTraderProvider:
         snap = self._order_snap(order, otype)
         if snap is None:
             return
+        if kind in ("PLACED", "AMENDED"):
+            self._book_orders()[int(snap.order_id)] = snap     # the book follows the live order
         log.info(f"[{self.master_id}] order {snap.order_id} {snap.symbol} {snap.action} "
                  f"{otype} @ {snap.price} sl {snap.stop_loss} tp {snap.take_profit} -> {kind}")
         await self.on_event({"type": kind, "order": snap, "master_ms": broker_ms(event)}, self.master_id)
@@ -742,6 +735,106 @@ class CTraderProvider:
         except Exception as exc:
             self._spec_requested.discard(symbol_id)
             log.warning(f"[{self.master_id}] could not request contract spec for {symbol_id}: {exc}")
+
+    # ── THE CATCH-UP (22 Nov 2026, `master_book.py`) ─────────────────────────────────────────────────────────────────
+
+    def _read_orders(self, res) -> dict | None:
+        """The master's resting ENTRY orders from a reconcile answer, as snapshots. An order whose size cannot be read
+        keeps its remembered snapshot (never read as "cancelled"); a NEW one with no readable size -> None (wait)."""
+        out = {}
+        for o in getattr(res, "order", ()):
+            if o.closingOrder or _is_our_own_copy(o):
+                continue
+            try:
+                otype = ProtoOAOrderType.Name(o.orderType)
+            except ValueError:
+                continue
+            if otype not in _ENTRY_ORDER_TYPES:
+                continue
+            oid, snap = int(o.orderId), self._order_snap(o, otype)
+            if snap is None:
+                snap = self._book_orders().get(oid)
+                if snap is None:
+                    return None
+            out[oid] = snap
+        return out
+
+    async def _catch_up(self, fresh: dict, fresh_orders: dict) -> None:
+        """Send every difference between the remembered book and the master's state now. Never raises."""
+        import master_book
+        from db_io import run_db
+        if self._catching_up:
+            return
+        self._catching_up = True
+        try:
+            if not self._reconciled:
+                book = await run_db(master_book.load, self.master_id)
+                if book is None:
+                    # A MASTER WE HAVE NEVER SEEN: what is already open is his history, not a trade to copy now.
+                    self._positions, self._orders, self._reconciled = dict(fresh), dict(fresh_orders), True
+                    log.info(f"[{self.master_id}] loaded {len(fresh)} open positions, {len(fresh_orders)} orders "
+                             f"— first time seen, nothing copied")
+                    await self._save_book()
+                    return
+                base_pos, base_ord = book
+            else:
+                base_pos, base_ord = dict(self._positions), dict(self._book_orders())
+            before = (frozenset(self._positions), frozenset(self._book_orders()))
+            new_pos = [p for p in fresh if p not in base_pos]
+            gone_ord = [o for o in base_ord if o not in fresh_orders]
+            filled_from = await self._fills(new_pos, gone_ord) if new_pos and gone_ord else {}
+            if filled_from is None:
+                return                  # the deals could not be read: nothing guessed, the next read tries again
+            if self._reconciled and (frozenset(self._positions), frozenset(self._book_orders())) != before:
+                return                  # a live event changed the book meanwhile — compared again on the next read
+            events = master_book.diff(base_pos, base_ord, fresh, fresh_orders, filled_from)
+            self._positions, self._orders, self._reconciled = dict(fresh), dict(fresh_orders), True
+            for ev in events:
+                key = (f"pos:{ev['snap'].position_id}" if ev.get("snap") is not None
+                       else f"order:{ev['order'].order_id}")
+                log.info(f"[{self.master_id}] catch-up: {ev['type']} {key} — a change made while its event was missed")
+                self._lane().run([key], lambda e=ev: self.on_event(e, self.master_id))
+            if events or not self._reconciled:
+                await self._save_book()
+        except Exception as exc:
+            log.error(f"[{self.master_id}] catch-up failed: {type(exc).__name__}: {exc} — tried again on the next read",
+                      exc_info=True)
+        finally:
+            self._catching_up = False
+
+    async def _fills(self, new_pos: list, gone_ord: list) -> dict | None:
+        """{position id: order id} for the new trades that came from vanished pending orders — read from the deals of
+        the last 7 days (cTrader's longest window). None when the deals could not be read within 15 s."""
+        req = ProtoOADealListReq()
+        req.ctidTraderAccountId = int(self.creds["ctraderId"])
+        now_ms = int(time.time() * 1000)
+        req.fromTimestamp, req.toTimestamp, req.maxRows = now_ms - 7 * 86_400_000, now_ms, 1000
+        self._deals_wait = self._loop.create_future()
+        try:
+            ctrader_send.send(self.client, req)
+            res = await asyncio.wait_for(self._deals_wait, 15)
+        except Exception as exc:
+            log.warning(f"[{self.master_id}] could not read the deals for the catch-up: {exc}")
+            return None
+        finally:
+            self._deals_wait = None
+        want_pos, want_ord = set(new_pos), set(gone_ord)
+        return {int(d.positionId): int(d.orderId) for d in getattr(res, "deal", ())
+                if int(d.positionId) in want_pos and int(d.orderId) in want_ord}
+
+    async def _save_book(self) -> None:
+        import master_book
+        from db_io import run_db
+        try:
+            await run_db(master_book.save, self.master_id, dict(self._positions), dict(self._book_orders()))
+        except Exception as exc:
+            log.warning(f"[{self.master_id}] could not save the master's book: {exc}")
+
+    async def _handle_and_remember(self, event) -> None:
+        """A live event, then the book written down — so a restart right after still knows it."""
+        await self._handle_execution(event)
+        if self._reconciled:
+            await self._save_book()
 
     def _replay_pending(self) -> None:
         """A spec arriving can make a previously-unreadable position readable. Re-reconcile rather
