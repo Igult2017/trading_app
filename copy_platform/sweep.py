@@ -91,7 +91,9 @@ async def _read(conn, the_pool, acct: int):
     async with the_pool.account_lock(acct):
         stop = conn.listen(acct, on)
         try:
-            ctrader_send.send(conn.client, ProtoOAReconcileReq(ctidTraderAccountId=acct))
+            from ctrader_protocol import low_priority
+            with low_priority():          # a check: never ahead of a copy on this connection
+                ctrader_send.send(conn.client, ProtoOAReconcileReq(ctidTraderAccountId=acct))
             return await asyncio.wait_for(fut, 15)
         finally:
             stop()

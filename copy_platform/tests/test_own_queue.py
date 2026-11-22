@@ -68,4 +68,24 @@ n = int(CP.PER_SECOND)
 S.check("the rest wait in order for the next second", [d for _, d in c._send_queue][:2],
         [f"m{n:03d}".encode(), f"m{n + 1:03d}".encode()])
 
+# ── COPIES FIRST, CHECKS WAIT (22 Nov 2026, plan step 3) ─────────────────────────────────────────────────────────────
+c = connection(OwnQueueProtocol)
+for i in range(n):                                  # the second is full
+    c.send(f"x{i:03d}".encode())
+with CP.low_priority():
+    for i in range(3):
+        c.send(f"check{i}".encode())                # three checks queue first...
+c.send(b"COPY")                                     # ...then a copy order arrives
+c._recent.clear()                                   # the next second begins
+c._drain()
+out = c.transport.value()
+S.check("a copy sent AFTER waiting checks is written BEFORE them", out.index(b"COPY") < out.index(b"check0"), True)
+S.check("...and the checks still go out, in order, once no copy waits",
+        out.index(b"check0") < out.index(b"check1") < out.index(b"check2"), True)
+c = connection(OwnQueueProtocol)
+with CP.low_priority():
+    c.send(b"lonely-check")
+S.check("with nothing waiting, a check goes out at once (it is never slowed for nothing)",
+        b"lonely-check" in c.transport.value(), True)
+
 S.done()

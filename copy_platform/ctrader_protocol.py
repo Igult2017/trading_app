@@ -22,6 +22,8 @@ other line is the library's own. The event-listener design is unchanged, and so 
 number of connections, each still sending at most `numberOfMessagesToSendPerSecond` (5) a second,
 far under cTrader's documented 50 per second per connection.
 """
+import contextlib
+import contextvars
 import datetime
 import os
 import time
@@ -38,11 +40,29 @@ from ctrader_open_api.messages.OpenApiCommonMessages_pb2 import ProtoMessage
 PER_SECOND = float(os.environ.get("CTRADER_REQS_PER_SEC", "35"))
 PEAK = 0          # measured: the highest count of messages written on any one connection within one second
 
+# ── COPIES FIRST, CHECKS WAIT (22 Nov 2026, plan step 3) ─────────────────────────────────────────────────────────────
+# One queue per connection meant a copy order could wait behind a burst of check reads (the repair check reads every
+# follower; masters are re-read on a timer). A message sent inside `low_priority()` is a CHECK: it goes in a second line
+# that is served only when no copy message is waiting, inside the same per-second limit. Decided by WHO sends, not by
+# the kind of message — a follower's stop change may read its trade first, and that read is part of a copy.
+_LOW = contextvars.ContextVar("ctrader_low_priority", default=False)
+
+
+@contextlib.contextmanager
+def low_priority():
+    """Send the messages inside as checks: they never hold up a copy on the same connection."""
+    token = _LOW.set(True)
+    try:
+        yield
+    finally:
+        _LOW.reset(token)
+
 
 class OwnQueueProtocol(TcpProtocol):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._send_queue = deque()          # this connection's messages only
+        self._send_queue = deque()          # this connection's messages only — copies (served first)
+        self._slow_queue = deque()          # this connection's CHECKS (`low_priority`) — served when no copy waits
         self._send_task = None              # this connection's own drain timer
         self._lastSendMessageTime = None
         self._recent = deque()              # when each of the last messages was written (a SLIDING second)
@@ -87,10 +107,14 @@ class OwnQueueProtocol(TcpProtocol):
         else:
             data = b""
         now = time.monotonic()
-        if not self._send_queue and self._room(now):
+        low = _LOW.get()
+        # A copy goes out at once when no other COPY waits (checks waiting do not hold it up); a check only when
+        # nothing at all waits. Otherwise each joins its own line.
+        waiting = self._send_queue or (low and getattr(self, "_slow_queue", None))
+        if not waiting and self._room(now):
             self._write(data, now)
         else:
-            self._send_queue.append((isCanceled, data))
+            (self._slow_queue if low else self._send_queue).append((isCanceled, data))
             self._schedule_drain(now)
 
     def _schedule_drain(self, now: float) -> None:
@@ -103,21 +127,23 @@ class OwnQueueProtocol(TcpProtocol):
     def _drain(self) -> None:
         self._drain_call = None
         now = time.monotonic()
-        while self._send_queue and self._room(now):
-            is_cancelled, data = self._send_queue.popleft()
+        slow = getattr(self, "_slow_queue", deque())
+        while (self._send_queue or slow) and self._room(now):
+            is_cancelled, data = (self._send_queue or slow).popleft()     # copies first, always
             if is_cancelled is not None and is_cancelled():
                 continue
             self._write(data, now)
-        if self._send_queue:
+        if self._send_queue or slow:
             self._schedule_drain(now)
 
     def _sendStrings(self):
         """The library's once-a-second tick: only the idle heartbeat now — the queue is drained by `_drain`, inside
         the same sliding-second limit, never in a burst of its own."""
-        if not self._send_queue and (self._lastSendMessageTime is None or
-                                     (datetime.datetime.now() - self._lastSendMessageTime).total_seconds() > 20):
+        queued = self._send_queue or getattr(self, "_slow_queue", None)
+        if not queued and (self._lastSendMessageTime is None or
+                           (datetime.datetime.now() - self._lastSendMessageTime).total_seconds() > 20):
             self.heartbeat()
-        elif self._send_queue:
+        elif queued:
             self._drain()
 
     def heartbeat(self):

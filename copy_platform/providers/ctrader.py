@@ -319,7 +319,9 @@ class CTraderProvider:
             try:
                 req = ProtoOAReconcileReq()
                 req.ctidTraderAccountId = int(self.creds["ctraderId"])
-                ctrader_send.send(self.client, req)
+                from ctrader_protocol import low_priority
+                with low_priority():      # the timed check — never ahead of a copy on this connection
+                    ctrader_send.send(self.client, req)
             except Exception as e:
                 log.warning(f"[{self.master_id}] reconcile request failed: {e}")
         self._loop.call_later(RECONCILE_INTERVAL, self._request_reconcile)
