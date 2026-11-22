@@ -170,25 +170,36 @@ console.log('   only pressing Sync counts as him asking:');
 const codeOf = (src: string) => src.split('\n')
   .filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l))
   .join('\n');
+// TWO BUTTONS HE PRESSES, and only those: Sync (`/sync`) and "Re-sync everything" (`/resync-all`, his
+// 26 Oct ask — it rebuilds trades he deleted, which is the point of it). Updated 22 Nov 2026: this read
+// "exactly ONE" and had failed since that second button shipped.
 const manualCallers = [ROUTES, AUTOSYNC, SYNC]
   .reduce((n, src) => n + (codeOf(src).match(/manual:\s*true/g) ?? []).length, 0);
-check('exactly ONE caller passes manual: true', manualCallers, 1);
-check('...and it is the manual Sync route',
+check('exactly TWO callers pass manual: true', manualCallers, 2);
+check('...one is the manual Sync route',
       /syncAccount\(account,\s*\{\s*deep:\s*true,\s*manual:\s*true\s*\}\)/.test(ROUTES), true);
+check('...the other is "Re-sync everything", inside its own route',
+      /resync-all"[\s\S]{0,2500}syncAccount\(account,\s*\{\s*full:\s*true,\s*manual:\s*true,\s*deep:\s*true\s*\}\)/
+        .test(ROUTES), true);
 check('syncAccount accepts and forwards it',
-      /opts:\s*\{\s*deep\?:\s*boolean;\s*manual\?:\s*boolean\s*\}/.test(AUTOSYNC)
+      /opts:\s*\{\s*deep\?:\s*boolean;\s*manual\?:\s*boolean;\s*full\?:\s*boolean\s*\}/.test(AUTOSYNC)
       && /\{\s*manual:\s*opts\.manual\s*\}/.test(AUTOSYNC), true);
-teeth('a second caller setting manual: true would be caught', manualCallers === 1);
+teeth('a third caller setting manual: true would be caught', manualCallers === 2);
 
 // ── 5. THE DELETE ROUTE MARKS, AND THE ACCIDENT PATH STILL HEALS ─────────────────────────────────
 console.log();
 console.log('   deleting ONE entry marks it; a pointer broken by ACCIDENT is still repaired:');
-check('the delete route marks the trade as deleted on purpose',
-      /markSyncedTradeJournalDeleted\(req\.params\.id\)/.test(ROUTES), true);
+// The delete work MOVED to `server/lib/journalDelete.ts`, shared by the single and the bulk delete
+// routes (routes.ts:2015). Checked where it lives now, and that the routes call it.
+const JDEL = codeOf(SRC('server/lib/journalDelete.ts'));
+check('the delete routes call the shared delete',
+      (codeOf(ROUTES).match(/await deleteJournalEntryFully\(/g) ?? []).length >= 1, true);
+check('...which marks the trade as deleted on purpose',
+      /await storage\.markSyncedTradeJournalDeleted\(entry\.id\)/.test(JDEL), true);
 check('...and no longer merely releases the pointer there',
-      /clearSyncedTradeJournalEntry\(req\.params\.id\)/.test(ROUTES), false);
+      /clearSyncedTradeJournalEntry\(/.test(JDEL) || /clearSyncedTradeJournalEntry\(req\.params\.id\)/.test(ROUTES), false);
 check('...and writes ONE audit row at the moment of the decision',
-      /stage:\s*'journal-deleted'/.test(ROUTES), true);
+      /stage:\s*'journal-deleted'/.test(JDEL), true);
 check('the audit stage is declared, so it is not a typo that silently never matches',
       /\|\s*'journal-deleted'/.test(SRC('server/services/autoJournal/events.ts')), true);
 

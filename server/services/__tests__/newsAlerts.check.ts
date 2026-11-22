@@ -54,8 +54,8 @@ check('JPY counts — we trade USD/JPY and GBP/JPY',
       buildNewsSchedule([ev({ currency: 'JPY' })], NOW).length, 3);
 // FOUR now, not three: gold joined on 2026-10-11 and its only leg is USD, so every USD release
 // flags it. GBP/JPY still has no USD leg.
-check('USD affects the four pairs with a USD leg',
-      affectedPairs('USD'), ['EUR/USD', 'GBP/USD', 'USD/JPY', 'XAU/USD']);
+check('USD affects the five pairs with a USD leg (gold and bitcoin through it)',
+      affectedPairs('USD'), ['EUR/USD', 'GBP/USD', 'USD/JPY', 'XAU/USD', 'BTC/USD']);
 check('JPY affects exactly the two yen crosses', affectedPairs('JPY'), ['USD/JPY', 'GBP/JPY']);
 check('EUR affects only EUR/USD', affectedPairs('EUR'), ['EUR/USD']);
 // GBP/JPY, checked from BOTH sides — he asked for it to be looked at. A sterling release and a

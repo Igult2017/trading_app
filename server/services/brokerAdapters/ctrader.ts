@@ -19,7 +19,8 @@
  * github.com/spotware/openapi-proto-messages/OpenApiModelMessages.proto
  */
 import WebSocket from 'ws';
-import { awaitTurn } from './ctraderPace';
+import { awaitTurn, type ReqKind } from './ctraderPace';
+import { classify } from '../ctraderRateGuard';
 import type { RawBrokerTrade } from '../brokerSyncService';
 import { acquire, withConnection } from '../ctraderConnPool';
 
@@ -170,12 +171,33 @@ export function waitFor(ws: WebSocket, targetType: number, timeoutMs = 20000,
   });
 }
 
+/** Waits before each resend after "too many requests": 1 s, 2 s, 4 s, then the refusal stands. */
+export const RESEND_WAITS_MS = [1000, 2000, 4000];
+
+/**
+ * Ask one question on this connection and wait for its answer — paced on THIS connection's own
+ * allowance (`ctraderPace`), and when the broker answers "too many requests" the same question is
+ * waited out and sent again on the same connection, never on a new one (D63: answering a refusal
+ * with more connections is what made it worse). Any other refusal is passed straight back.
+ */
+export async function ask(ws: WebSocket, kind: ReqKind, reqType: number, payload: object, resType: number,
+                          timeoutMs = 20000, match?: (payload: any) => boolean): Promise<any> {
+  for (let attempt = 0; ; attempt++) {
+    await awaitTurn(kind, ws);
+    send(ws, reqType, payload);
+    try {
+      return await waitFor(ws, resType, timeoutMs, match);
+    } catch (e) {
+      if (attempt >= RESEND_WAITS_MS.length || classify((e as Error)?.message) !== 'rate-limited') throw e;
+      await new Promise((r) => setTimeout(r, RESEND_WAITS_MS[attempt]));
+    }
+  }
+}
+
 export async function appAuth(ws: WebSocket, app?: string) {
   const { clientId, clientSecret } = appCreds(app);
   if (!clientId || !clientSecret) throw new Error('CTRADER_CLIENT_ID or CTRADER_CLIENT_SECRET is not configured');
-  await awaitTurn('normal');
-  send(ws, PT_APP_AUTH_REQ, { clientId, clientSecret });
-  await waitFor(ws, PT_APP_AUTH_RES);
+  await ask(ws, 'normal', PT_APP_AUTH_REQ, { clientId, clientSecret }, PT_APP_AUTH_RES);
 }
 
 // ── OAuth2 ────────────────────────────────────────────────────────────────────
@@ -279,9 +301,7 @@ async function fetchAccountsOnce(wsUrl: string, accessToken: string, app?: strin
   const ws = await openWS(wsUrl);
   try {
     await appAuth(ws, app);
-    await awaitTurn('normal');
-    send(ws, PT_ACCOUNTS_REQ, { accessToken });
-    const payload = await waitFor(ws, PT_ACCOUNTS_RES);
+    const payload = await ask(ws, 'normal', PT_ACCOUNTS_REQ, { accessToken }, PT_ACCOUNTS_RES);
     return (payload?.ctidTraderAccount ?? []).map((a: any): CTraderAccount => ({
       ctidTraderAccountId: String(a.ctidTraderAccountId),
       brokerName:          a.brokerName ?? '',
@@ -328,12 +348,8 @@ export async function fetchCTraderBalance(
   const ws = await openWS(isLive ? LIVE_WS : DEMO_WS).catch((e) => { lease.release(); throw e; });
   try {
     await appAuth(ws, app);
-    await awaitTurn('normal');
-    send(ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken });
-    await waitFor(ws, PT_ACCT_AUTH_RES);
-    await awaitTurn('normal');
-    send(ws, PT_TRADER_REQ, { ctidTraderAccountId: acctId });
-    const t = await waitFor(ws, PT_TRADER_RES, 10000);
+    await ask(ws, 'normal', PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken }, PT_ACCT_AUTH_RES);
+    const t = await ask(ws, 'normal', PT_TRADER_REQ, { ctidTraderAccountId: acctId }, PT_TRADER_RES, 10000);
     console.log(`[cTrader] PT_TRADER_RES raw for ${ctraderId}:`, JSON.stringify(t));
     // PT_TRADER_RES payload may have balance nested under `trader` or flat — handle both
     const trader = t?.trader ?? t;
@@ -360,9 +376,8 @@ async function fetchDealsInRange(ws: WebSocket, acctId: number, from: number, to
   const maxRows = 500;
   // ⚠ HISTORICAL, AND THIS FUNCTION RECURSES — a full range splits and asks twice more. Unpaced,
   // that is a burst of scarce-budget requests back to back, which is the shape a limiter punishes.
-  await awaitTurn('history');
-  send(ws, PT_DEALS_REQ, { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to, maxRows });
-  const dp    = await waitFor(ws, PT_DEALS_RES, 20000);
+  const dp    = await ask(ws, 'history', PT_DEALS_REQ,
+                          { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to, maxRows }, PT_DEALS_RES);
   const deals = dp?.deal ?? [];
   if (deals.length < maxRows || from + 1 >= to) return deals;
   const mid   = Math.floor((from + to) / 2);
@@ -802,9 +817,8 @@ async function fetchEntryOrderLevels(ws: WebSocket, acctId: number, from: number
   const out = new Map<string, { stopLoss?: number; takeProfit?: number; orderType?: string }>();
   try {
     // Historical: the order list shares the scarce ~5/s budget with deals and candles.
-    await awaitTurn('history');
-    send(ws, PT_ORDERS_REQ, { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to });
-    const payload = await waitFor(ws, PT_ORDERS_RES, 20000);
+    const payload = await ask(ws, 'history', PT_ORDERS_REQ,
+                              { ctidTraderAccountId: acctId, fromTimestamp: from, toTimestamp: to }, PT_ORDERS_RES);
     for (const o of (payload?.order ?? [])) {
       const sl = Number(o?.stopLoss), tp = Number(o?.takeProfit);
       // Only orders that actually carried levels. A closing STOP_LOSS_TAKE_PROFIT order has neither,
@@ -852,14 +866,10 @@ export async function fetchCTraderTrades(
   try {
     await appAuth(ws, app);
 
-    await awaitTurn('normal');
-    send(ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken });
-    await waitFor(ws, PT_ACCT_AUTH_RES);
+    await ask(ws, 'normal', PT_ACCT_AUTH_REQ, { ctidTraderAccountId: acctId, accessToken }, PT_ACCT_AUTH_RES);
 
     // Build symbolId → name map
-    await awaitTurn('normal');
-    send(ws, PT_SYMBOLS_REQ, { ctidTraderAccountId: acctId });
-    const symPayload = await waitFor(ws, PT_SYMBOLS_RES, 30000);
+    const symPayload = await ask(ws, 'normal', PT_SYMBOLS_REQ, { ctidTraderAccountId: acctId }, PT_SYMBOLS_RES, 30000);
     const symbolMap: Record<number, string> = {};
     for (const s of (symPayload?.symbol ?? [])) {
       if (s.symbolId && s.symbolName) symbolMap[s.symbolId] = s.symbolName;

@@ -30,7 +30,7 @@ import WebSocket from 'ws';
 import type { BrokerAccount } from '../../shared/schema';
 import { acquire, type Lease } from './ctraderConnPool';
 import {
-  LIVE_WS, DEMO_WS, openWS, send, waitFor, appAuth,
+  LIVE_WS, DEMO_WS, openWS, send, ask, appAuth,
   PT_ACCT_AUTH_REQ, PT_ACCT_AUTH_RES, PT_SYMBOLS_REQ, PT_SYMBOLS_RES,
   PT_EXECUTION_EVENT, PT_HEARTBEAT, PT_TOKEN_INVALIDATED, PT_ACCOUNT_DISCONNECT,
   PT_RECONCILE_REQ, PT_RECONCILE_RES,
@@ -386,14 +386,14 @@ export async function attach(account: BrokerAccount, creds: any,
   // accounts all being told an empty socket has room for them. It must be given back on BOTH paths: a
   // reservation that is never released is capacity this socket silently stops offering for ever.
   try {
-    send(hub.ws, PT_ACCT_AUTH_REQ, { ctidTraderAccountId: ctid, accessToken: creds.accessToken });
-    await waitFor(hub.ws, PT_ACCT_AUTH_RES, 20_000, isFor(ctid));
+    await ask(hub.ws, 'normal', PT_ACCT_AUTH_REQ, { ctidTraderAccountId: ctid, accessToken: creds.accessToken },
+              PT_ACCT_AUTH_RES, 20_000, isFor(ctid));
 
     // Execution events carry a numeric symbolId, so each account needs the id->name map. Accounts on
     // the same broker return identical lists, so one copy is SHARED rather than held per account —
     // 3,000 separate maps is real memory for no benefit.
-    send(hub.ws, PT_SYMBOLS_REQ, { ctidTraderAccountId: ctid });
-    const symPayload = await waitFor(hub.ws, PT_SYMBOLS_RES, 30_000, isFor(ctid));
+    const symPayload = await ask(hub.ws, 'normal', PT_SYMBOLS_REQ, { ctidTraderAccountId: ctid },
+                                 PT_SYMBOLS_RES, 30_000, isFor(ctid));
     const fresh: Record<number, string> = {};
     for (const s of (symPayload?.symbol ?? [])) if (s.symbolId && s.symbolName) fresh[s.symbolId] = s.symbolName;
     const symbolMap = shareSymbolMap(fresh);
@@ -466,9 +466,8 @@ export async function openPositionIds(accountId: string): Promise<string[] | nul
   hub.members.forEach((m, k) => { if (m.account.id === accountId) ctid = k; });
   if (ctid === undefined) return null;
 
-  send(hub.ws, PT_RECONCILE_REQ, { ctidTraderAccountId: ctid });
-  const payload = await waitFor(hub.ws, PT_RECONCILE_RES, 20_000,
-                                (p) => Number(p?.ctidTraderAccountId) === ctid);
+  const payload = await ask(hub.ws, 'normal', PT_RECONCILE_REQ, { ctidTraderAccountId: ctid }, PT_RECONCILE_RES,
+                            20_000, (p) => Number(p?.ctidTraderAccountId) === ctid);
   const list = Array.isArray(payload?.position) ? payload.position : [];
   return list.map((p: any) => String(p?.positionId)).filter((id: string) => id && id !== 'undefined');
 }

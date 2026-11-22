@@ -66,6 +66,10 @@ export const TRADED_PAIRS: ReadonlyArray<readonly [string, string, string]> = [
   // signal_platform/config/instruments.py:29-31 — recorded there before shipping, not discovered
   // afterwards.
   ["XAU/USD", "XAU", "USD"],
+  // BITCOIN, added 22 Nov 2026. The platform has traded it since 18 Nov (instruments.py:36) and this
+  // list was not updated, so the check below had failed since then and USD news never named BTC/USD.
+  // Like gold, "BTC" has no calendar of its own: it is flagged on USD releases only.
+  ["BTC/USD", "BTC", "USD"],
 ];
 
 /** Every currency that appears in a traded pair — the set a release has to touch to matter here. */
@@ -73,7 +77,7 @@ export const TRADED_CURRENCIES: ReadonlySet<string> = new Set(
   TRADED_PAIRS.flatMap(([, base, quote]) => [base, quote]),
 );
 
-/** Which traded pairs a currency moves. "USD" hits all five; "JPY" only the two yen crosses. */
+/** Which traded pairs a currency moves. "USD" hits the five with a USD leg (all but GBP/JPY); "JPY" only the two yen crosses. */
 export function affectedPairs(currency: string): string[] {
   const c = (currency || "").trim().toUpperCase();
   return TRADED_PAIRS.filter(([, b, q]) => b === c || q === c).map(([sym]) => sym);

@@ -1,87 +1,71 @@
 /**
  * Space out cTrader Open API requests so a burst never trips the broker's limiter.
  *
- * WHY THIS EXISTS. Until 2026-11-03 the Node side had **no request pacing of any kind** — the
- * connection pool caps how many sockets are open at once (`ctraderConnPool`), which is a different
- * thing entirely and says nothing about how fast requests travel down them. The Python scanner has
- * had a 0.30s gate since September (`data/ctrader_client.await_turn`); this is its counterpart, and
- * it was written after production was refused with `BLOCKED_PAYLOAD_TYPE — "You are being rate
- * limited"`.
+ * ⚠ PER CONNECTION, NOT PER PROCESS (22 Nov 2026, sync plan step 4). cTrader limits requests on EACH
+ * connection — about 50 a second for ordinary requests and 5 a second for history (measured per
+ * connection 30 Aug, `docs/ctrader-open-api-apps.md:85`). Until today this gate held ONE clock for the
+ * whole website: 3.3 history requests a second shared by every connection Node had open. So a second
+ * connection added no capacity at all, and twenty accounts syncing at once queued behind each other
+ * for no reason the broker imposed. Now every connection gets its own allowance and its own queue.
  *
- * ⚠ TWO BUDGETS, BECAUSE THE BROKER HAS TWO. cTrader rates HISTORICAL requests at about 5 a second
- * and everything else at about 50 (`docs/ctrader-open-api-apps.md:85`, staff-confirmed). Pacing the
- * cheap requests as hard as the scarce ones would make a login or a symbol list needlessly slow;
- * not pacing the scarce ones at all is what got us refused.
+ * ⚠ A ROLLING SECOND, NOT A FIXED GAP. The broker counts requests inside any one-second window. A
+ * fixed gap (the old 300 ms) is slower than the limit allows when idle and says nothing about a
+ * window; a rolling count of the last second's sends is exactly the broker's own rule, kept under it:
+ * 35 ordinary (limit ~50) and 4 history (limit ~5).
  *
- * ⚠ THE DEAL FETCH IS THE ONE THAT WORRIED HIM, and he was right to look there.
- * `fetchDealsInRange` RECURSES — when a range comes back full it splits in half and asks twice more,
- * with nothing between the calls. One account with a busy week therefore produces a burst of
- * back-to-back historical requests, which is exactly the shape a limiter punishes. Every one of
- * those now waits its turn.
+ * ⚠ CALLERS IN LINE. Concurrent callers on the same connection queue behind each other instead of all
+ * reading the same idle count and firing together — which is how a "paced" gate still produces a burst.
  *
- * ⚠ WHAT THIS CANNOT DO, said plainly so nobody reads more into it than is there. This paces NODE.
- * The Python scanner and the copy engine are separate processes with their own gates, and the
- * broker's budget may well be shared across all of them (D63's open question). A per-process gate
- * cannot enforce a cross-process budget — it can only stop this process being the one that ruins it.
+ * A call without a connection uses one shared process-wide allowance — the safe, slow fallback.
  */
-
-/** Roughly 3.3 requests a second, matching the Python gate — comfortably under the ~5/s cap. */
-const HISTORY_GAP_MS = 300;
-/** Everything else sits on the ~50/s budget; 25ms is 40/s, still under it with room to spare. */
-const NORMAL_GAP_MS = 25;
 
 export type ReqKind = 'history' | 'normal';
 
+/** Requests allowed in any rolling second, per connection. Under cTrader's ~50 and ~5. */
+export const BUDGET: Readonly<Record<ReqKind, number>> = { normal: 35, history: 4 };
 /**
- * The last moment a request of each kind was sent. Separate clocks on purpose: a flurry of cheap
- * requests must not push a historical one further back than its own budget requires.
+ * The window is counted as 1.1 s, not 1 s: a request leaves a few milliseconds AFTER it is allowed,
+ * so a late first send and a prompt fifth could otherwise land inside one broker second. Measured by
+ * `__tests__/ctraderPace.check.ts` (5 in one second with a 1.0 s window, 4 with 1.1 s).
  */
-const lastSent: Record<ReqKind, number> = { history: 0, normal: 0 };
+const WINDOW_MS = 1100;
 
-/**
- * Queued behind the previous waiter of the same kind, so concurrent callers line up instead of all
- * measuring the same idle clock and firing together — which is how a "paced" gate still produces a
- * burst. This is the trap the Python side hit from the other direction: there, requests that never
- * stamped the clock let the next one fire early.
- */
-const chain: Record<ReqKind, Promise<void>> = {
-  history: Promise.resolve(),
-  normal: Promise.resolve(),
-};
+type Lane = { sent: number[]; chain: Promise<void> };
+type Lanes = Record<ReqKind, Lane>;
+
+/** Keyed by the connection itself, so a closed connection's state is dropped with it. */
+const lanes = new WeakMap<object, Lanes>();
+const PROCESS_WIDE = {};
+
+function lanesOf(conn: object): Lanes {
+  let l = lanes.get(conn);
+  if (!l) {
+    l = { normal: { sent: [], chain: Promise.resolve() }, history: { sent: [], chain: Promise.resolve() } };
+    lanes.set(conn, l);
+  }
+  return l;
+}
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /**
- * Wait until it is safe to send, then claim that moment. Await it immediately before every request.
+ * Wait until this connection may send a request of this kind, then claim that moment. Await it
+ * immediately before every request, passing the connection it will go down.
  *
- * Never throws: a pacing gate that can fail is a new way to lose a sync, and the worst case of it
- * doing nothing is the behaviour we had before it existed.
+ * Never throws: a pacing gate that can fail is a new way to lose a sync.
  */
-export async function awaitTurn(kind: ReqKind = 'history'): Promise<void> {
-  const gap = kind === 'history' ? HISTORY_GAP_MS : NORMAL_GAP_MS;
-  const mine = chain[kind].then(async () => {
-    const wait = gap - (Date.now() - lastSent[kind]);
-    if (wait > 0) await sleep(wait);
-    lastSent[kind] = Date.now();
+export async function awaitTurn(kind: ReqKind = 'history', conn: object = PROCESS_WIDE): Promise<void> {
+  const lane = lanesOf(conn)[kind];
+  const budget = BUDGET[kind];
+  const mine = lane.chain.then(async () => {
+    for (;;) {
+      const now = Date.now();
+      while (lane.sent.length && now - lane.sent[0] >= WINDOW_MS) lane.sent.shift();
+      if (lane.sent.length < budget) { lane.sent.push(now); return; }
+      await sleep(lane.sent[0] + WINDOW_MS - now + 1);
+    }
   });
   // Keep the chain alive even if a link rejects, or one failure would wedge the queue for good.
-  chain[kind] = mine.catch(() => {});
+  lane.chain = mine.catch(() => {});
   await mine;
-}
-
-/** Tests only — so one case cannot leave its timestamps behind for the next. */
-export function _resetForTests(): void {
-  lastSent.history = 0;
-  lastSent.normal = 0;
-  chain.history = Promise.resolve();
-  chain.normal = Promise.resolve();
-}
-
-/** For a log line or a check: how long since each kind last went out. */
-export function paceStats(): { historyAgeMs: number; normalAgeMs: number } {
-  const now = Date.now();
-  return {
-    historyAgeMs: lastSent.history ? now - lastSent.history : -1,
-    normalAgeMs: lastSent.normal ? now - lastSent.normal : -1,
-  };
 }

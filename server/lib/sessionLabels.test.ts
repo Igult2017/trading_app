@@ -41,7 +41,9 @@ function groupAsMetricsDo(rows: { session_name: string | null }[]): string[] {
 
 const MIGRATION = readFileSync(join(process.cwd(), 'docker-migrate.sql'), 'utf8');
 const FROM = MIGRATION.indexOf('-- ── ONE SPELLING PER TRADING SESSION');
-const TO   = MIGRATION.indexOf('-- ── Done', FROM);
+// Up to the NEXT section (scrape_runs), not to '-- ── Done': sections added after this one (the trading
+// mode, the B36 repair) need tables this test does not build, and slicing to the end ran them too.
+const TO   = MIGRATION.indexOf('-- ── scrape_runs', FROM);
 if (FROM < 0 || TO < 0) {
   console.error('   FAIL  could not find the session tidy-up in docker-migrate.sql — anchors moved');
   process.exit(1);
