@@ -89,8 +89,11 @@ async def requested():
     sweep.request_check(9)
     sweep.request_check(9)
     sweep.request_check(12)
+    sweep.request_check(5, live_only=True)        # logged back in: checked only if it holds a live copy
+    sweep.request_check(12, live_only=True)       # ...but a FORCED request for the same account still wins
     await asyncio.sleep(0.1)
     task.cancel()
 asyncio.new_event_loop().run_until_complete(requested())
-s.check("a burst of requests becomes ONE check, of exactly the accounts asked for", ran, [{9, 12}])
+s.check("a burst of requests becomes ONE check, of exactly the accounts asked for — forced, or only if live",
+        ran, [{9: True, 12: True, 5: False}])
 s.done()

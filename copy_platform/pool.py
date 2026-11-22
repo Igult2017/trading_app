@@ -135,6 +135,14 @@ class Conn:
             self.pending.discard(acct)
             if acct in self.authed:
                 self.authed[acct].set()
+            # BACK IN AFTER A GAP (22 Nov 2026, plan step 5): a follower's own news was not heard while it was out, so it
+            # is checked — only if it holds a live copy (on a restart every follower logs in at once). A master's login
+            # asks too; the check reads only follower accounts, so it is a no-op for him.
+            try:
+                import sweep
+                sweep.request_check(acct, live_only=True)
+            except Exception:
+                pass
             # ONLY listeners that asked hear a login: a master reloads after a reconnect; a command in flight must
             # not restart its first step (it would send it twice).
             for fn in list(self.login_listeners.get(acct, ())):

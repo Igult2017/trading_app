@@ -104,6 +104,9 @@ _ORDER_EVENT = {
 # position path already carries closes and stop moves.
 _ENTRY_ORDER_TYPES = {"STOP", "LIMIT", "STOP_LIMIT", "MARKET_RANGE"}
 
+# A master quiet for 24 h is re-read every 5 minutes instead of every 30 s (`CTraderProvider._check_every`).
+IDLE_CHECK_S = 300
+
 # THE MARK THIS ENGINE PUTS ON EVERY ORDER IT PLACES. `mirror.mirror_label` builds it as
 # "cp-<master order id>" and `executors/ctrader.place_pending` stamps it on both `label` and
 # `clientOrderId`. Kept as a bare prefix here rather than imported, so reading a master's orders
@@ -324,7 +327,19 @@ class CTraderProvider:
                     ctrader_send.send(self.client, req)
             except Exception as e:
                 log.warning(f"[{self.master_id}] reconcile request failed: {e}")
-        self._loop.call_later(RECONCILE_INTERVAL, self._request_reconcile)
+        self._loop.call_later(self._check_every(), self._request_reconcile)
+
+    def _check_every(self) -> float:
+        """TWO SPEEDS (22 Nov 2026, plan step 5). Every RECONCILE_INTERVAL (30 s) while the master holds an open trade or
+        order, or did anything in the last 24 h (or since this start) — a missed close or breakeven there costs followers
+        money, and the followers' repair check needs this read fresh (`sweep.FRESH_S`). Every IDLE_CHECK_S (5 min) once
+        he has been quiet for 24 h: his next trade still arrives the instant it happens (by event); this only backs up a
+        lost one. Listening is never reduced — only this re-read."""
+        busy = bool(self._positions) or bool(self._book_orders())
+        # Wall clock on both sides: `started_at` is `time.time()` (an earlier draft mixed in the monotonic clock, which
+        # would have read "busy" for ever — safe, but the slow speed would never have happened).
+        quiet_for = time.time() - (getattr(self, "_active_at", 0.0) or getattr(self, "started_at", 0.0) or time.time())
+        return float(RECONCILE_INTERVAL) if busy or quiet_for < 86_400 else float(IDLE_CHECK_S)
 
     # ── Twisted callbacks ──────────────────────────────────────────────────────
 
@@ -838,6 +853,7 @@ class CTraderProvider:
 
     async def _handle_and_remember(self, event) -> None:
         """A live event, then the book written down — so a restart right after still knows it."""
+        self._active_at = time.time()        # he is active: keep his re-read at the fast speed for 24 h (`_check_every`)
         await self._handle_execution(event)
         if self._reconciled:
             await self._save_book()

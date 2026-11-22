@@ -610,6 +610,11 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
             await run_db(_jobs.stamp, jid, mms, result.broker_ms)
         await run_db(_record_follower_trade, master_trade_id, follower, snap, etype, lots, result,
                      action, sl_price, tp_price)
+        # NOT CONFIRMED -> CHECKED (22 Nov 2026, plan step 5): a copy that failed or timed out may still have been carried
+        # out by the broker; that follower account is read against its masters within seconds, not on the next pass.
+        if not (result and result.ok) and creds and creds.get("ctraderId"):
+            import sweep
+            sweep.request_check(int(creds["ctraderId"]))
     except Exception as e:
         log.exception("[%s] _exec_follower crashed (%s %s)", fid, etype, snap.symbol)
         _log(fid, master_trade_id, "ERROR", "FAIL", f"unexpected error: {e}")

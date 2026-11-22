@@ -20,7 +20,7 @@ import time
 
 log = logging.getLogger("copy.sweep")
 
-EVERY_S = 60.0
+EVERY_S = 120.0                 # each LIVE follower is checked once per this, spread evenly (22 Nov; was 60 s for ALL)
 MIN_AGE_S = 120.0
 FRESH_S = 90.0                  # the master's read must be at most this old
 
@@ -134,17 +134,45 @@ _masters: dict = {}
 # check of THAT account, run ~2 s later (a burst of news about one account becomes one check), instead of waiting for
 # the next full pass. What a check may do is unchanged (`decide`): it never opens a trade.
 SETTLE_S = 2.0
-_wanted: set[int] = set()
+_wanted: dict[int, bool] = {}          # cTrader account id -> forced (True) or "only if it holds a live copy" (False)
 _wake: asyncio.Event | None = None
 
 
-def request_check(acct: int) -> None:
-    """Ask for a check of this follower account (its cTrader account id) as soon as possible."""
+def request_check(acct: int, live_only: bool = False) -> None:
+    """Ask for a check of this follower account (its cTrader account id) as soon as possible. `live_only`: skip it
+    unless it holds a live copy (a follower logging back in — on a restart that is every follower at once)."""
     global _wake
-    _wanted.add(int(acct))
+    acct = int(acct)
+    _wanted[acct] = _wanted.get(acct, False) or not live_only
     if _wake is None:
         _wake = asyncio.Event()
     _wake.set()
+
+
+# ── CHECK ONLY WHAT IS LIVE (22 Nov 2026, plan step 5 — his idea: "give the copier memory … it only focuses on the live
+# ones") ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+# A follower with nothing copied has nothing that can go wrong, so it is not read. "Live" is NOT only "its master holds
+# something now": a master that closed everything while the follower's close failed holds nothing — and that follower
+# is exactly the one to check. So a follower is checked when ANY of: a master of it holds an open trade or order now; a
+# master of it did anything in the last LIVE_WINDOW; it has an unfinished or failed copy in the last LIVE_WINDOW.
+LIVE_WINDOW_H = 24
+
+
+def live_followers(master_live: set[str]) -> set[str]:
+    """Follower ids (copy_followers.id) that hold, or may hold, a live copy. Reads the copier's own records only."""
+    from datetime import datetime, timedelta
+    from db import Session, CopyFollower, CopyTradeMaster, CopyTradeFollower, CopyJob
+    since = datetime.utcnow() - timedelta(hours=LIVE_WINDOW_H)
+    with Session() as db:
+        busy_masters = {m for (m,) in db.query(CopyTradeMaster.master_id).filter(CopyTradeMaster.created_at >= since)
+                        .distinct()} | set(master_live)
+        out = {f for (f,) in db.query(CopyFollower.id).filter(CopyFollower.master_id.in_(busy_masters))} \
+            if busy_masters else set()
+        out |= {f for (f,) in db.query(CopyTradeFollower.follower_id).filter(
+            CopyTradeFollower.created_at >= since, CopyTradeFollower.status == "failed").distinct()}
+        out |= {f for (f,) in db.query(CopyJob.follower_id).filter(
+            CopyJob.created_at >= since, CopyJob.status.in_(("pending", "started", "unknown", "expired"))).distinct()}
+    return {f for f in out if f}
 
 
 async def run_requested(engine) -> None:
@@ -156,7 +184,8 @@ async def run_requested(engine) -> None:
         await _wake.wait()
         await asyncio.sleep(SETTLE_S)
         _wake.clear()
-        only, _ = set(_wanted), _wanted.clear()
+        only = dict(_wanted)
+        _wanted.clear()
         try:
             await _pass(engine, only)
         except Exception:
@@ -164,17 +193,19 @@ async def run_requested(engine) -> None:
 
 
 async def run(engine) -> None:
-    """For ever: every EVERY_S, each pooled follower account, one after another (one read each)."""
+    """For ever: each follower holding a live copy, once per EVERY_S, spread evenly across it (one read each)."""
     while True:
-        await asyncio.sleep(EVERY_S)
+        t0 = time.monotonic()
         try:
             await _pass(engine, None)
         except Exception:
             log.exception("[sweep] a pass failed — the next one runs in %ss", EVERY_S)
+        await asyncio.sleep(max(1.0, EVERY_S - (time.monotonic() - t0)))
 
 
-async def _pass(engine, only: set[int] | None) -> None:
-    """One check of every pooled follower account — or only those in `only` (cTrader account ids)."""
+async def _pass(engine, only: dict | None) -> None:
+    """One check of the pooled follower accounts holding a live copy (spread over EVERY_S) — or, on request, of those
+    in `only` ({cTrader account id: forced}); a non-forced request is skipped unless the account holds a live copy."""
     import pool
     from db import Session, CopyFollower, BrokerAccount
     from db_io import run_db
@@ -196,15 +227,26 @@ async def _pass(engine, only: set[int] | None) -> None:
     accounts: dict = {}                       # follower account -> (broker row, {master id: follower})
     for f, b in await run_db(_rows):
         accounts.setdefault(b.id, (b, {}))[1][f.master_id] = f
-    for b, by_master in accounts.values():
+    holding = {mid for mid, prov in _masters.items()
+               if getattr(prov, "_positions", None) or getattr(prov, "_orders", None)}
+    live = await run_db(live_followers, holding)
+    is_live = {bid for bid, (_, by_master) in accounts.items() if any(f.id in live for f in by_master.values())}
+    if only is None:
+        accounts = {bid: v for bid, v in accounts.items() if bid in is_live}
+    gap = EVERY_S / max(1, len(accounts)) if only is None else 0.0
+    for bid, (b, by_master) in accounts.items():
         kind = b.account_type or "demo"
         masters = {mid: _masters[mid] for mid in by_master if mid in _masters}
         if len(masters) != len(by_master) or not pool.enabled_for(kind):
             continue                            # a master not running here: its copies cannot be judged
         creds = await get_creds(b)
         acct = int(creds["ctraderId"]) if creds and creds.get("ctraderId") else None
-        if acct is None or acct not in pool.POOL._home or (only is not None and acct not in only):
+        if acct is None or acct not in pool.POOL._home:
             continue
+        if only is not None and (acct not in only or (not only[acct] and bid not in is_live)):
+            continue
+        if gap:
+            await asyncio.sleep(gap)            # spread evenly — never a burst of reads
         res = await _read(pool.POOL._home[acct], pool.POOL, acct)
         for action, ident, key, mid, detail in decide(res.order, res.position, masters, time.time(),
                                                       time.monotonic()):
