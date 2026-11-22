@@ -174,14 +174,57 @@ s.check("...and never calls startService", "startService" in _called, False)
 s.check("...and no longer imports copy_platform's non-existent ctrader_app_creds",
         "ctrader_app_creds" in _names, False)
 
-# THE SOCKET IS CLOSED ON EVERY PATH, including the timeout. A leak here accumulates in a process
-# that runs for weeks. Asserted on the tree: a try with a real finally body that closes something.
-_finally_closes = any(
-    isinstance(_n, ast.Try) and _n.finalbody and
-    any(isinstance(x, ast.Call) and getattr(x.func, "attr", "") == "close"
-        for b in _n.finalbody for x in ast.walk(b))
-    for _n in ast.walk(_tree))
-s.check("the socket is closed in a finally block, so no path leaks it", _finally_closes, True)
+# ONE ORDER CONNECTION, KEPT OPEN — AND CLOSED THE MOMENT A CONVERSATION BREAKS (22 Nov 2026, sync plan step 3).
+# The rule this replaced was "every order closes its own connection in a finally block" — right when each order opened
+# its own; wrong now that one connection stays open for all of them (`execution/order_line.py`). What must still hold is
+# that no path leaks a connection AND no broken conversation is reused: a timeout or a dropped stream closes it, so the
+# next order starts clean. Driven on the real `OrderLine` with the login replaced.
+import asyncio as _aio                                                    # noqa: E402
+from execution import order_line as _ol                                  # noqa: E402
+import execution.connection as _conn                                     # noqa: E402
+
+
+class _W:
+    def __init__(self): self.closed = False
+    def is_closing(self): return self.closed
+    def close(self): self.closed = True
+    def write(self, b): pass
+    async def drain(self): pass
+
+
+async def _line_rules():
+    opened = []
+
+    async def _fake_open(creds, kind):
+        w = _W(); opened.append(w)
+        return _aio.StreamReader(), w
+    _real = _conn.open_authenticated
+    _conn.open_authenticated = _fake_open
+    try:
+        line = _ol.OrderLine()
+        c = {"ctraderId": "1", "accessToken": "t"}
+        for _ in range(3):
+            async with line.use(c, "demo"):
+                pass
+        kept = (len(opened), line.is_open())
+        try:
+            async with line.use(c, "demo"):
+                raise _aio.TimeoutError()
+        except _aio.TimeoutError:
+            pass
+        after_timeout = (opened[0].closed, line.is_open())
+        async with line.use(c, "demo"):
+            pass
+        line.close()
+        return kept, after_timeout, len(opened)
+    finally:
+        _conn.open_authenticated = _real
+
+
+_kept, _after, _n_opened = _aio.new_event_loop().run_until_complete(_line_rules())
+s.check("three orders share ONE connection, which stays open", _kept, (1, True))
+s.check("a command that times out closes that connection (never reused half-read)", _after, (True, False))
+s.check("...and the next order opens a fresh one", _n_opened, 2)
 
 # "NOT SENT" vs "UNKNOWN" — the distinction that stops a slow network looking like a possible
 # duplicate order. Anything failing before the request is written reports "not sent", which is a
