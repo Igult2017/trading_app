@@ -65,7 +65,7 @@ export const EDIT_LOCKABLE_ALL = [
 /**
  * Correct an existing entry's timing once the real open time arrives.
  *
- * The live feed records a trade the instant it closes and has no open time; the 15-minute sweep
+ * The live feed records a trade the instant it closes and has no open time; the safety sweep
  * pairs the two deals and does. Until that lands, the entry has no holding time, no day of week and
  * a session derived from the close — which on 01 Sep filed a LONDON/NY OVERLAP trade as LONDON.
  *

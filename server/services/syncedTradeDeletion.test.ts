@@ -229,4 +229,7 @@ check('the sweep writes NO audit row per skipped trade — the count is the repo
       /stage:\s*'journal-deleted'/.test(SYNC), false);
 
 console.log(`\n   ${pass} passed, ${fail} failed\n`);
-process.exit(fail ? 1 : 0);
+// Close, then let Node exit by itself: a forced exit while PGlite shuts down crashes Node on Windows
+// (exit 127) after every check passed — see journalEntryUniqueness.test.ts.
+await db.close();
+process.exitCode = fail ? 1 : 0;

@@ -19,7 +19,7 @@ import { canonicalSession } from "../shared/sessions";
 import { readTradeMode, writeTradeMode, isTradeMode, requestTestCard } from "./lib/tradeMode";
 import { db, pool } from "./db";
 import { userProfiles, adminAccessLogs, tradingSignals, priceAlerts, emailTracking,
-         platformHeartbeat, platformDowntime } from "@shared/schema";
+         platformHeartbeat, platformDowntime, syncEvents } from "@shared/schema";
 import { eq, desc, and, lt, gte, isNotNull, inArray, count, sql as drizzleSql } from "drizzle-orm";
 import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { geolocateIp } from "./lib/geoIp";
@@ -2041,7 +2041,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
    *
    * ⚠ IT GOES THROUGH THE SAME FUNCTION AS THE SINGLE DELETE, which is the point of that function
    * existing. The part that is easy to leave out of a second delete path is the mark that says he
-   * deleted these ON PURPOSE — without it the 15-minute sweep writes every one of them back, and
+   * deleted these ON PURPOSE — without it the safety sweep writes every one of them back, and
    * the symptom (trades returning a quarter of an hour later) looks nothing like a bulk-delete bug.
    *
    * ⚠ OWNERSHIP IS CHECKED ON THE WHOLE BATCH BEFORE ANYTHING IS DELETED. An id that is not his is
@@ -4942,6 +4942,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "name, loginId, and platform are required" });
     }
 
+    // THE ACCOUNT LIMIT, ON THE SERVER (22 Nov 2026, sync plan step 8). The page showed "N/20" and nothing
+    // enforced it. This is the ONLY place a broker account row is created (`storage.createBrokerAccount` has
+    // no other caller), so one check here covers every way in. The number is the admin setting.
+    const { serverInt } = await import("./lib/engineSettings");
+    const limit = await serverInt("max_accounts_per_user");
+    const held = (await storage.getBrokerAccounts(user.id)).length;
+    if (held >= limit) {
+      return res.status(403).json({ error: `You have ${held} accounts connected — the most allowed is ${limit}. `
+                                         + `Delete one you no longer use to add another.`, limit });
+    }
+
     const passwordEnc = password ? encrypt(password) : null;
     const webhookToken = randomBytes(24).toString('hex');
 
@@ -5202,7 +5213,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // `manual: true` — THE ONLY CALLER THAT SETS IT. This is him pressing the button, so a trade
         // whose journal entry he deleted is rebuilt rather than left alone: his 2026-09-06 rule
         // (*"i deleted auto synced data and tried to sync again for them to be recalculated"*) kept
-        // intact, while the 15-minute sweep, the live feed and the missed-close watcher respect the
+        // intact, while the daily sweep, the live feed and the missed-close watcher respect the
         // deletion. Every other caller omits it and therefore behaves as a timer.
         syncAccount(account, { deep: true, manual: true }),
         new Promise<null>(r => setTimeout(() => r(null), 30_000)),
@@ -5258,6 +5269,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       return res.status(500).json({ error: err.message ?? 'Could not start Sync All' });
     }
+  });
+
+  /** The most accounts this user may connect (admin setting `max_accounts_per_user`) — for the page's counter. */
+  app.get("/api/broker-accounts/limit", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const { serverInt } = await import("./lib/engineSettings");
+    return res.json({ limit: await serverInt("max_accounts_per_user") });
+  });
+
+  /**
+   * THIS ACCOUNT'S SYNC LOG (22 Nov 2026, sync plan step 8) — the page's "Sync logs": what each sync found,
+   * recorded, skipped or failed on, newest first, from `sync_events`. His own account only (404 otherwise,
+   * never 403, so an id cannot be probed). The detail lines are written by the sync for him to read.
+   */
+  app.get("/api/broker-accounts/:id/sync-log", async (req: Request, res: Response) => {
+    const user = await verifyToken(req.headers.authorization);
+    if (!user) return res.status(401).json({ error: "Unauthorized" });
+    const account = await storage.getBrokerAccountById(req.params.id);
+    if (!account || account.userId !== user.id) return res.status(404).json({ error: "Not found" });
+    const rows = await db.select({ at: syncEvents.createdAt, stage: syncEvents.stage, symbol: syncEvents.symbol,
+                                   detail: syncEvents.detail })
+      .from(syncEvents).where(eq(syncEvents.brokerAccountId, account.id))
+      .orderBy(desc(syncEvents.createdAt)).limit(100);
+    return res.json({ events: rows });
   });
 
   /** Where this user's Sync All is — for a page opened while one runs, or just after. null = none. */

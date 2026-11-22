@@ -85,4 +85,7 @@ check('TEETH — the range check is what refuses risk 50% (fails when broken)', 
 S('autotrade_risk_pct').max = realKind;
 
 console.log(failures.length ? `\n${failures.length} of ${n} FAILED: ${JSON.stringify(failures)}` : `\nALL PASS (${n} checks)`);
-process.exit(failures.length ? 1 : 0);
+// Close, then let Node exit by itself: a forced exit while PGlite shuts down crashes Node on Windows
+// (exit 127) after every check passed — see server/services/journalEntryUniqueness.test.ts.
+await pg.close();
+process.exitCode = failures.length ? 1 : 0;

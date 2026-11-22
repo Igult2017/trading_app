@@ -341,29 +341,34 @@ async function accountsOn(ws: WebSocket, accessToken: string): Promise<CTraderAc
   }));
 }
 
+/**
+ * Every trading account this sign-in can reach — live AND demo — from ONE cTrader server.
+ *
+ * ⚠ MEASURED 22 Nov 2026 (docs/OPEN.md D-SYNC5): EITHER server returns the WHOLE list. Production logged
+ * `live server: 4 (0 live), demo server: 4 (0 live)` — the LIVE server handed back the same four DEMO
+ * accounts — which is also why every entry carries its own `isLive`. This used to ask both and add the
+ * lists together, so every account came back TWICE: a user with one account got a list of two and was
+ * sent to "pick your account" to choose between it and itself (`routes.ts`, `ctAccounts.length > 1`).
+ * Now: ask the server that already has a live-feed connection (no new connection), the other only if
+ * that fails, and drop any repeat by account number.
+ */
 export async function getCTraderAccounts(accessToken: string, app?: string): Promise<CTraderAccount[]> {
-  const [liveResult, demoResult] = await Promise.allSettled([
-    fetchAccountsFromEndpoint(LIVE_WS, accessToken, app),
-    fetchAccountsFromEndpoint(DEMO_WS, accessToken, app),
-  ]);
-  const accounts: CTraderAccount[] = [
-    ...(liveResult.status === 'fulfilled' ? liveResult.value : []),
-    ...(demoResult.status === 'fulfilled' ? demoResult.value : []),
-  ];
-  // ⚠ OPEN QUESTION, MEASURED HERE (22 Nov, docs/OPEN.md D-SYNC5): does ONE server's list already hold
-  // both live and demo accounts? If it does, the second question — which opens its own connection when
-  // the user has no feed on that server — can be dropped. Counts only, no account numbers.
-  const tally = (r: PromiseSettledResult<CTraderAccount[]>) => r.status === 'fulfilled'
-    ? `${r.value.length} (${r.value.filter((a) => a.isLive).length} live)` : 'failed';
-  console.log(`[cTrader] account list — live server: ${tally(liveResult)}, demo server: ${tally(demoResult)}`);
-  if (accounts.length === 0) {
-    const reasons = [
-      liveResult.status === 'rejected'  ? `live: ${(liveResult  as any).reason?.message}` : null,
-      demoResult.status === 'rejected'  ? `demo: ${(demoResult  as any).reason?.message}` : null,
-    ].filter(Boolean).join('; ');
-    throw new Error(`No cTrader accounts found (${reasons})`);
+  const { onAnyFeed } = await import('../ctraderHub');
+  const liveFirst = (await onAnyFeed(true, app, async () => true)) !== null;
+  const order = liveFirst ? [LIVE_WS, DEMO_WS] : [DEMO_WS, LIVE_WS];
+  const reasons: string[] = [];
+  for (const server of order) {
+    try {
+      const list = await fetchAccountsFromEndpoint(server, accessToken, app);
+      const seen = new Set<string>();
+      const accounts = list.filter((a) => !seen.has(a.ctidTraderAccountId) && !!seen.add(a.ctidTraderAccountId));
+      if (accounts.length) return accounts;
+      reasons.push(`${server === LIVE_WS ? 'live' : 'demo'}: no accounts`);
+    } catch (err: any) {
+      reasons.push(`${server === LIVE_WS ? 'live' : 'demo'}: ${err?.message ?? err}`);
+    }
   }
-  return accounts;
+  throw new Error(`No cTrader accounts found (${reasons.join('; ')})`);
 }
 
 // ── Account balance (single WS fetch) ────────────────────────────────────────

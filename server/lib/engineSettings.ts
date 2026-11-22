@@ -113,6 +113,22 @@ export async function writeEngineSetting(s: SettingSpec, value: string | null, b
 }
 
 /**
+ * A WHOLE NUMBER THE WEBSITE ITSELF READS (22 Nov 2026 — the most broker accounts one user may connect): the admin
+ * page's row if it passes the list's own check, else the Coolify variable of the same name in capitals if IT passes,
+ * else the list's default. Never a value outside the list's limits.
+ */
+export async function serverInt(name: "max_accounts_per_user", db: Db = pool): Promise<number> {
+  const s = findSetting(name)!;
+  const ok = (v: unknown) => { const r = checkValue(s, v); return 'value' in r ? Number(r.value) : null; };
+  try {
+    const { rows } = await db.query(`SELECT value FROM platform_settings WHERE key = $1`, [name]);
+    const fromRow = rows[0] ? ok(rows[0].value) : null;
+    if (fromRow !== null) return fromRow;
+  } catch { /* an unreadable table falls back below */ }
+  return ok(process.env[name.toUpperCase()]) ?? Number(s.default);
+}
+
+/**
  * A SWITCH THE WEBSITE ITSELF READS (21 Nov 2026 — the Barchart options levels): the admin page's row if there is one,
  * else the Coolify variable of the same name in capitals, else OFF. Only names on the list marked `owner: "server"`.
  */

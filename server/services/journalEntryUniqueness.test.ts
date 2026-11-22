@@ -138,4 +138,9 @@ check('TEETH — when two entries DO name the same trade, the older survives',
       ['je3']);
 
 console.log(`\n   ${pass} passed, ${fail} failed\n`);
-process.exit(fail ? 1 : 0);
+// CLOSE THE DATABASE AND LET NODE EXIT BY ITSELF (22 Nov). A forced `process.exit()` while PGlite is still
+// shutting down crashes Node on Windows (`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`, exit 127)
+// AFTER every check has passed — measured: 2 runs in 3, even with the close. Setting the exit code instead
+// lets everything finish closing first.
+await db.close();
+process.exitCode = fail ? 1 : 0;

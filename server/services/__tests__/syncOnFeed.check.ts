@@ -27,7 +27,7 @@ const check = (label: string, got: unknown, want: unknown) => {
 };
 
 // ── the stand-in: holds questions of one kind until two are waiting (or 150 ms), then answers in REVERSE ──
-let connections = 0, assetLists = 0;
+let connections = 0, assetLists = 0, listAsks = 0;
 const ASSET_LIST_REQ = 2112, ASSET_LIST_RES = 2113;
 const logins: number[] = [];
 const held = new Map<number, Array<() => void>>();
@@ -64,10 +64,11 @@ wss.on('connection', (sock) => {
         ? [{ assetId: 1, name: 'USD' }, { assetId: 3, name: 'EUR' }]
         : [{ assetId: 1, name: 'USD' }, { assetId: 3, name: 'GBP' }] });
     }
-    if (t === ACCOUNTS_REQ) hold(t + (role === 'live' ? 1000 : 0), () => say(ACCOUNTS_RES, {
+    // As production showed on 22 Nov: EITHER server returns the user's WHOLE list (live server: 4, all demo).
+    if (t === ACCOUNTS_REQ) { listAsks++; hold(t + (role === 'live' ? 1000 : 0), () => say(ACCOUNTS_RES, {
       accessToken: p.accessToken,
-      ctidTraderAccount: role === 'live' ? [] : [{ ctidTraderAccountId: p.accessToken === 'tok-A' ? 111 : 222, isLive: false }],
-    }));
+      ctidTraderAccount: [{ ctidTraderAccountId: p.accessToken === 'tok-A' ? 111 : 222, isLive: false }],
+    })); }
   });
 });
 await new Promise((r) => wss.once('listening', r));
@@ -108,11 +109,12 @@ check('the columns written: every fact cTrader gave', factsToColumns(b111!, 'USD
 check('...and a fact it did NOT give is left out, never blanked (stored currency kept)',
       factsToColumns({ balance: 5, currency: '' }, 'JPY'), { balance: '5', currency: 'JPY' });
 const [lA, lB] = await Promise.all([getCTraderAccounts('tok-A'), getCTraderAccounts('tok-B')]);
-check('two users asking for their account lists at once each get only their own',
+check('two users asking for their account lists at once each get only their own — ONCE each, not twice',
       [lA.map((a) => a.ctidTraderAccountId), lB.map((a) => a.ctidTraderAccountId)], [['111'], ['222']]);
+check('...asked of ONE server per user (either returns the whole list)', listAsks, 2);
 check('NO new connection was opened for any of it', connections - opened, 0);
 check('...and nobody logged in again (no app or account login sent)', logins.length, 0);
-check('every one was counted as "on the feed", none as "own connection"', syncPathStats, { onFeed: 10, ownConnection: 0 });
+check('every one was counted as "on the feed", none as "own connection"', syncPathStats, { onFeed: 8, ownConnection: 0 });
 check('an account with no feed here is reported as "no feed"', await onFeed(333, false, undefined, async () => 1), null);
 
 for (const h of hubs) h.ws.close();

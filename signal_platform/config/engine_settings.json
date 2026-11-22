@@ -25,6 +25,11 @@
       "id": "barchart",
       "title": "Options levels (Barchart)",
       "hint": "The day's buy and sell levels from Barchart's next-day options, read 10 minutes after the Sydney, London and New York opens."
+    },
+    {
+      "id": "accounts",
+      "title": "Broker accounts",
+      "hint": "Limits on the journal's connected accounts. Read by the website; takes effect on the next account added."
     }
   ],
   "settings": [
@@ -199,6 +204,17 @@
       "owner": "server",
       "label": "Send the levels to my DM instead of the channel",
       "help": "On: only you see them."
+    },
+    {
+      "name": "max_accounts_per_user",
+      "group": "accounts",
+      "kind": "int",
+      "min": 1,
+      "max": 1000,
+      "default": "20",
+      "owner": "server",
+      "label": "Most broker accounts one user may connect",
+      "help": "A whole number between 1 and 1000. Adding one more is refused with this number in the message; accounts already connected are never removed."
     }
   ],
   "pairs": [

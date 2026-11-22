@@ -399,7 +399,7 @@ function EditModal({ trade, onSave, onClose, isPending, error, onRelease, synced
 
         <div style={styles.modalActions}>
           {/*
-            A LOCK WITH NO RELEASE IS A TRAP. Every field he corrects here is pinned so the 15-minute
+            A LOCK WITH NO RELEASE IS A TRAP. Every field he corrects here is pinned so the broker
             sync stops undoing it — and on 2026-09-05 that pinned a ZERO onto a trade the broker says
             lost .03, permanently. This hands the trade back to the broker: it clears the pins, and
             the next sync re-derives the direction, P&L, R and the rest from the broker's own numbers.
@@ -712,7 +712,7 @@ export default function TradeVault({ sessionId, startingBalance: sessionStarting
   /**
    * HAND THE TRADE BACK TO THE BROKER.
    *
-   * Every field corrected in the modal is pinned so the 15-minute sync stops undoing it. That is
+   * Every field corrected in the modal is pinned so the broker sync stops undoing it. That is
    * right until a correction turns out to be WRONG — a zero saved by the old P/L box onto a trade
    * that really lost $51.03 — and then the pin makes it permanent, because nothing can outrank it.
    * Clearing the pins lets the next sync re-derive the broker-owned fields from the broker's own

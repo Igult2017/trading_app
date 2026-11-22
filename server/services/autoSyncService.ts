@@ -1,5 +1,7 @@
 /**
- * Auto-sync service — runs every 15 min for all API-connected broker accounts.
+ * Auto-sync service — the safety sweep for all API-connected broker accounts: DAILY by default
+ * (`SYNC_INTERVAL_MINUTES`, 1440) since the live feed records each trade the moment it closes and the
+ * 5-minute missed-close check recovers what the feed misses. (This line said "every 15 min" until 22 Nov.)
  * First sync fetches full 2-year history in a SINGLE WS connection to avoid rate limiting.
  * Subsequent syncs pull since lastSyncAt with a 2hr overlap.
  * cTrader tokens are refreshed reactively (on error) and proactively (near expiry).

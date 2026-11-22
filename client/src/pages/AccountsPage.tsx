@@ -316,7 +316,7 @@ function AddAccountForm({ platform, onCancel, onCreated }: AddFormProps) {
           </div>
         )}
         <div style={{ background: "#0a1628", border: "1px solid #1e3a55", padding: "11px 14px", fontSize: 14.5, color: "#64748b" }}>
-          Connects via REST API — no EA or desktop terminal needed. Trade history syncs automatically every 15 min.
+          Connects via REST API — no EA or desktop terminal needed. Closed trades arrive the moment they close, and a daily check catches anything missed.
         </div>
       </>)}
 
