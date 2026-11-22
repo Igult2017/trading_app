@@ -251,7 +251,10 @@ async function openFeed(id: string, attempt: number): Promise<void> {
 
     // ── THE LOGIN ITSELF WAS REJECTED → ONE FRESH LOGIN, ONCE ──────────────────────────────────────
     if (kind === 'login-rejected' && attempt === 0) {
-      const fresh = await refreshCTraderToken(account).catch(() => null);
+      // The refused token goes with it: if another process renewed already, that token is used and nothing is rotated.
+      let refused: string | undefined;
+      try { refused = JSON.parse(safeDecrypt(account.passwordEnc) ?? '{}').accessToken; } catch { /* unreadable */ }
+      const fresh = await refreshCTraderToken(account, { refusedToken: refused }).catch(() => null);
       if (fresh) { await openFeed(id, 1); return; }
     }
 

@@ -1555,6 +1555,12 @@ real fill, and it has never run. **Nothing here says the strategy is worth armin
 | D-POOL4 | **The database is the copier's limit at scale:** 2,000 followers through the whole copier took 25.8 s on PGlite (one query at a time; worst case), 5-7 statements per follower. Production Postgres runs 40 at once and was not measured. Cure: batch each fan-out's follower records and log rows. `tests/capacity_dispatch.py` measures it | 21 Nov |
 | D-POOL3 | **Drift false alarm possible:** a broker push about a copier close that arrives just AFTER the command finished may be logged as DRIFT (`follower_watch.py`). Log noise only, nothing is sent | 21 Nov |
 
+### Account sync on the ONE shared cTrader app (22 Nov 2026) — plan `C:/Users/FSD/.claude/plans/declarative-roaming-bentley.md`, approved
+| id | what | since |
+|---|---|---|
+| ~~D-SYNC1~~ | **A token renewal could rotate the shared ticket without the shared record** — three callers (admin force button, the signal engine's credentials endpoint, the watchdog) passed a half-built account so the record was skipped; `/refresh-balance` renewed directly; a refusal never renewed through the record unless within a day of expiry; a FAILED record renewal handed back the old token and marked every account "ok". **FIXED 22 Nov** in `autoSyncService.refreshCTraderToken` (re-reads the account; refused-token rule; no fall-back to the account's own copy; failure reported). `server/services/__tests__/ctraderTokenOnePath.check.ts` 10 on real Postgres (PGlite) — 6 FAIL on the old code | 22 Nov |
+| D-SYNC2 | **Steps 2-11 of the approved sync plan not yet done** (connection ledger across the 3 processes, signal-engine orders on one connection, per-connection pacing, sync on the shared sockets, broker name/leverage from cTrader, server-side Sync All, hardening, the new Accounts page, the per-socket ramp, docs + security) | 22 Nov |
+
 ## C. The web app
 
 ### C21 — The settings vault is built and deployed but SWITCHED OFF: waiting on his private GitHub repo + token. Built 17 Nov 2026 — PENDING (his: "Record it as a pending issue")

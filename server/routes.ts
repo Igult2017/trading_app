@@ -25,7 +25,7 @@ import { encrypt, safeDecrypt, safeEncrypt } from "./lib/crypto";
 import { geolocateIp } from "./lib/geoIp";
 import { processIncomingTrades } from "./services/brokerSyncService";
 import { fetchTradesForAccount, API_PLATFORMS } from "./services/brokerAdapters/index";
-import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, refreshAccessToken, newConnectApp } from "./services/brokerAdapters/ctrader";
+import { getCTraderAuthUrl, exchangeCodeForTokens, getCTraderAccounts, fetchCTraderBalance, newConnectApp } from "./services/brokerAdapters/ctrader";
 import { addCTraderAccount, removeCTraderAccount } from "./services/ctraderRealtime";
 import { disconnectAccount, findAccountToAdopt } from "./services/accountDisconnect";
 import { sessionAt } from "./lib/forexSession";
@@ -1195,8 +1195,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.log(`[admin] forcing a pass refresh for cTrader account ${accountId} — expect a `
                   + `session-lost event for this account and no other`);
+      // FORCED, and through the shared record (22 Nov 2026) — the function re-reads the full account, so the whole family
+      // and every process get the new token, not just this account's copy.
       const fresh = await refreshCTraderToken({ id: row.id, platform: row.platform,
-                                                passwordEnc: row.password_enc } as any);
+                                                passwordEnc: row.password_enc } as any, { force: true });
       res.json({
         accountId,
         refreshed: fresh !== null,
@@ -5326,12 +5328,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       // Refresh access token if expired (or within 60s of expiry) — with the ISSUING app's creds
+      // THROUGH THE ONE RENEWAL PATH (22 Nov 2026). This renewed the token directly and wrote it onto this account only —
+      // rotating the shared ticket for every sibling account and every process without the shared record knowing.
       if (!creds.tokenExpiresAt || Date.now() > creds.tokenExpiresAt - 60_000) {
-        const fresh = await refreshAccessToken(creds.refreshToken, creds.app);
-        creds.accessToken      = fresh.accessToken;
-        creds.refreshToken     = fresh.refreshToken;
-        creds.tokenExpiresAt   = Date.now() + fresh.expiresIn * 1000;
-        await storage.updateBrokerAccount(account.id, { passwordEnc: safeEncrypt(JSON.stringify(creds)) });
+        const fresh = await refreshCTraderToken(account);
+        if (!fresh) return res.status(502).json({ error: "The cTrader sign-in could not be renewed — reconnect the account" });
+        creds = JSON.parse(safeDecrypt(fresh.passwordEnc) ?? '{}');
       }
 
       const isLive = account.accountType?.toLowerCase() !== 'demo';

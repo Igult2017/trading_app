@@ -13,7 +13,7 @@ import { fetchTradesForAccount, API_PLATFORMS } from './brokerAdapters/index';
 import { processIncomingTrades } from './brokerSyncService';
 import { safeDecrypt, safeEncrypt } from '../lib/crypto';
 import { refreshAccessToken, fetchCTraderBalance } from './brokerAdapters/ctrader';
-import { currentToken, mirrorToAccounts } from './ctraderTokenStore';
+import { currentToken, mirrorToAccounts, readToken, renewToken } from './ctraderTokenStore';
 import { backfillCtraderTokenRecords } from './ctraderTokenBackfill';
 import type { BrokerAccount } from '../../shared/schema';
 import { storage } from '../storage';
@@ -85,10 +85,20 @@ async function getAllApiAccounts(): Promise<BrokerAccount[]> {
 // in-flight promise also avoids the /apps/token 429 storm that the scanner hit before.
 const _refreshInFlight = new Map<string, Promise<BrokerAccount | null>>();
 
-export function refreshCTraderToken(account: BrokerAccount): Promise<BrokerAccount | null> {
+/**
+ * THE ONE WAY A cTRADER TOKEN IS RENEWED (22 Nov 2026). Every caller comes through here — the sync, the live feed, the
+ * watchdog, the signal engine's credentials endpoint, the admin force button and the balance refresh.
+ *
+ * `opts.refusedToken` — the access token cTrader just refused. If the shared record already holds a DIFFERENT token,
+ * another process renewed it a moment ago: that one is used and NOTHING is renewed (a renewal rotates the token for
+ * every process and every sibling account, so renewing on every refusal is how one refusal becomes a storm).
+ * `opts.force` — renew now even if the token looks fine (the admin button only).
+ */
+export function refreshCTraderToken(account: BrokerAccount,
+                                    opts: { refusedToken?: string; force?: boolean } = {}): Promise<BrokerAccount | null> {
   const inflight = _refreshInFlight.get(account.id);
   if (inflight) return inflight;
-  const p = _refreshCTraderTokenInner(account).finally(() => _refreshInFlight.delete(account.id));
+  const p = _refreshCTraderTokenInner(account, opts).finally(() => _refreshInFlight.delete(account.id));
   _refreshInFlight.set(account.id, p);
   return p;
 }
@@ -111,7 +121,15 @@ export function refreshCTraderToken(account: BrokerAccount): Promise<BrokerAccou
  * explains a platform-down condition was thrown away, which is why nothing in 30 minutes of
  * production logs said why four accounts had died.
  */
-async function _refreshCTraderTokenInner(account: BrokerAccount): Promise<BrokerAccount | null> {
+async function _refreshCTraderTokenInner(passed: BrokerAccount,
+                                         opts: { refusedToken?: string; force?: boolean } = {}): Promise<BrokerAccount | null> {
+  // ⚠ THE ACCOUNT IS RE-READ IN FULL, WHATEVER THE CALLER PASSED (22 Nov 2026). Three callers (the admin force button,
+  // the signal engine's credentials endpoint, the watchdog) passed a half-built object — id and credentials only — so
+  // `ctraderTokenId` was missing, the shared record was skipped, and the ticket was renewed on the account's OWN copy:
+  // rotated for every process and every sibling account without the record knowing. That is the shape of the 07 Nov
+  // 48-minute outage. Deciding from the stored row makes the wrong path unreachable for any caller, present or future.
+  const [stored] = await db.select().from(brokerAccounts).where(eq(brokerAccounts.id, passed.id));
+  const account = stored ?? passed;
   const tag = `${account.platform}(${account.id.slice(0, 8)})`;
 
   // ── THE SHARED RECORD RENEWS FOR EVERYONE ──────────────────────────────────────────────
@@ -120,15 +138,33 @@ async function _refreshCTraderTokenInner(account: BrokerAccount): Promise<Broker
   // written with a compare-and-set, and then mirrored onto every account attached to it. One
   // renewal therefore keeps the whole family alive instead of killing the siblings.
   if (account.ctraderTokenId) {
-    const fresh = await currentToken(account.ctraderTokenId);
+    const id = account.ctraderTokenId;
+    let fresh;
+    if (opts.force) {
+      fresh = await renewToken(id);
+    } else if (opts.refusedToken) {
+      // A REFUSAL: renew only if the record still holds the very token that was refused. A different token there means
+      // another process already renewed — use it, do not rotate again.
+      const held = await readToken(id);
+      fresh = held && held.accessToken !== opts.refusedToken ? held : await renewToken(id);
+    } else {
+      fresh = await currentToken(id);
+      // A FAILED RENEWAL MUST NOT LOOK LIKE SUCCESS (22 Nov 2026, found by ctraderTokenOnePath.check.ts). `currentToken`
+      // hands back the OLD token when the renewal fails; mirrored and marked "ok", a dead ticket then looked healthy
+      // until it ran out — and every account fell over together. The old one is used only while it has 5 minutes left.
+      if (fresh && fresh.tokenExpiresAt && fresh.tokenExpiresAt < Date.now() + 5 * 60_000) fresh = null;
+    }
     if (fresh) {
-      await mirrorToAccounts(account.ctraderTokenId, fresh);
+      await mirrorToAccounts(id, fresh);
       const [row] = await db.select().from(brokerAccounts).where(eq(brokerAccounts.id, account.id));
       return row ?? null;
     }
-    // The record could not produce a token. Fall through to the per-account path rather than
-    // giving up: an account connected before the record existed may still hold a working ticket.
-    console.warn(`[AutoSync] ${tag} sign-in record has no usable token — trying its own copy`);
+    // ⚠ NO FALL-BACK TO THE ACCOUNT'S OWN COPY (22 Nov 2026). Its copy is a mirror of the record's ticket; renewing it
+    // here would spend the shared single-use ticket behind the record's back and break every sibling and every other
+    // process. The record's own failure is recorded; the account says it needs signing in again.
+    console.error(`[AutoSync] ${tag} the shared sign-in record could not renew — not renewing the account's own copy`);
+    await markNeedsReconnect(account, 'the shared cTrader sign-in could not be renewed');
+    return null;
   }
 
   try {
@@ -212,7 +248,10 @@ async function doFetch(account: BrokerAccount, fromMs: number, toMs: number) {
       msg.includes('AUTHENTICATION_FAILURE')
     );
     if (isTokenErr) {
-      const fresh = await refreshCTraderToken(current);
+      // A REFUSAL: say which token was refused, so a token another process already renewed is used, not rotated again.
+      let refused: string | undefined;
+      try { refused = JSON.parse(safeDecrypt(current.passwordEnc) ?? '{}').accessToken; } catch { /* unreadable */ }
+      const fresh = await refreshCTraderToken(current, { refusedToken: refused });
       if (!fresh) throw err;
       return withCTraderSlot(() => fetchTradesForAccount(fresh, fromMs, toMs));
     }
