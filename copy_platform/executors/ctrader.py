@@ -371,6 +371,16 @@ class CTraderExecutor:
                     return
             #    A PLACED or AMENDED order is CONFIRMED BY ITS ACCEPTANCE, not by a fill — the fill
             #    may be hours away or never come, and waiting for one would time out every mirror.
+            # A STOP / TARGET CHANGE ON AN OPEN TRADE ("modify") IS CONFIRMED BY ITS OWN ANSWER (22 Nov 2026). cTrader
+            # answers `ProtoOAAmendPositionSLTPReq` with an execution message — REPLACED (or ACCEPTED when the trade had no
+            # stop yet) carrying the position. "modify" had no branch here, so it fell through to "wait for a fill", which
+            # never comes: every follower stop move — every breakeven — was reported "timed out" after 20 s although the
+            # broker had applied it, and the copier's memory of the follower's levels (`dispatcher._follower_levels`) never
+            # learned the new stop. Accepted only when the position now shows the levels that were asked for.
+            elif verb == "modify":
+                if et in _ORDER_OK and event.HasField("position") and self._levels_applied(event.position):
+                    self._resolve(ExecResult(ok=True, external_id=str(event.position.positionId)))
+                    return
             elif verb in ("place", "amend"):
                 if et in _ORDER_OK and event.HasField("order"):
                     order = event.order
@@ -421,6 +431,18 @@ class CTraderExecutor:
             delay = self._resends * (1.0 + random.random() * 0.5)     # spread out, so retries do not collide again
             asyncio.get_event_loop().call_later(delay, lambda: self._send(client, req))
         return msg
+
+    def _levels_applied(self, position) -> bool:
+        """Does this position now carry the stop and target the "modify" asked for? A level asked as None (leave it)
+        is not checked. Prices are compared to 1e-7 of their size — the broker echoes the doubles it stored."""
+        cmd = tuple(self._pending_cmd or ()) + (None,) * 4
+        for want, field in ((cmd[2], "stopLoss"), (cmd[3], "takeProfit")):
+            if want is None:
+                continue
+            got = getattr(position, field) if position.HasField(field) else None
+            if got is None or abs(float(got) - float(want)) > 1e-7 * max(1.0, abs(float(want))):
+                return False
+        return True
 
     def _mine(self, msg) -> bool:
         """Is this execution event / order error about THIS command's order or position? (21 Nov 2026)

@@ -105,6 +105,37 @@ S.check("TEETH — the handler is what answers it (the call, not a def)",
         "elif ptype in (ProtoOAOrderErrorEvent().payloadType, ProtoOAErrorRes().payloadType):" in src, True)
 EX.Protobuf.extract = _real_extract
 
+# ── a FOLLOWER'S STOP / TARGET CHANGE IS CONFIRMED BY ITS OWN ANSWER (22 Nov 2026) ─────────────────────
+# It used to wait for a fill that never comes: every follower breakeven read "timed out" after 20 s although applied.
+from ctrader_open_api.messages.OpenApiMessages_pb2 import ProtoOAExecutionEvent  # noqa: E402
+from ctrader_open_api.messages.OpenApiModelMessages_pb2 import ProtoOAExecutionType as XT, ProtoOAPosition  # noqa: E402
+
+
+def modify_answer(et, pid, sl=None, tp=None):
+    pos = ProtoOAPosition(positionId=pid)
+    if sl is not None:
+        pos.stopLoss = sl
+    if tp is not None:
+        pos.takeProfit = tp
+    ev = ProtoOAExecutionEvent(ctidTraderAccountId=1, executionType=et, position=pos)
+    ex3 = EX.CTraderExecutor(creds={"ctraderId": "1"}, account_type="demo")
+    ex3._pending_cmd = ("modify", 7, 3577.73, 3600.0)
+    ex3._result_future = loop.create_future()
+    EX.Protobuf.extract = lambda m: ev
+    ex3._on_message(None, NS(payloadType=ev.payloadType))
+    EX.Protobuf.extract = _real_extract
+    return ex3._result_future.result() if ex3._result_future.done() else None
+
+
+got = modify_answer(XT.ORDER_REPLACED, 7, 3577.73, 3600.0)
+S.check("the broker's REPLACED answer, showing the new stop and target, confirms the change AT ONCE",
+        (got is not None, got and got.ok, got and got.external_id), (True, True, "7"))
+got = modify_answer(XT.ORDER_ACCEPTED, 7, 3577.73, 3600.0)
+S.check("...an ACCEPTED answer does too (a trade that had no stop yet)", got is not None and got.ok, True)
+S.check("an answer about ANOTHER trade is not taken as ours", modify_answer(XT.ORDER_REPLACED, 8, 3577.73, 3600.0), None)
+S.check("an answer still showing the OLD stop is not taken as confirmation",
+        modify_answer(XT.ORDER_REPLACED, 7, 3570.00, 3600.0), None)
+
 # ── a MODIFY to the levels the follower already has is not sent ─────────────────────────────────────
 import dispatcher as D  # noqa: E402
 S.check("same stop and target -> nothing to change", D.same_levels((3577.73, 3495.74), 3577.73, 3495.74), True)
