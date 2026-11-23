@@ -48,7 +48,7 @@ st, ev2 = W.step(st, "EUR/USD", closed, forming, [])
 check("the next minute: nothing again (never announced twice)", ev2, [])
 text = M.render(ev[0])
 check("the DM names the market, both prices and both CVDs",
-      all(x in text for x in ("EURUSD 1H (bearish)", "3.00000", "2.00000", "-600", "+1,600")), True)
+      all(x in text for x in ("EURUSD 1H (CVD divergence started)", "3.00000", "2.00000", "-600", "+1,600")), True)
 
 agree = bar(60, 3.0, 0.9, 3.0)                           # CVD −400: still lower → still a divergence (as test_cvd shows)
 st_b, ev_b = W.step({}, "EUR/USD", closed, bar(60, 1.5, 0.9, 0.9), [])
@@ -88,6 +88,25 @@ W._turn = lambda w, ms: None
 check("TEETH: with the turn rule removed, no reversal would be sent",
       W.step(json.loads(json.dumps(st)), "EUR/USD", closed, forming, bars)[1], [])
 W._turn = real_turn
+
+# ── EVERY MESSAGE SAYS SELL OR BUY, AND WHY (his rule, 23 Nov 2026) ────────────────────────────────────────────────
+first = lambda e: M.render(e).splitlines()[0]  # noqa: E731
+check("started, bearish: the first line says SELL", ("SELL idea" in first(ev[0]), "BUY" in first(ev[0])), (True, False))
+check("…and the Why: line has HIGHER high, LOWER CVD, both prices and both CVDs",
+      all(x in M.render(ev[0]) for x in ("Why:", "HIGHER high", "LOWER", "3.00000", "2.00000", "-600", "+1,600",
+                                         "fall is expected")), True)
+check("started, bullish (mirror): the first line says BUY, the Why: line LOWER low and HIGHER CVD",
+      ("BUY idea" in first(mi[0]), "SELL" in first(mi[0]),
+       all(x in M.render(mi[0]) for x in ("Why:", "LOWER low", "HIGHER", "rise is expected"))), (True, False, True))
+check("cancelled, bearish: SELL idea cancelled, with Why:", ("SELL idea cancelled" in first(ev_c[0]),
+                                                             "Why:" in M.render(ev_c[0])), (True, True))
+check("1M reversal, bearish: SELL — the 1M has turned down, with Why:",
+      ("SELL — the 1M has turned down" in first(ev_r[0]), "Why:" in M.render(ev_r[0])), (True, True))
+mirror_bars = mirror([b for b in bars])
+mr = W.step(json.loads(json.dumps(W.step({}, "EUR/USD", mirror(closed), mirror([forming])[0], [])[0])), "EUR/USD",
+            mirror(closed), mirror([forming])[0], mirror_bars)[1]
+check("1M reversal, bullish (mirror): BUY — the 1M has turned up",
+      [first(e).startswith("🔄 BUY — the 1M has turned up") for e in mr], [True])
 
 # ── RESTART ────────────────────────────────────────────────────────────────────────────────────────────────────────
 saved = json.loads(json.dumps(st))                       # what the database hands back after a deploy

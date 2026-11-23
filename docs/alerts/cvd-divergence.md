@@ -34,6 +34,11 @@ Divergence.cs`, used **as it is** (default settings). Delivery: **PIX bot DM** (
    candle that made the highest high since the diverging hour opened; the turn is a LATER closed 1M candle closing below
    that candle's low (a candle making a new high is never its own turn). Bullish mirrored.
 
+**Every message says SELL or BUY, and why** (his rule, 23 Nov 2026: *"When sending a CVD signal explain whether it
+is a sell or a buy and why"*): a bearish divergence is a **SELL idea** (higher high, lower CVD — less buying behind
+this high, the rise is losing strength), a bullish one a **BUY idea** (lower low, higher CVD). The first line carries
+the action; a "Why:" line gives the reason with both prices and both CVDs. `messages.py`; checked in `test_watch.py`.
+
 One watch per market per side; each swing is watched once; remembered in `strategy_state` (row `cvd_divergence`), so a
 deploy never re-sends. A market whose last closed hour the broker has not yet published is skipped that minute.
 
