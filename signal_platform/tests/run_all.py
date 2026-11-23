@@ -30,7 +30,7 @@ for f in files:
 
 # THE STRATEGY FOLDERS (18 Nov 2026). `tests/pix` and `tests/bx_sd` were run by NOTHING — the same gap the paragraph
 # at the top describes. Each file runs from its own folder, as it is written to.
-for sub in ("pix", "bx_sd"):
+for sub in ("pix", "bx_sd", "cvd_divergence"):
     d = os.path.join(HERE, sub)
     for f in sorted(x for x in os.listdir(d) if x.startswith("test_") and x.endswith(".py")):
         r = subprocess.run([sys.executable, f], cwd=d, env=ENV, capture_output=True, text=True,

@@ -45,7 +45,7 @@ for e in [e for e in L.SPEC["settings"] if e.get("owner") != "server"]:
     if v != (d.lower() if isinstance(d, str) else d) or not L.MANAGED[e["name"]](v):
         bad.append(e["name"])
 s.check("every default in engine_settings.json equals config/settings.py and passes its own check", bad, [])
-s.check("18 settings are managed (gold banking added 21 Nov 2026)", len(L.MANAGED), 18)
+s.check("19 settings are managed (gold banking 21 Nov; the CVD divergence alerts switch 23 Nov 2026)", len(L.MANAGED), 19)
 s.check("the start-up-only watcher switch is NOT managed (a panel box would do nothing)",
         "trade_watcher_enabled" in L.MANAGED, False)
 

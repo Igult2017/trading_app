@@ -51,6 +51,10 @@ EVERY /level message goes to HIS DM only, wherever /level was typed (his ruling)
 different feature and post to the CHANNEL (`server/services/priceAlertChecker.ts`, OPEN C16).
 Tests: `server/services/levelWatchPress.test.ts` (19), `signal_platform/tests/test_level_watch.py` (20).
 
+### "1H CVD divergence" alerts — his cTrader indicator, live, to the PIX-bot DM (23 Nov 2026)
+`docs/alerts/cvd-divergence.md`. Not a strategy; places nothing; OFF until he matches it with his chart (switch
+`cvd_divergence_alerts`). Code `signal_platform/alerts/cvd_divergence/`; tests `signal_platform/tests/cvd_divergence/`.
+
 ### "Why did BX send me this signal?" / anything about supply & demand zones
 
 **Read [strategies/bx-sd-architecture.md](./strategies/bx-sd-architecture.md) FIRST** — it holds the

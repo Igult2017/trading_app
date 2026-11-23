@@ -75,6 +75,22 @@ def build(scan_fn, monitor_fn, tracker_fn=None) -> AsyncIOScheduler:
             coalesce=True,
         )
 
+    # 1H CVD DIVERGENCE ALERTS (his ask, 23 Nov 2026) — his cTrader indicator's comparison made live on four markets,
+    # then the 1M turn, to his PIX-bot DM. Not a strategy; places nothing. Does nothing while its admin switch
+    # `cvd_divergence_alerts` is off. `alerts/cvd_divergence/job.py`, docs/alerts/cvd-divergence.md.
+    async def _cvd_divergence():
+        from alerts.cvd_divergence.job import run_once
+        await run_once()
+
+    _scheduler.add_job(
+        _cvd_divergence,
+        trigger=IntervalTrigger(seconds=60),
+        id="cvd_divergence",
+        name="CVD divergence alerts",
+        max_instances=1,
+        coalesce=True,
+    )
+
     # Monthly reset — the signal board carries ONE MONTH and starts fresh on the 1st (user's rule,
     # 2026-08-22: "let the signals expire at the end of every month"; it was weekly before that).
     # 00:05 rather than 00:00 UTC so it lands just after the boundary, never a hair before it.

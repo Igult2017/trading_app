@@ -18,6 +18,8 @@ class Settings(BaseSettings):
 
     # ── Scanner ───────────────────────────────────────────────────────────────
     scan_enabled: bool = True
+    # 1H CVD divergence alerts to his PIX-bot DM (23 Nov 2026) — OFF until he has matched them against his chart.
+    cvd_divergence_alerts: bool = False
     min_rr: float = 2.0
     min_confidence: float = 0.70
     # Per-strategy overrides of min_confidence, "id:floor" comma-separated. VIX.1 GRADES its

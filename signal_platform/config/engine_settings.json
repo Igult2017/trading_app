@@ -164,6 +164,14 @@
       "help": "Comma-separated strategy ids."
     },
     {
+      "name": "cvd_divergence_alerts",
+      "group": "switches",
+      "kind": "bool",
+      "default": "false",
+      "label": "1H CVD divergence alerts (EURUSD, GBPJPY, GBPUSD, XAUUSD)",
+      "help": "On: your PIX-bot DM is told when a 1H divergence between price and CVD starts (as your cTrader CVD Divergence indicator measures it), when it is cancelled, and when the 1M has started to reverse. Places nothing."
+    },
+    {
       "name": "scan_enabled",
       "group": "switches",
       "kind": "bool",
