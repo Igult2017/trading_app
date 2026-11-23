@@ -579,7 +579,8 @@ class CTraderProvider:
             snap.closed_price = float(pos.price) if pos.price else None
             if prev is not None:
                 snap.entry_price = prev.entry_price
-            await self.on_event({"type": "CLOSE", "snap": snap, "master_ms": broker_ms(event)}, self.master_id)
+            await self.on_event({"type": "CLOSE", "snap": snap, "master_order_id": self.origin.get(pid),
+                                 "master_ms": broker_ms(event)}, self.master_id)
 
         elif status == ProtoOAPositionStatus.POSITION_STATUS_OPEN:
             if prev is None:
@@ -601,10 +602,12 @@ class CTraderProvider:
                 # FRACTION, on this pushed event.
                 frac = _reduced_fraction(prev.volume_lots, snap.volume_lots)
                 if frac:
-                    await self.on_event({"type": "REDUCE", "snap": snap, "fraction": frac, "master_ms": broker_ms(event)},
+                    await self.on_event({"type": "REDUCE", "snap": snap, "fraction": frac,
+                                         "master_order_id": self.origin.get(pid), "master_ms": broker_ms(event)},
                                         self.master_id)
                 if prev.stop_loss != snap.stop_loss or prev.take_profit != snap.take_profit:
-                    await self.on_event({"type": "MODIFY", "snap": snap, "prev": prev, "master_ms": broker_ms(event)},
+                    await self.on_event({"type": "MODIFY", "snap": snap, "prev": prev,
+                                         "master_order_id": self.origin.get(pid), "master_ms": broker_ms(event)},
                                         self.master_id)
 
     async def _handle_order(self, event) -> None:
@@ -811,6 +814,9 @@ class CTraderProvider:
                          f"{len(fresh_orders)} orders — {len(events)} change(s) made while away, sent")
             self._positions, self._orders, self._reconciled = dict(fresh), dict(fresh_orders), True
             for ev in events:
+                # which master ORDER a closed / changed trade came from (23 Nov 2026) — its copies carry that label
+                if ev["type"] in ("CLOSE", "REDUCE", "MODIFY") and not ev.get("master_order_id"):
+                    ev["master_order_id"] = self.origin.get(ev["snap"].position_id)
                 key = (f"pos:{ev['snap'].position_id}" if ev.get("snap") is not None
                        else f"order:{ev['order'].order_id}")
                 log.info(f"[{self.master_id}] catch-up: {ev['type']} {key} — a change made while its event was missed")

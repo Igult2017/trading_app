@@ -56,7 +56,8 @@ async def repair(action, followers_by_master: dict, creds, account_type, ident, 
     anyone = next(iter(followers_by_master.values()))
     if action == "stop":
         f = followers_by_master[mid]
-        await dispatcher._exec_follower(None, f, _masters[mid]._positions[key], "MODIFY")
+        await dispatcher._exec_follower(None, f, _masters[mid]._positions[key], "MODIFY",
+                                        master_order_id=_masters[mid].origin.get(key))
         dispatcher._log(f.id, None, "WARNING", "REPAIR", f"copy {ident}: {detail} — stop sent")
         return
     if action == "restore":
@@ -69,7 +70,10 @@ async def repair(action, followers_by_master: dict, creds, account_type, ident, 
         dispatcher._log(f.id, None, "WARNING", "REPAIR", f"copy {ident}: {detail} — putting the copier's levels back")
         # `restore=True`: the "already there" check compares with the copier's RECORD, which is exactly what the hand
         # change made untrue. Everything else — his risk rule, the stop ceiling — runs as on any copied stop move.
-        await dispatcher._exec_follower(None, f, _masters[mid]._positions[key], "MODIFY", restore=True)
+        # EVERY COPY OF THE TRADE IS READ AT THE BROKER (23 Nov 2026, `linked_copies.py`), so the copy inspected here
+        # is the one put back — that morning a put-back of a second copy moved the copy on record instead.
+        await dispatcher._exec_follower(None, f, _masters[mid]._positions[key], "MODIFY", restore=True,
+                                        master_order_id=_masters[mid].origin.get(key))
         return
     ex = CTraderExecutor(creds, account_type)
     if action == "cancel":

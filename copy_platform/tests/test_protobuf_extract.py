@@ -125,7 +125,9 @@ s.check("every Protobuf.extract call passes exactly one argument", bad, [])
 # DISAPPEARING (a reply silently stopping being handled), which the one-argument rule above cannot
 # see. So it is updated deliberately when a real one is added, never to make a red suite green.
 # 15 since 22 Nov: the deals made during a gap (`ProtoOADealListRes`, the master's book catch-up) are read too.
-s.check("...and all fifteen call sites are still present", total, 15)
+# 16 since 23 Nov: a contract-details reply ANOTHER job asked for is still kept in the cache (`executors/ctrader.py`,
+# the GBP/USD loss) — read, but it no longer moves this job on.
+s.check("...and all sixteen call sites are still present", total, 16)
 
 
 # ── TEETH ───────────────────────────────────────────────────────────────────

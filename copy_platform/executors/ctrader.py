@@ -17,7 +17,7 @@ from ctrader_open_api.messages.OpenApiMessages_pb2 import (
     ProtoOAApplicationAuthReq, ProtoOAApplicationAuthRes,
     ProtoOAAccountAuthReq, ProtoOAAccountAuthRes,
     ProtoOASymbolsListReq, ProtoOASymbolsListRes,
-    ProtoOASymbolByIdReq, ProtoOASymbolByIdRes,
+    ProtoOASymbolByIdRes,
     ProtoOANewOrderReq, ProtoOAClosePositionReq, ProtoOACancelOrderReq,
     ProtoOAAmendOrderReq, ProtoOAAmendPositionSLTPReq, ProtoOAExecutionEvent,
     ProtoOAReconcileReq, ProtoOAReconcileRes,
@@ -117,6 +117,7 @@ class ExecResult:
     entry_price: float | None = None
     error:       str | None = None
     broker_ms:   int | None = None      # cTrader's own time on the confirming event (plan step 9)
+    account:     object | None = None   # "read": the account's open trades and orders (ProtoOAReconcileRes)
 
 
 def is_too_many(message) -> bool:
@@ -140,6 +141,10 @@ class CTraderExecutor:
         self._pending_cmd = None
         self._symbol_map: dict[str, int] = {}   # symbolName → symbolId
         self._modify_filled = False             # guard: reconcile→fill done once
+        # THE REPLIES THAT ARE THIS JOB'S (23 Nov 2026 — the GBP/USD loss, `docs/copy-platform.md`). Every request goes
+        # out with a tag (`clientMsgId`) that the broker sends back on its answer; these are the tags this job sent.
+        self._my_tags: set[str] = set()
+        self._command_sent = False              # the order / close / stop change itself goes out at most once
 
     def _make_client(self) -> Client:
         # Only "demo" uses the demo gateway; live AND funded/prop accounts are live.
@@ -170,11 +175,13 @@ class CTraderExecutor:
         return await self._run()
 
     async def close_position(self, position_id: int, volume_lots: float,
-                             symbol: str = "") -> ExecResult:
+                             symbol: str = "", raw_volume: int | None = None) -> ExecResult:
         # `symbol` is required to size the close: volume is per-symbol (lotSize), and a close sized
         # from the wrong contract UNDER-closes and strands the remainder on the follower's account.
         # Optional in the signature so older callers still import, but a close without it refuses.
-        self._pending_cmd = ("close", position_id, volume_lots, symbol)
+        # `raw_volume`: the position's OWN size as the broker states it (23 Nov 2026, `linked_copies.py`) — closes all
+        # of it exactly, with no contract spec needed.
+        self._pending_cmd = ("close", position_id, volume_lots, symbol, raw_volume)
         return await self._run()
 
     async def modify_position(self, position_id: int,
@@ -211,6 +218,12 @@ class CTraderExecutor:
         Read-only: it sends a reconcile and matches, and places nothing.
         """
         self._pending_cmd = ("find", label)
+        return await self._run()
+
+    async def read_account(self) -> ExecResult:
+        """The follower's open trades and orders as the broker holds them now (`result.account`). Read-only (23 Nov
+        2026): how every copy of one master trade is found by its label — not only the one on record."""
+        self._pending_cmd = ("read",)
         return await self._run()
 
     async def amend_pending(self, order_id: int, order_type: str, price: float,
@@ -299,8 +312,39 @@ class CTraderExecutor:
         req.clientSecret = csec
         self._send(client, req)
 
+    def _answered(self) -> bool:
+        fut = getattr(self, "_result_future", None)
+        return fut is not None and fut.done()
+
+    def _reply_to_me(self, message) -> bool:
+        """Is this reply the answer to a request THIS job sent? Matched by the tag the broker echoes back.
+
+        THE 23 NOV 2026 LOSS (GBP/USD, ctrader4, −$109). Several things share one account's connection — this job and
+        the watcher of the same account as a MASTER both ask for contract details. Any details reply was taken as this
+        job's own: it went to place the order with GBP/USD's details still missing, reported "failed — no contract
+        spec", and when ITS reply came it placed the order anyway. Nobody knew that copy existed; it became a second
+        position no stop move reached."""
+        tag = getattr(message, "clientMsgId", "") or ""
+        return bool(tag) and tag in getattr(self, "_my_tags", ())
+
     def _on_message(self, client, message):
         ptype = message.payloadType
+        # ONCE THIS JOB HAS ANSWERED, IT IS FINISHED (23 Nov 2026). A reply arriving after the result was reported used to
+        # carry on and send — the order placed after "failed" was reported. Nothing is acted on any more.
+        if self._answered():
+            return
+
+        # A symbol list / contract details / account read that another job asked for is not this job's next step. The
+        # details are still worth keeping (the cache), but only this job's OWN reply moves it on.
+        if ptype in (ProtoOASymbolsListRes().payloadType, ProtoOASymbolByIdRes().payloadType,
+                     ProtoOAReconcileRes().payloadType) and not self._reply_to_me(message):
+            if ptype == ProtoOASymbolByIdRes().payloadType:
+                symbol_details.absorb(int(self.creds["ctraderId"]), Protobuf.extract(message))
+            return
+        # A refusal of ANOTHER job's request (it carries that job's tag) is not this job's answer either.
+        if ptype == ProtoOAErrorRes().payloadType and getattr(message, "clientMsgId", "") \
+                and not self._reply_to_me(message):
+            return
 
         if ptype == ProtoOAApplicationAuthRes().payloadType:
             req = ProtoOAAccountAuthReq()
@@ -328,6 +372,9 @@ class CTraderExecutor:
             res = Protobuf.extract(message)
             if self._pending_cmd and self._pending_cmd[0] == "find":
                 self._resolve(self._match_label(res, self._pending_cmd[1]))
+                return
+            if self._pending_cmd and self._pending_cmd[0] == "read":
+                self._resolve(ExecResult(ok=True, account=res))
                 return
             # Back-fill any missing SL/TP from the live position so None = unchanged.
             self._backfill_modify(res)
@@ -420,8 +467,13 @@ class CTraderExecutor:
         # MATCHED BY THE REPLY TAG, not by account: the library stamps each request with a `clientMsgId` and the
         # broker's answer carries it back, so a "too many" answer is tied to the exact message that caused it even
         # when it names no account (the field is optional in `ProtoOAErrorRes`).
+        if self._answered():
+            return                        # the job has reported its result — nothing more goes out (23 Nov 2026)
         d = ctrader_send.send(client, req)
         if d is not None:
+            # The library tags the request with `str(id(<this reply wait>))` (`ctrader_open_api.Client.send`) and the
+            # broker echoes it, so this is how `_reply_to_me` knows the answer.
+            self.__dict__.setdefault("_my_tags", set()).add(str(id(d)))
             d.addCallback(lambda msg, c=client, r=req: self._on_reply(msg, c, r))
 
     def _on_reply(self, msg, client, req):
@@ -480,7 +532,10 @@ class CTraderExecutor:
         # missing side; only when BOTH fields are supplied do we skip reconcile
         # and send straight away (the cTrader live-copy path, unchanged).
         # Close uses a positionId → send straight away.
-        if self._pending_cmd and self._pending_cmd[0] in ("open", "close", "place"):
+        if self._pending_cmd and self._pending_cmd[0] == "close" and len(self._pending_cmd) > 4 \
+                and self._pending_cmd[4]:
+            self._send_command(client)          # the broker's own size: no symbol list, no contract spec needed
+        elif self._pending_cmd and self._pending_cmd[0] in ("open", "close", "place"):
             # THE SYMBOL LIST IS 1,941 SYMBOLS AND 312 KB, so it is fetched ONCE PER ACCOUNT and
             # cached in `symbol_details`, not once per order. It used to live on this executor,
             # and `dispatcher._get_executor` builds a new executor for every follower on every
@@ -494,7 +549,7 @@ class CTraderExecutor:
             req = ProtoOASymbolsListReq()
             req.ctidTraderAccountId = int(self.creds["ctraderId"])
             self._send(client, req)
-        elif self._pending_cmd and self._pending_cmd[0] == "find":
+        elif self._pending_cmd and self._pending_cmd[0] in ("find", "read"):
             req = ProtoOAReconcileReq()
             req.ctidTraderAccountId = int(self.creds["ctraderId"])
             self._send(client, req)
@@ -596,6 +651,11 @@ class CTraderExecutor:
         self._pending_cmd = ("modify", pos_id, sl, tp)
 
     def _send_command(self, client):
+        # AT MOST ONCE PER JOB, and never after the job answered (23 Nov 2026). Two replies each driving this step is
+        # how one copy job put an order on the account after reporting that it had failed.
+        if getattr(self, "_command_sent", False) or self._answered():
+            return
+        self._command_sent = True
         cmd = self._pending_cmd
         acct_id = int(self.creds["ctraderId"])
 
@@ -636,10 +696,14 @@ class CTraderExecutor:
             self._send(client, req)
 
         elif cmd[0] == "close":
-            _, pos_id, lots, close_symbol = cmd
+            _, pos_id, lots, close_symbol, raw_volume = (tuple(cmd) + (None,))[:5]
             req = ProtoOAClosePositionReq()
             req.ctidTraderAccountId = acct_id
             req.positionId          = int(pos_id)
+            if raw_volume:
+                req.volume = int(raw_volume)
+                self._send(client, req)
+                return
             # The close path carried the IDENTICAL expression. Left alone it would close the wrong
             # quantity and strand the remainder of a position — worse than a bad open, because the
             # follower is left holding size they cannot see.

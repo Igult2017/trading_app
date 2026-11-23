@@ -22,6 +22,7 @@ from risk_stop import effective_risk_pct, follower_stop, reduce_lots
 from types import SimpleNamespace
 from providers.ctrader import PositionSnapshot
 import mirror
+from linked_copies import hidden_copy as _hidden_copy, every_copy as _every_copy
 
 log = logging.getLogger("dispatcher")
 
@@ -197,7 +198,8 @@ def _claim_event(master_id: str, snap, etype: str, event: dict | None = None):
                 log.info("[dispatch] duplicate PLACED for order %s — skipping", snap.key)
                 return None
 
-        master_trade = _save_master_trade(db, master_id, snap, etype, source)
+        master_trade = _save_master_trade(db, master_id, snap, etype, source,
+                                          from_order=(event or {}).get("master_order_id") if etype == "OPEN" else None)
         # `dropped_at IS NULL` is belt as well as braces. is_active=False alone already keeps a dropped
         # relationship out of here, because Drop sets both. But the one outcome worth making
         # STRUCTURALLY impossible is a dropped row that somehow ends up active: it would mirror real
@@ -221,7 +223,7 @@ def _claim_event(master_id: str, snap, etype: str, event: dict | None = None):
 
 def _save_master_trade(db: DBSession, master_id: str,
                        snap: PositionSnapshot, etype: str,
-                       source: str) -> CopyTradeMaster:
+                       source: str, from_order=None) -> CopyTradeMaster:
     # OPEN always gets a fresh row — dispatch() already guards against a duplicate
     # open, so any OPEN reaching here is a genuine new entry (incl. re-opening a
     # symbol after a prior close). CLOSE/MODIFY dedupe so a synthetic+real duplicate
@@ -254,7 +256,10 @@ def _save_master_trade(db: DBSession, master_id: str,
         take_profit = snap.take_profit,
         closed_price= getattr(snap, "closed_price", None),   # exit price on CLOSE rows
         raw_payload = ({"order_id": snap.order_id, "order_type": snap.order_type}
-                       if hasattr(snap, "order_id") else {"position_id": snap.position_id}),
+                       if hasattr(snap, "order_id") else
+                       # `from_order`: the master ORDER this position filled from (23 Nov 2026) — a copy of that order
+                       # carries ITS id as a label, so `linked_copies` needs it to find the copy, even after a restart.
+                       {"position_id": snap.position_id, **({"from_order": str(from_order)} if from_order else {})}),
         status      = "dispatched",
     )
     db.add(record)
@@ -268,7 +273,9 @@ def _save_master_trade(db: DBSession, master_id: str,
 
 async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                          snap: PositionSnapshot, etype: str,
-                         master_order_id=None, fraction=None, restore: bool = False) -> None:
+                         master_order_id=None, fraction=None, restore: bool = False, target=None) -> None:
+    # `target`: ONE copy found on the follower's account (`linked_copies.Copy`) — set when a stop move / close /
+    # part-close is run once per copy of the master trade (23 Nov 2026). None = find them first.
     fid = follower.id
     # PUTTING A MIRROR ON THE BOOK IS AN ENTRY, so it faces every gate a fill faces: the session
     # filter, the safety guards, risk-% sizing and the 3% per-trade cap. The alternative — place
@@ -374,7 +381,28 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
         # "cancel the XAUUSD one" would cancel whichever the query happened to return first.
         follower_pos_id: str | None = None
         open_vol: float | None = None
-        if etype in ("CLOSE", "MODIFY", "REDUCE"):
+        is_ct = platform in ("ctrader", "ct")
+        # NEVER A SECOND ENTRY (23 Nov 2026 — the GBP/USD loss). The master's fill came from an order, and no copy of
+        # that order is on record — but one may be on the account anyway (that morning a copy job placed it after
+        # reporting "failed"). The account is read first; a copy already there is written down, and nothing is sent.
+        if is_ct and etype == "OPEN" and master_order_id is not None:
+            if await _hidden_copy(_get_executor(broker_account, creds), fid, master_trade_id, snap, master_order_id):
+                return
+        # EVERY COPY GETS THE STOP MOVE / CLOSE (23 Nov 2026, `linked_copies.py`) — read from the account, not only the
+        # one on record. Each found copy is run through the rest of this function on its own.
+        if is_ct and etype in ("CLOSE", "MODIFY", "REDUCE") and target is None:
+            copies = await _every_copy(lambda: _get_executor(broker_account, creds), follower, snap, etype,
+                                       master_order_id)
+            if copies:
+                for c in copies:
+                    await _exec_follower(master_trade_id, follower, snap, etype, master_order_id, fraction,
+                                         restore, target=c)
+                return
+        if target is not None:
+            follower_pos_id, open_vol = target.position_id, target.lots
+            if not open_vol:                    # the contract spec is not cached: the recorded size, as before
+                open_vol = (await run_db(_find_follower_position_id, fid, snap.key))[1]
+        elif etype in ("CLOSE", "MODIFY", "REDUCE"):
             follower_pos_id, open_vol = await run_db(_find_follower_position_id, fid, snap.key)
             if follower_pos_id is None:
                 _log(fid, master_trade_id, "INFO", "SKIP",
@@ -468,7 +496,10 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                 # refused by the broker 3 times in a row (XAU/USD 20 Nov 02:12-02:13), each read as "timed out".
                 # A RESTORE (23 Nov 2026) skips this: the record says the copier's levels are there, and the follower's
                 # hand change is exactly what made that untrue.
-                if not restore and same_levels(await run_db(_follower_levels, fid, snap.key), sl_price, tp_price):
+                # ONE COPY FOUND AT THE BROKER (23 Nov 2026): its OWN live levels say whether anything would change.
+                have = ((target.stop_loss, target.take_profit) if target is not None else
+                        None if restore else await run_db(_follower_levels, fid, snap.key))
+                if same_levels(have, sl_price, tp_price):
                     _log(fid, master_trade_id, "INFO", "SKIP",
                          f"{snap.symbol}: your stop and target are already there — nothing to change")
                     return
@@ -577,8 +608,9 @@ async def _exec_follower(master_trade_id: str, follower: CopyFollower,
                         if len(parts) == 2:
                             result = await executor.close_by_symbol(parts[0], parts[1], lots)
                     else:
-                        result = await executor.close_position(int(follower_pos_id), lots,
-                                                               symbol=snap.symbol)
+                        result = await executor.close_position(
+                            int(follower_pos_id), lots, symbol=snap.symbol,
+                            raw_volume=target.raw_volume if target is not None else None)
                 elif etype == "MODIFY":
                     if platform != "binance":   # Binance modify not supported
                         result = await executor.modify_position(

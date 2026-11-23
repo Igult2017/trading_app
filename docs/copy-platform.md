@@ -425,6 +425,7 @@ masters AND follower accounts between workers; every copy job is claimed before 
 | 3 | ~~Durable fan-out~~ — **DONE 21 Nov**: every follower's copy is written down before it is sent (`copy_jobs`, `jobs.py`) and resumed on boot. This row said "not started" until 22 Nov | ✅ |
 | 3a | **Demo run of 22 Nov's real-time work** (`.claude/plans/declarative-roaming-bentley.md` step 6): trade by hand, move stop, breakeven, partial close, pending placed/moved/cancelled, and the copier stopped while the master closes — every follower right afterwards. Needs the market open | ⏳ market open |
 | 3b | ~~His decision: put back a stop/target a follower changed by hand?~~ — **ANSWERED "A" (yes) and BUILT 23 Nov**, see the fix log. Proving it live joins 3a (a follower moves a stop by hand on demo) | ✅ built · ⏳ live proof with 3a |
+| 3c | **The GBP/USD hidden-copy fix (23 Nov, fix log (b)) on a live copied trade:** the next order copy should show ONE copy per follower in `/api/admin/copy/activity`, and its breakeven reach every copy. Joins 3a | ✅ built · ⏳ live proof |
 | 4 | **The horizontal lever is untested.** `COPY_WORKER_INDEX`/`COPY_WORKER_COUNT` shard masters by hash and production runs `worker 0/1`. Never run above one worker | 🔨 not started |
 | 5 | **Cross-broker (Hola Prime).** Each broker's minimum stop distance (`slDistance`/`tpDistance`) is not read or enforced | ⏸ deferred by him |
 | 6 | **`REMOVE BEFORE LAUNCH`** — the copy diagnostics endpoint is still live | ⏸ before launch |
@@ -434,6 +435,58 @@ masters AND follower accounts between workers; every copy job is claimed before 
 order mirroring (21 Sep), `clientOrderId` for idempotency, the four scale ceilings above.
 
 ## Fix log
+
+### 2026-11-23 (b) — the GBP/USD loss: a hidden second copy that no breakeven reached (−$109.44)
+
+His report: *"copier failed to move breakeven for a slave account leading to loss of 100 dollars in GBPUSD."* Slave
+ctrader4 (5347048, Pepperstone demo), master ctp2 (5296567). ctrader4 is ALSO a master, so two parts of the copier
+share its connection. Proven from the broker history, the copier's database (read-only, his "A") and the code:
+
+| time UTC | what happened |
+|---|---|
+| 06:03:03 | master stop order 379730644. The copy job asks for GBP/USD's contract details |
+| 06:03:03 | a details reply ANOTHER part of the copier asked for (the watcher of ctrader4-as-a-master, `providers/ctrader.py` `_want_spec`) arrives first. The job takes any such reply as its own (`executors/ctrader.py` `_on_message`), finds GBP/USD still missing → **"failed — no contract spec"** (692 ms) |
+| 06:03:03 | its OWN reply arrives → it places the order anyway (379730645, `cp-379730644`). Nothing stopped a job sending after it had reported. **Nobody knew this copy existed** |
+| 06:03:08 | master's order fills (position 266762486). No copy on record → copied again as a market order: **copy A** 0.96 |
+| 06:05:03 | the hidden order fills: **copy B**, a duplicate 0.96 |
+| 06:27-06:45 | every stop move, breakeven 1.31246, goes to copy A only — stop moves used the ONE position on record |
+| 06:28:53 | the repair check sees copy B is wrong, but its "put back" looks the position up from the record again → copy A |
+| 07:08:45 | the master's close closes copy A (+$10.56). Copy B is left open |
+| 09:59:49 | copy B stopped out at 1.31137: **−$109.44** |
+
+**A second hole, found reading the code:** even with nothing going wrong, a copied ORDER that fills on the follower
+after the master's fill (2 minutes later here) has no position on record yet — and every later stop move was SKIPPED
+("No open follower position"). Same loss by another road.
+
+**Fixed:**
+1. **A copy job acts only on replies to its own requests** (`executors/ctrader.py` `_reply_to_me`): every request
+   carries a tag the broker echoes back (`clientMsgId`), and symbol list / contract details / account read / refusal
+   replies with another job's tag are ignored (details still cached). **Once a job has answered it sends nothing more**
+   (`_answered`), and its order / close / stop step goes out at most once.
+2. **Never a second entry** (`linked_copies.hidden_copy`): a master fill that came from an order, with no copy on
+   record, first reads the follower's account; a position or order labelled `cp-<master order>` / `cp-<master
+   position>` already there is written down as the copy and nothing is sent. Account unreadable → not copied, said in
+   the Activity log (a missed entry beats a double one — the dispatcher's existing rule for entries).
+3. **Stop moves, closes and part-closes reach EVERY copy** (`linked_copies.every_copy`, called from
+   `dispatcher._exec_follower`, cTrader): the account is read and every open position labelled `cp-<master position>`
+   or `cp-<master order>` gets the change, each by its own size and its own live levels (one already right is
+   skipped). A close also cancels a copy order that never filled (not in a dry run). A record with no position is
+   corrected to the one found. The master's OPEN record now keeps the order it filled from (`raw_payload.from_order`),
+   so this works after a restart; the master's events carry it live (`master_order_id`). Account unreadable → the copy
+   on record, as before.
+4. **The repair check acts on the copy it inspected** — its put-back runs the same path, so every copy is read.
+
+**Cost:** one account read per follower per stop move / close (a fraction of a second).
+**Also removed:** an unused import in `executors/ctrader.py` (`ProtoOASymbolByIdReq`).
+
+**Proof:** new `tests/test_foreign_replies.py` 14 — the real executor fed the 23 Nov message order: another job's
+reply → nothing placed, not failed; its own → one order of 9,600,000; a late reply after "failed" → nothing; another
+job's account read during a stop move → ignored. Each guard removed on purpose → the 23 Nov fault returns (the
+"REFUSED — no contract spec" line and the hidden order). New `tests/test_linked_copies.py` 19 — the real
+`_exec_follower`: hidden copy (resting or filled) → no market order; breakeven and the close reach both 23 Nov copies;
+the late-filled copy gets breakeven and its record corrected; dry run sends nothing; labels or the account check removed
+on purpose → copy B missed / opened twice. New `tests/pg_linked_copies.py` 6 on a real Postgres. `test_restore_levels.py`
++3 (live levels decide when the account is read). `run_all.py` 31 files pass. Not yet seen on a live copied trade.
 
 ### 2026-11-23 — a stop or target the follower changes by hand is put back
 

@@ -2,8 +2,10 @@
 
 The REAL `dispatcher._exec_follower` and the REAL `risk_stop.follower_stop`, with only the outside world stood in for (the
 database, the credentials, the broker). In words:
-  * a normal stop move to levels the copier's record says the follower already has sends NOTHING (the 21 Nov rule);
-  * a RESTORE (`restore=True`) sends them anyway — the record is exactly what the hand change made untrue;
+  * since 23 Nov 2026 the follower's account is READ first and the copy's OWN live levels decide (`linked_copies.py`):
+    a stop move to the levels it already has sends nothing; a hand-changed copy is put back;
+  * when the account cannot be read, the copier's record decides, as before: a normal stop move to levels the record says
+    are there sends NOTHING (the 21 Nov rule); a RESTORE (`restore=True`) sends them anyway;
   * a restore still goes through the stop ceiling: the master's 50-pip stop on 1 lot is 5% of a $10,000 account, so the
     follower gets the 1% stop (10 pips, 1.0990), never the master's raw 1.0950.
 """
@@ -22,9 +24,23 @@ follower = SimpleNamespace(id="f-1", master_id="m-1", direction="same", lot_mode
                            fixed_lot=None, risk_percent=1, trade_delay_sec=0, symbol_whitelist=None)
 account = SimpleNamespace(platform="ctrader", balance=10000, is_active=True, account_type="demo")
 sent, logged, recorded = [], [], []
+LIVE = {"read": False, "sl": 1.099, "tp": 1.12}      # what the broker shows on follower trade 77 (cp-500)
+
+
+def _account():
+    td = SimpleNamespace(label="cp-500", volume=100000, symbolId=1)
+    pos = SimpleNamespace(positionId=77, tradeData=td, stopLoss=LIVE["sl"], takeProfit=LIVE["tp"])
+    return SimpleNamespace(position=[pos], order=[])
 
 
 class Executor:
+    creds, account_type = {"ctraderId": "9"}, "demo"
+
+    async def read_account(self):
+        if not LIVE["read"]:
+            return SimpleNamespace(ok=False, error="unreadable", account=None)
+        return SimpleNamespace(ok=True, error=None, account=_account())
+
     async def modify_position(self, pid, sl, tp):
         sent.append((pid, sl, tp))
         return SimpleNamespace(ok=True, external_id=str(pid), entry_price=None, error=None, broker_ms=None)
@@ -40,6 +56,8 @@ async def fake_run_db(fn, *a):
         return "77", 1.0
     if name == "_follower_levels":
         return (1.099, 1.12)                 # the copier's record: the 1% stop it set, and the master's target
+    if name == "master_order_of":
+        return None
     if name == "_record_follower_trade":
         recorded.append(a)
         return None
@@ -66,4 +84,17 @@ s.check("…with the 1% stop (1.099), NOT the master's raw 5% stop (1.095) — t
 s.check("…and the master's target (1.12)", [x[2] for x in sent], [1.12])
 s.check("…and it is recorded as a MODIFY, so the next check compares against it",
         [r[3] for r in recorded], ["MODIFY"])
+
+# ── THE ACCOUNT READ AT THE BROKER (23 Nov 2026): the copy's own live levels decide ──────────────────────────────────
+LIVE["read"] = True
+sent.clear(); logged.clear()
+loop.run_until_complete(D._exec_follower(None, follower, snap, "MODIFY", restore=True))
+s.check("read at the broker: the copy already shows 1.099 / 1.12 -> even a restore sends nothing", sent, [])
+LIVE["sl"] = 1.0980                                   # the follower moved the stop by hand
+loop.run_until_complete(D._exec_follower(None, follower, snap, "MODIFY", restore=True))
+s.check("…its stop changed by hand to 1.098 -> put back to 1.099 on trade 77", sent, [(77, 1.099, 1.12)])
+sent.clear()
+loop.run_until_complete(D._exec_follower(None, follower, snap, "MODIFY"))
+s.check("…and a NORMAL stop move does the same: the live levels, not the record, say it differs", sent,
+        [(77, 1.099, 1.12)])
 s.done()
