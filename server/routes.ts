@@ -3387,7 +3387,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // scraper without anyone copying files on the server by hand (`scripts/bc/run.sh`). Secret-only; a fixed list.
   app.get("/api/internal/options/scraper/:name", requireAdminSecret, async (req: Request, res: Response) => {
     const allowed = ["barchart_greeks.py", "barchart_parse.py", "barchart_levels.py", "barchart_message.py",
-                     "sentry_options.py", "barchart_snapshot.py"];
+                     "sentry_options.py", "barchart_snapshot.py", "barchart_read.py"];
     const name = String(req.params.name ?? "");
     if (!allowed.includes(name)) return res.status(404).json({ ok: false });
     const path = await import("path");

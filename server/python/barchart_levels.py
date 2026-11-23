@@ -116,6 +116,12 @@ _MONTHS = {m: i for i, m in enumerate(["Jan", "Feb", "Mar", "Apr", "May", "Jun",
 NEAR = 10
 
 
+def monthly_expiry(page_text: str) -> _date | None:
+    """The monthly options' expiry printed on the page ("2 Days to expiration on 11/24/26") → date(2026, 11, 24)."""
+    m = _re.search(r"expiration on (\d{2})/(\d{2})/(\d{2})", page_text or "")
+    return _date(2000 + int(m.group(3)), int(m.group(1)), int(m.group(2))) if m else None
+
+
 def week_expiry(label: str, weekday: int) -> _date | None:
     """'Week 4: Nov 2026' on the Monday menu (weekday 0) → date(2026, 11, 23). None if it cannot be read."""
     m = _re.match(r"\s*Week\s+(\d)\s*:\s*([A-Z][a-z]{2})\w*\s+(\d{4})", label or "")

@@ -91,5 +91,10 @@ L.is_low = lambda v, p: True                                     # SABOTAGE: eve
 check("TEETH — the vega rule is what refuses high vega", L.pick(hiv, L.SELL, 104)[0] != [], True)
 L.is_low = real_low
 
+# THE MONTHLY THAT EXPIRES ON THE DAY (23 Nov 2026 dry run): gold's December monthly page read live on 23 Nov.
+check("the monthly's expiry read from the page text ('2 Days to expiration on 11/24/26')",
+      L.monthly_expiry("Gold Dec '26\n2 Days to expiration on 11/24/26\nNear the Money"), date(2026, 11, 24))
+check("no expiration line → None (never a guess)", L.monthly_expiry("Weekly Options"), None)
+
 print(f"\n{len(BAD)} of {N[0]} FAILED: {BAD}" if BAD else f"\nALL PASS ({N[0]} checks)")
 sys.exit(1 if BAD else 0)

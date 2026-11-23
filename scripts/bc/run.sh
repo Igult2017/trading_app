@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 # run.sh — ask the app whether a Barchart options fetch is due, and if so run one (19 Nov 2026).
 #
-# Installed and switched on (his word 23 Nov 2026: "Barchart had been built and is working"; the admin switch
-# "Post the options levels" was turned on the same day). The app still decides every run (server/scrapers/bcLimits.ts).
+# Reads Investing.com's overnight options table and Barchart's at each open (docs/options-levels.md). First installed
+# on the server 23 Nov 2026, with his permission — it had NEVER been installed before (no /opt/bc, no timer). The app
+# decides every run (server/scrapers/bcLimits.ts) and the admin switch "Post the options levels" must be on.
 #
-# SAME SHAPE AS scripts/mfb/run.sh, which it copies: the host only asks; the app decides (six slots a day — Asia,
-# London, New York open + 5 and + 20 min); the browser runs in a container REMOVED ON EXIT, capped, killed if it
-# overruns. ⚠ One difference: no Cloudflare solver — a refusal is reported as BLOCKED and the app waits until tomorrow.
+# SAME SHAPE AS scripts/mfb/run.sh: the host only asks; the app decides (one run 10 min after the Sydney (Tue-Fri),
+# London and New York opens); the browser runs in a container REMOVED ON EXIT, capped, killed if it overruns. A refusal
+# is reported as BLOCKED and the day is skipped — never retried.
 #
-# Install (as root), only when he says so:
-#   mkdir -p /opt/bc && cp run.sh /opt/bc/run.sh && chmod +x /opt/bc/run.sh
-#   cp ../../server/python/barchart_greeks.py ../../server/python/barchart_parse.py \
-#      ../../server/python/barchart_levels.py ../../server/python/barchart_message.py /opt/bc/
-#   install bc.timer + bc.service beside this file, then: systemctl enable --now bc.timer
-#   and set BARCHART_ENABLED=true on the app.
+# Install (as root):
+#   mkdir -p /opt/bc && cp run.sh /opt/bc/ && chmod 755 /opt/bc/run.sh
+#   cp ../../server/python/{barchart_greeks,barchart_read,barchart_parse,barchart_levels,barchart_message,\
+#      barchart_snapshot,sentry_options}.py /opt/bc/          (after that, each run fetches them itself — see below)
+#   cp bc.timer bc.service /etc/systemd/system/ && systemctl daemon-reload && systemctl enable --now bc.timer
+# Stop it: systemctl disable --now bc.timer
 set -uo pipefail
+FILES="barchart_greeks.py barchart_read.py barchart_parse.py barchart_levels.py barchart_message.py barchart_snapshot.py
+       sentry_options.py"
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
@@ -44,8 +47,9 @@ log "claimed $slot run $run_id"
 # THE NEWEST SCRAPER FILES FROM THE APP, every run (23 Nov 2026) — so a deploy reaches this scraper without anyone
 # copying files here by hand. Each file is swapped in only when it downloaded whole; a failed download keeps the copy
 # already here, so a run never starts with a half file.
-for f in barchart_greeks.py barchart_parse.py barchart_levels.py barchart_message.py barchart_snapshot.py          sentry_options.py; do
-  if curl -fsS --max-time 30 -H "x-admin-secret: $SECRET" "$APP/api/internal/options/scraper/$f" -o "$DIR/$f.new"      && [ -s "$DIR/$f.new" ]; then
+for f in $FILES; do
+  if curl -fsS --max-time 30 -H "x-admin-secret: $SECRET" "$APP/api/internal/options/scraper/$f" -o "$DIR/$f.new" \
+     && [ -s "$DIR/$f.new" ]; then
     mv -f "$DIR/$f.new" "$DIR/$f"
   else
     rm -f "$DIR/$f.new"; log "could not fetch $f — using the copy already here"
