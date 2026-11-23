@@ -68,9 +68,30 @@ def read_all(page, markets=MARKETS) -> list[dict]:
             page.locator("text=O/N").first.click(timeout=CLICK_MS)        # overnight — clicked again after each switch
             _pause(page)
             popups.sweep(page)                 # once more right before reading
-            got = parse_panel(page.evaluate("() => document.body.innerText"))
-            if got["market"] == market and len(got["rows"]) >= 3:
+            got = _settled_table(page, market)
+            if got is not None:
                 out.append(got)
+            else:
+                print(f"sentry {market}: the table never settled on {ROWS} rows — left for the next try")
         except Exception as e:                                          # noqa: BLE001 — one market never stops the rest
             print(f"sentry {market}: {type(e).__name__}: {e}")
     return out
+
+
+ROWS = 7                    # the panel ALWAYS shows 7 strikes (deltas 0.10 … 0.90) — checked on gold, EUR, GBP
+
+
+def _settled_table(page, market: str, reads: int = 5) -> dict | None:
+    """THE TABLE ONLY WHEN IT IS FULLY DRAWN (23 Nov 2026 dry run: GBP/USD was read while its rows were still redrawing
+    after the switch — 3 strikes of 7). Two reads in a row, 2-5 s apart, must both be for `market` with all 7 strikes;
+    the newer is kept. NOT "identical": the panel re-prices live every few seconds and its strikes move with the price
+    (measured the same morning — an exact-match rule refused gold and GBP). Up to `reads` reads, else None."""
+    full_before = False
+    for _ in range(reads):
+        got = parse_panel(page.evaluate("() => document.body.innerText"))
+        full = got["market"] == market and len(got["rows"]) == ROWS
+        if full and full_before:
+            return got
+        full_before = full
+        _pause(page)
+    return None

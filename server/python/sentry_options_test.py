@@ -36,5 +36,33 @@ b = parse_panel(GBP)
 check("GBP: 7 rows, the negative put prices kept as they are (the map calls them data errors)",
       (len(b["rows"]), b["rows"][0]["put_price"], b["rows"][6]["put_price"]), (7, -0.0004, 0.00064))
 check("no table → no rows, no guess", parse_panel("Sentry Derivatives"), {"market": None, "expiry": None, "rows": []})
+
+# ── A TABLE ONLY WHEN IT HAS STOPPED CHANGING (23 Nov 2026 dry run: GBP/USD read mid-redraw, 3 strikes of 7) ───────────
+import sentry_options as SO  # noqa: E402
+
+HALF = GBP.replace("-0.09 -0.0004 1.3020 0.01708 0.91 10.14%-0.24 -0.0011 1.3065 0.01190 0.76 9.68%-0.34 -0.0014 1.3085 "
+                   "0.00960 0.66 9.45%-0.49 -0.0017 1.3110 0.00680 0.51 9.22%", "")
+
+
+class Page:
+    def __init__(self, texts):
+        self.texts, self.n = list(texts), 0
+
+    def evaluate(self, js):
+        t = self.texts[min(self.n, len(self.texts) - 1)]
+        self.n += 1
+        return t
+
+    def wait_for_timeout(self, ms):
+        pass
+
+
+check("the half-drawn GBP table really is 3 rows (the dry run's fault reproduced)", len(parse_panel(HALF)["rows"]), 3)
+got = SO._settled_table(Page([HALF, GBP, GBP]), "GBP/USD")
+check("half-drawn, then two identical full reads → the full 7-row table", got and len(got["rows"]), 7)
+check("a table that never settles on 7 rows → nothing (the next try takes it)",
+      SO._settled_table(Page([HALF] * 6), "GBP/USD"), None)
+check("the right number of rows but for ANOTHER market (switch not done) → nothing",
+      SO._settled_table(Page([GBP] * 6), "EUR/USD"), None)
 print(f"\n{'ALL PASS' if not BAD else f'{len(BAD)} FAILED'}")
 sys.exit(1 if BAD else 0)

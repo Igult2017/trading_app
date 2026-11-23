@@ -110,6 +110,11 @@ mention all the options metrics a signal has failed."*
   read — clicks close/accept/dismiss/× INSIDE popup boxes only, removes ad frames, sticky ad bars and full-screen layers,
   re-allows scrolling; never touches a box holding the table or menus. `popups_test.py` in a real browser (an ad that
   appears 2 s later is removed too; the data and its own "x" button untouched).
+- **Only a fully drawn table is read** (`sentry_options._settled_table`): two reads in a row, 2-5 s apart, both for the
+  market asked and with all 7 strikes. Found in the 3rd dry run: GBP/USD read mid-redraw (3 of 7 strikes) — the map's
+  spot check refused it, but the reader must not lose rows. Also found: the panel's GBP/USD data is UNRELIABLE between
+  browser sessions — one session all 7 strikes and sane prices, the next only 3 rows with negative put prices. Such a
+  table is refused, retried 5 min later (3 tries), then GBP maps from Barchart's full qualifiers or not at all.
 - **The signal card:** Telegram shows ONLY a signal's checklist (`notifications/telegram_cards.py`) — the options card
   had none, so it showed no reasons. Now its checklist: the level + grade, how it was respected, Investing.com's passed
   rules, what Barchart's strike passed and **❌ every metric it failed** (value + what it should be), or ❌ no Barchart
