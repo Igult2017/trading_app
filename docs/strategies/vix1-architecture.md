@@ -262,6 +262,7 @@ is the pullback gate. Its only two callers are `vix1_bias.py:289` and `:349`.
 
 | file | owns |
 |---|---|
+| `strategies/vix1_breakout.py` | **a breakout from a ranging band** (23 Nov 2026) — `find` (where it broke, ranging before it, not yet proven), `pick` (the first candle by standard + stomach, else a later normal one — also used by `vix1_choch`), `entry` (+ the void veto) |
 | `vix1.py` | orchestrator: **pre-close** → watch → bias → news gates → **spacing** → **heads-up** → 1M signals → grade → build |
 | `data/candle_aggregator.py` | **the bar currently FORMING**, rebuilt from a finer series already fetched (`forming_bar`, added 2026-08-21). Opt-in per timeframe via `wants_forming`; the runner appends it to `candle_view` so the chart renderer sees it too. `closed_only` drops it, so no LEVEL anywhere can move — asserted on live data |
 | `data/ctrader_spread.py` | **the live spread AND the live quote** (added 2026-08-21) — GetTickData BID+ASK, request/response so it can take the candle fetch's `_req_lock`; cached 25s. `quote_for()` returns (bid, ask) — the platform's ONLY genuinely current price, since the feed's newest close can be ~2 min old; `spread_for()` derives from it so the two cannot disagree. Fills `context.spread` and `context.quote`, neither of which anything had populated |
@@ -495,7 +496,24 @@ and the two-stage turn would have revived it into the reversal window (18% / 11%
 **Measured over 2 years, both pairs:** 11.4 setups/month GBP/USD, 14.4 EUR/USD; the pullback refusal
 removes 26% of all momentum candles on BOTH pairs.
 
-### THE CHANGE-OF-CHARACTER ROUTE — the exemption from the pullback rule (added 2026-08-15)
+### A BREAKOUT FROM A RANGING BAND — `vix1_breakout.py`, and the change of character rewritten (23 Nov 2026)
+
+**THREE ways into a trade now, asked in this order by `vix1_bias.detect_bias`:**
+1. **`vix1_breakout.entry`** — FIRST, before the range refusal: price closed outside his band (`vix1_chop.body_lines`)
+   out of a RANGING market (`vix1_regime.ranging` on the turning points known before the breakout candle). Trades the
+   breakout candle if it is a momentum candle by standard + stomach (`pick`), else a later normal-qualifying one. Answers
+   `(None, None)` when it is not its business, so everything below runs exactly as before.
+2. **The trend route** — unchanged (continuation of an existing trend).
+3. **`vix1_choch.choch_entry`** — a pending turn out of a TREND: the same `vix1_breakout.pick`; no swings, no count.
+
+**The failed-breakout memory lives in the trend engine** (`vix1_trend.trend_state`, the only place structure is
+replayed): a change of character proposed out of a RANGING market sets `TrendState.breakout/breakout_index/
+breakout_level` and snapshots the state before it; a turning point made BY the breakout candle never confirms it; a
+close back inside before it proved itself restores the snapshot with the protected line moved to how far the breakout
+reached (`stretched`, kept at the wick by `vix1_chop.body_lines`). A break out of a TREND keeps the 16 Sep rule.
+`vix1_preclose._could_trade` asks the same three functions on the bar in progress. Proof: `tests/vix1/test_breakout.py`.
+
+### THE CHANGE-OF-CHARACTER ROUTE — the exemption from the pullback rule (added 2026-08-15) — ⚠ REPLACED 23 Nov 2026, see above
 
 **There are now TWO ways into a trade.** The normal one needs an established trend and passes the
 pullback refusal. The second exists because that refusal blocked the trade he actually takes.

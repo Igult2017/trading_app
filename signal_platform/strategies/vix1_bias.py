@@ -32,6 +32,7 @@ from core.types import Candle
 from strategies.vix1_momentum import momentum_run, size_note, veto_reason
 from strategies import vix1_log
 from shared.candle_math import atr
+from strategies import vix1_breakout
 from strategies import vix1_choch
 from strategies import vix1_pullback_end
 from strategies import vix1_break_candle
@@ -184,6 +185,24 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
     turns = structure_turns(window, _H1_SWING_N)      # computed ONCE per window
     tstate = trend_state(window, n=_H1_SWING_N, turns=turns)
 
+    # ── A BREAKOUT FROM A RANGING MARKET'S BAND (his rules, 23 Nov 2026 — `vix1_breakout`) ───────────────────────
+    # *"In a breakout scenario we only needed momentum candle not Highs and lows ... like we would a trend."* Asked
+    # BEFORE the range refusal below, because a breakout is exactly a close OUT of his band. Answers only while price
+    # is outside a band it broke out of a RANGING market (by his "no HH+HL / LL+LH") and the breakout has not yet
+    # proven itself; otherwise (None, None) and everything below decides exactly as before — the trend route's
+    # continuation trades are untouched. No trend state, no market-state gate here (his ruling the same day).
+    b, why_b = vix1_breakout.entry(h1, window, tstate, _H1_SWING_N, symbol, news=news)
+    if b is not None:
+        if debut is not None and debut.is_backfill(symbol, h1[b.mc_idx].time):
+            vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: the breakout momentum candle closed before this "
+                                 f"instrument was first scanned — backfill, not a live setup")
+            return None
+        vix1_log.say(symbol, f"[vix1] {symbol} BREAKOUT ENTRY: {b.reason}")
+        return b
+    if why_b is not None:
+        vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {why_b}")
+        return None
+
     # ── IS THE MARKET RANGING? THE FIRST DECISION, AND ITS ANSWER IS FINAL ──────────────────────
     # His rule, 2026-09-21: *"Until the price gets out of the two lines which I have drawn, we are
     # in a range... it is ranging until it breaks that range. The whole thing by the way works with
@@ -220,7 +239,8 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
     # refusal repeating for hours now says so, instead of looking like a fresh event every scan:
     # his two EUR/USD setups of 6-7 Sep were refused nine times for the identical reason and nothing
     # in the log made that visible.
-    age = remember(symbol, tstate, window[-1].time) if window else {}
+    if window:
+        remember(symbol, tstate, window[-1].time)      # recorded for its age; the return value was never read
 
     # MEASURED, NOT ENFORCED (Phase A). The 8-bar leg gate is still the only thing that can refuse;
     # see vix1_state for why these decide nothing yet. Printed on EVERY path below — the refusals
@@ -232,26 +252,17 @@ def detect_bias(h1: list[Candle], h4: list[Candle], symbol: str = "", debut=None
 
     want = t1 if t1 != 0 else (t4 if _ALLOW_H4 else 0)
     if want == 0:
-        # HIS CHANGE-OF-CHARACTER ROUTE (2026-08-15). THIS IS THE EXACT LINE THAT REFUSED HIS TRADE.
-        #
-        # A pending turn reads direction 0, so everything below used to give up here — and on his own
-        # chart (EUR/USD 28 Jul 2026 17:00) that threw away the setup at the moment he takes it.
-        # `vix1_choch` grants ONE exemption, and only while the turn is proposed but unconfirmed:
-        # momentum the new way, out of a trending market, with no pullback required. The instant the
-        # new direction confirms, `pending` clears, that route stops answering and the normal path
-        # below owns the decision again — pullback rule and all. See vix1_choch for his wording.
-        # HIS ONE EXCEPTION, 2026-09-20: the shortcut he switched off on 14 Sep stays off, EXCEPT
-        # where the turn is the break of a void price was filling — *"you switch it on only for the
-        # liquidity void case not all."* `vix1_void.break_of_a_fill` is the only thing that opens it,
-        # and `vix1_preclose` asks the same function so the card and the trade agree.
-        # ⚠ `choch_price`, NOT `protected` — `vix1_trend.py:412` empties `protected` on the very line
-        # that proposes the turn, so reading it here asked a question that could never be answered
-        # yes (measured: 0 of 476 pending turns over 12 months).
-        void_break = vix1_void.break_of_a_fill(window, tstate.pending == 1, tstate.choch_price,
-                                               symbol, news=news)
-        bias, why = vix1_choch.choch_entry(window, h1, tstate, turns, _H1_SWING_N, symbol,
-                                           void_break=void_break, ignore_count=ignore_count)
+        # HIS CHANGE-OF-CHARACTER ROUTE. A pending turn reads direction 0, so the trend route below cannot see it —
+        # first found on his own chart, EUR/USD 28 Jul 2026 17:00. Since 23 Nov 2026 the route trades the breaking
+        # candle when it is a momentum candle by standard (+ stomach), else a later momentum candle; no swings, no
+        # count (`vix1_choch`). A break out of a RANGING band never reaches here — `vix1_breakout` answered above.
+        bias, why = vix1_choch.choch_entry(window, h1, tstate, _H1_SWING_N, symbol)
         if bias is not None:
+            # THE LIQUIDITY VOID RULE APPLIES EVERYWHERE (his words, 23 Nov 2026) — the same veto the trend route asks.
+            veto = vix1_void.not_filling(window, tstate.choch_price, bias.bullish, symbol, news=news)
+            if veto:
+                vix1_log.say(symbol, f"[vix1] {symbol} bias=NONE: {veto} | {state}")
+                return None
             # THE BACKFILL GUARD APPLIES HERE TOO. This route returns before the main path's check,
             # so guarding only that one left 24 of 107 cold-start signals still firing on history —
             # found by the test, not by reading. Any route that emits a Bias needs the guard.

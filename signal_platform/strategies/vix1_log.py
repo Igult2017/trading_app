@@ -54,7 +54,6 @@ def say(symbol: str, message: str, logger: logging.Logger | None = None) -> bool
     # 3h29m window that mistake gave a 33% reduction where per-reason keying gives ~99%. Each reason
     # now throttles independently, which is also what makes a genuine change still print instantly:
     # a NEW reason is a new key and speaks on first sight.
-    sh = shape(message)
     # THE LAST REASON IS REMEMBERED, so a message can SAY why (added 2026-09-08). Recorded BEFORE the
     # throttle, on purpose: a reason that repeats is deliberately not re-logged, but it is still the
     # current reason, and a caller asking "why did nothing happen" must get today's answer rather

@@ -64,6 +64,7 @@ can desynchronise across a restart or a second process.
 from dataclasses import dataclass, field
 
 from core.types import Candle
+from strategies.vix1_regime import ranging
 # `shared.swing_points.find_swing_points` is deliberately NOT imported here any more (2026-09-13).
 # This module reads turning points from `vix1_swings` and nowhere else; importing the old detector
 # is what made the silent fallback possible in the first place.
@@ -81,7 +82,8 @@ _MIN_BARS = 20    # below this there is not enough structure to call anything
 
 # HIS RULE OF 2026-09-16, and the one switch that turns it off — see `TrendState.turn_level`. Named so
 # `tests/vix1/test_choch_taken_back.py` can PROVE this rule is what refuses the 15 Sep BUY, the way
-# `_EXEMPT_UP_TURNS` does for the change-of-character shortcut.
+# a switch would for any other rule. (On a breakout out of a RANGING band, taking the broken line back no longer
+# ends the trend — the failed-breakout rule restores it, his 23 Nov rule; this rule still owns a trend's own CHoCH.)
 _ARM_BROKEN_LEVEL = True
 
 
@@ -111,6 +113,16 @@ class TrendState:
     # UP, and VIX.1 BOUGHT the pullback of the new down move (`docs/OPEN.md` B26).
     turn_level: float | None = None
     turn_taken_back: bool = False            # the pending turn came from that level being taken back
+    # A BREAKOUT FROM A RANGING BAND, NOT YET PROVEN (his rules, 23 Nov 2026 — `docs/strategies/vix1.md`):
+    # *"if a breakout fails and it goes back inside the band, the break does not count"* and *"A breakout that
+    # establishes a trend or a move breaking BOS or CHOCH is not a failed breakout."* Set when a change of
+    # character is proposed out of a RANGING market (`vix1_regime.ranging`); cleared when the new direction proves
+    # itself with candles AFTER the breakout candle, or when price closes back inside (then the old state comes
+    # back, the band stretched on the failed side — `stretched`).
+    breakout: int = 0                        # +1 broke up / -1 broke down / 0 none
+    breakout_index: int | None = None        # the breakout candle
+    breakout_level: float | None = None      # the band line it closed through
+    stretched: float | None = None           # last failed breakout: how far it reached (the band's new line)
     breaks: int = 0                          # BOS since this direction began — see `maturity`
     # THE BAR THIS DIRECTION WAS ESTABLISHED ON. Exposed for the retracement tracker, which measures
     # from the trend's best price SINCE THE TREND BEGAN and would otherwise have to replay this whole
@@ -312,10 +324,12 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
     last_ext: float | None = None  # the last swing that EXTENDED the trend
     k = 0                          # pivots are consumed at the bar they become KNOWN
     last_pi: int | None = None     # where the most recent pivot actually sits — see direction_since
+    snap = None                          # the state before an unproven breakout (23 Nov 2026)
     seq: list[tuple[bool, float]] = []   # confirmed pivots IN ORDER — `highs`/`lows` lose the order,
                                          # and his establishment rule is about a sequence
 
     for i, c in enumerate(candles):
+        known_h, known_l = len(st.highs), len(st.lows)   # the turning points known BEFORE this candle closed
         while k < len(pts) and pts[k][0] <= i:
             _, _is_high, _price, _pidx = pts[k]; k += 1
             p = _Pivot(_is_high, _price, _pidx)
@@ -323,6 +337,11 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
             seq.append((p.is_high, p.price))
             last_pi = p.index
 
+            # A BREAKOUT CANDLE NEVER PROVES ITSELF (his rule, 23 Nov 2026): "established a trend / broke structure"
+            # is judged on candles AFTER the breakout candle. On GBP/USD 23 Nov 08:00 UTC the pending turn up was
+            # "confirmed" by the breakout candle's OWN high (1.31433) and the next candle closed back inside the band.
+            if st.breakout and st.breakout_index is not None and p.index <= st.breakout_index:
+                continue
             # CONFIRM a proposed reversal: the new direction must print its own BOS first.
             if st.pending and len(st.highs) >= 2 and len(st.lows) >= 2:
                 if st.pending == -1 and not p.is_high and st.lows[-1] < st.lows[-2]:
@@ -338,6 +357,8 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
                     st.bos_price, st.bos_index = p.price, p.index
                     st.pending, last_ext, since, st.breaks = 0, p.price, [], 1
                     st.direction_since = p.index
+                if not st.pending:                # proven by candles after the break: no longer a breakout
+                    st.breakout, st.breakout_index, st.breakout_level, snap = 0, None, None, None
                 continue
 
             if st.direction == 0:
@@ -376,6 +397,22 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
                     st.turn_level = None
                 last_ext, since = p.price, []
 
+        # A FAILED BREAKOUT DOES NOT COUNT (his rule, 23 Nov 2026): not proven yet, and a candle closes back inside
+        # the band -> the state from before the break comes back, the band STRETCHED on that side to how far the
+        # failed breakout reached ("the failed breakout formed a range from the previous range point to the new
+        # one"). The opposite line is untouched.
+        if (snap is not None and st.breakout and st.pending == st.breakout and i > st.breakout_index
+                and (c.close <= st.breakout_level if st.breakout == 1 else c.close >= st.breakout_level)):
+            seg = candles[st.breakout_index:i + 1]
+            reach = max(x.high for x in seg) if st.breakout == 1 else min(x.low for x in seg)
+            (st.direction, st.protected, st.bos_price, st.bos_index, st.breaks, st.turn_level,
+             st.direction_since, last_ext, since, st.choch_price, st.choch_index) = snap
+            since = list(since)
+            st.protected = max(st.protected, reach) if st.breakout == 1 else min(st.protected, reach)
+            st.pending, st.stretched = 0, reach
+            st.breakout, st.breakout_index, st.breakout_level, snap = 0, None, None, None
+            continue
+
         if st.direction == 0 and not st.pending:
             started = _establish(seq)
             if started:
@@ -406,6 +443,15 @@ def trend_state(candles: list[Candle], n: int = _SWING_N, turns=None) -> TrendSt
                 # has gone past the protected area it broke then pulls back without breaking the new
                 # moves respected zone"*, which is `_establish`'s three points. So nothing is proposed
                 # here; the structure decides what comes next.
+                # OUT OF A RANGING MARKET this is a BREAKOUT from his band (23 Nov 2026): remember the state before
+                # it, so a failed breakout can be undone. Out of a trend nothing changes (his rule is for the band).
+                # RANGING BEFORE THE BREAK — read on the turning points known before this candle closed: a strong
+                # breakout candle can confirm a new turning point itself and make the range look like a trend.
+                if not took_back and ranging(st.highs[:known_h], st.lows[:known_l]):
+                    snap = (st.direction, st.protected, st.bos_price, st.bos_index, st.breaks, st.turn_level,
+                            st.direction_since, last_ext, tuple(since), st.choch_price, st.choch_index)
+                    st.breakout = 1 if st.direction == -1 else -1
+                    st.breakout_index, st.breakout_level = i, level
                 st.pending = 0 if took_back else (-1 if st.direction == 1 else 1)
                 st.direction = 0
                 st.choch_price, st.choch_index = level, i

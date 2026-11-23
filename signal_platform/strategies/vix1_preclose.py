@@ -44,7 +44,7 @@ import time
 from core.types import Candle, Signal, Direction, TF
 from notifications import titles
 from shared.mtf_utils import is_closed, seconds as tf_seconds
-from strategies.vix1_momentum import is_momentum_candle, momentum_grade, qualifies_for_trade
+from strategies.vix1_momentum import momentum_grade, qualifies_for_trade
 from strategies import vix1_break_candle
 
 # How long before the close to notify. MEASURED, not chosen — see the table above.
@@ -100,10 +100,9 @@ def check(h1_closed: list[Candle], h1_raw: list[Candle], symbol: str,
     readers — `breaks down and runs` gives -1 (held back), and once it has pulled back and turned
     back down `pending` is 0 and the notification speaks again.
 
-    A TURN UP IS HELD BACK THE SAME WAY SINCE 2026-09-14 ("enable pullback to uptrend the same way we
-    have a pullback after first trend run in the downtrend") — `_could_trade` asks
-    `vix1_choch.exempts`, so this follows the entry whichever way that switch is set. A candle in an
-    already-confirmed trend (`pending` 0) is untouched in both directions: that trend proved itself.
+    SINCE 23 NOV 2026 a pending turn either way is answered by `vix1_choch.choch_entry` itself (his rule: the
+    breaking candle by standard + stomach, else a later momentum candle — no swings), so this follows the entry.
+    A candle in an already-confirmed trend (`pending` 0) is untouched in both directions: that trend proved itself.
 
     THE TREND IS READ ONLY AFTER the bearish momentum test has already passed, so the cost lands in
     the few minutes before a qualifying bearish candle closes rather than on every scan of every
@@ -150,113 +149,54 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
     So "the trend disagrees" alone is NOT a reason to stay silent — that would mute exactly the
     reversals `vix1_choch` exists to catch. The test is whether EITHER route is open:
 
-      BUY   trend is up, OR an upward turn is pending AND `vix1_choch.exempts(True)` — which is OFF
-            since his instruction of 2026-09-14, so a pending turn up now stays silent like a turn
-            down ("enable pullback to uptrend the same way we have a pullback after first trend run
-            in the downtrend")
-      SELL  trend is down. A pending DOWNWARD turn is never exempted (his rule of 2026-08-25).
+      a breakout from a ranging band   `vix1_breakout.entry` (his 23 Nov rules), asked FIRST, as the entry does
+      a trend the candle's way         the trend route (with its 19 Nov break-candle question)
+      a turn the candle's way          `vix1_choch.choch_entry` (his 23 Nov rules — no swings, no count)
 
-    The exemption is ASKED of `vix1_choch.exempts`, never restated here, so the notification and the
-    entry give the same answer whichever way that switch is set — which is the point.
+    Each is ASKED of the function the entry asks, never restated here, so the notification and the entry give
+    the same answer — which is the point.
 
     Read off the `TrendState` the strategy already computes, from CLOSED bars only: a trend is a
     LEVEL, and a level never comes from a bar still forming. Called only AFTER the momentum test has
     passed, so the cost lands in the last minutes of a qualifying candle, not on every scan.
     """
-    from strategies import vix1_choch, vix1_chop, vix1_retracement
+    from strategies import vix1_breakout, vix1_choch, vix1_chop
     from strategies.vix1_bias import _H1_SWING_N, _H1_TREND_BARS
     from strategies.vix1_swings import structure_turns
     from strategies.vix1_trend import trend_state
 
     w = h1_closed[-_H1_TREND_BARS:]
     st = trend_state(w, n=_H1_SWING_N, turns=structure_turns(w, _H1_SWING_N))
+    # THE BAR IN PROGRESS IS ASKED AS IF IT CLOSED NOW — that is this module's whole job. `w_with` starts where `w`
+    # starts, so every index in `st` maps into `h1_with` exactly as it maps into `h1_closed` in the entry.
+    h1_with = h1_closed + ([forming_bar] if forming_bar is not None else [])
+    w_with = w + ([forming_bar] if forming_bar is not None else [])
 
-    # A RANGING MARKET SILENCES THE HEADS-UP TOO — `detect_bias` asks this same function and returns,
-    # so announcing a candle here would promise a trade the entry will refuse (the fault this
-    # function was corrected for on 2026-08-26). Asked AFTER the trend, because his two lines ARE
-    # the trend's own levels.
-    #
-    # ⚠ IT IS ASKED OF THE BAR THAT IS FORMING, not the last closed one, and that is the whole
-    # point: the candle being announced is usually the one BREAKING the box. Judged on the previous
-    # close it is still inside, so the announcement would be silenced for exactly the candle he
-    # wants to be at the screen for. This module is the one place that reads the forming bar on
-    # purpose, and this is one of those places.
-    if vix1_chop.not_tradeable(h1_closed + ([forming_bar] if forming_bar else []), st,
-                               bullish, symbol, news=news):
+    # A BREAKOUT FROM A RANGING BAND (his rules, 23 Nov 2026) — the SAME function the entry asks first.
+    b, why_b = vix1_breakout.entry(h1_with, w_with, st, _H1_SWING_N, symbol, news=news)
+    if b is not None or why_b is not None:
+        return b is not None and b.bullish == bullish
+
+    # A RANGING MARKET SILENCES THE HEADS-UP TOO — `detect_bias` asks this same function and returns, so announcing
+    # a candle here would promise a trade the entry will refuse. Asked of the bar that is FORMING on purpose: the
+    # candle being announced is usually the one BREAKING the box.
+    if vix1_chop.not_tradeable(h1_with, st, bullish, symbol, news=news):
         return False
 
-    # HIS SCOPED EXEMPTION (2026-09-20), asked through the SAME function the entry asks, so the card
-    # and the trade can never disagree about it: the 14 Sep shortcut stays off unless this turn is
-    # the break of a void price was filling.
-    # ⚠ NEITHER OF THEM IS `protected`. The level a break goes THROUGH differs by branch, and
-    # `vix1_trend.py:412` empties `protected` the moment a turn is proposed, so asking with it was
-    # dead code — 0 of 848 pending turns over 12 months on the two pairs could answer yes.
-    #   forming bar  the trend is still live and the bar is breaking `kill_level` right now
-    #   pending turn the break already happened and `choch_price` holds the level it went through
-    from strategies import vix1_void
-    void_break_now = vix1_void.break_of_a_fill(w, bullish, st.kill_level, symbol, news=news)
-    void_break_pending = vix1_void.break_of_a_fill(w, bullish, st.choch_price, symbol, news=news)
-
-    # A BUY CANDLE THAT IS ITSELF TURNING THE MARKET UP (added 2026-08-29). Without this, the `pending
-    # == 1` test below can never fire on the bar that CREATES the pending turn — and that is not a
-    # tuning problem, it is arithmetic. This function is asked BEFORE the candle closes, so the state
-    # it reads is by definition the state BEFORE the break. The bar that proposes a turn up therefore
-    # always reads as counter-trend at the moment we ask, and is always silenced.
-    #
-    # NOTHING IS INVENTED. A change of character is defined ONE way in this codebase — price CLOSES
-    # through the level that ENDS the trend (`vix1_trend`, the CHoCH branch) — and `kill_level` is that
-    # level: the swing protecting the trend, or the level whose break started it, whichever price reaches
-    # first (his rule, 2026-09-16). This asks the same question of the bar in progress, which is legitimate in THIS
-    # module and nowhere else: it is the one place that deliberately reads the forming bar.
-    #
-    # ASKED OF `vix1_choch.exempts`, NOT HARD-CODED TO ONE SIDE. It opened only for a turn UP because
-    # only a turn up had the shortcut. Since 2026-09-14 neither does, so by default this branch is
-    # shut too — announcing that break would promise a trade the entry refuses. A downward break has
-    # never had a route here and still has none.
-    if (forming_bar is not None and bullish and vix1_choch.exempts(True, void_break_now)
-            and st.direction == -1
-            and st.kill_level is not None and forming_bar.close > st.kill_level):
-        return True
-    # HIS 19 NOV RULE: a candle that BREAKS the change of character may trade on its own close when it is a momentum
-    # candle ON ITS OWN (2.5x, no margin, no memory) — the entry asks `vix1_break_candle` with that bar as the break.
-    # Under the old 3-candle count it was always "candle 1" and refused, so silence here was right; now it is not.
+    # A CANDLE BREAKING A TREND THE OTHER WAY RIGHT NOW (his 23 Nov rule, `vix1_choch`): it trades on its own close
+    # only if IT is a momentum candle by standard + stomach. Asked of `vix1_breakout.pick`, the function the entry
+    # asks, so the card and the trade cannot disagree. (The state read here is the state BEFORE this bar.)
     if (forming_bar is not None and st.kill_level is not None
             and ((bullish and st.direction == -1 and forming_bar.close > st.kill_level)
                  or (not bullish and st.direction == 1 and forming_bar.close < st.kill_level))):
-        _with = h1_closed + [forming_bar]
-        return is_momentum_candle(_with, len(_with) - 1, bullish, symbol)
+        k = len(h1_with) - 1
+        return vix1_breakout.pick(h1_with, k, 1 if bullish else -1, symbol, what="change of character")[0] is not None
 
-    # ── A PENDING TURN IS DECIDED BY THE TIMING RULE NOW, BOTH WAYS (2026-09-29) ────────────────
-    #
-    # It used to be `exempts(True, ...)` for a turn up and nothing at all for a turn down, so with
-    # the shortcut off this went silent on every pending turn. Since his rule of 2026-09-29 the
-    # entry CAN take one — (since 19 Nov) its break candle when that qualifies on its own, or the
-    # momentum candle that ends a short pullback — so staying silent would hide exactly the candle
-    # he asked to be warned about.
-    #
-    # ASKED THROUGH `vix1_retracement.entry_timing`, THE SAME FUNCTION THE ENTRY ASKS, on the same
-    # window plus the bar in progress. That is the rule this module has always followed and the
-    # reason it never restates a condition: the heads-up and the trade cannot disagree if there is
-    # only one place that answers.
-    # ⚠ THE VOID EXEMPTION IS ASKED FIRST, EXACTLY AS THE ENTRY ASKS IT. He caught this missing on
-    # 2026-09-29, the same day the count shipped: `entry_timing` replaced `exempts(...)` here, and
-    # `void_break_pending` was left computed and unread. The entry is
-    #
-    #     if not exempts(bullish, void_break):   <the count decides>
-    #
-    # so a void break skips the wait ENTIRELY (his scoped ruling, 2026-09-20). Without the same
-    # first question here, a void break would be TRADED by the entry while this stayed silent until
-    # the 3rd candle — the exact disagreement this module exists to prevent.
     def _turn_open(way: int) -> bool:
-        if st.pending != way or st.choch_index is None or not (0 <= st.choch_index < len(w)):
+        """A turn already proposed: the entry's own change-of-character route, asked of the bar in progress."""
+        if st.pending != way or st.choch_index is None:
             return False
-        if vix1_choch.exempts(way == 1, void_break_pending):
-            return True
-        bars = w + ([forming_bar] if forming_bar is not None else [])
-        # BOTH questions the entry asks (his 19 Nov rule replaced the 3-candle wait with the break candle having to
-        # qualify on its own — `vix1_break_candle`), so the heads-up and the trade cannot disagree.
-        return (vix1_retracement.entry_timing(bars, way, break_time=w[st.choch_index].time) is None
-                and vix1_break_candle.refusal(bars, h1_closed, w[st.choch_index].time, way == 1, symbol) is None)
+        return vix1_choch.choch_entry(w_with, h1_with, st, _H1_SWING_N, symbol)[0] is not None
 
     def _trend_open(way: int) -> bool:
         """The trend route, asked the same 19 Nov question the entry asks of its break of structure: with no
@@ -266,8 +206,7 @@ def _could_trade(h1_closed: list[Candle], bullish: bool, symbol: str,
         bi = st.bos_index
         if bi is None or not (0 <= bi < len(w)):
             return True
-        bars = w + ([forming_bar] if forming_bar is not None else [])
-        return vix1_break_candle.refusal(bars, h1_closed, w[bi].time, way == 1, symbol) is None
+        return vix1_break_candle.refusal(w_with, h1_closed, w[bi].time, way == 1, symbol) is None
 
     if bullish:
         return _trend_open(1) or _turn_open(1)

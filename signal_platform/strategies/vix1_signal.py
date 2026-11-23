@@ -33,8 +33,8 @@ _KIND = {
 # 'choch' RETURNED 2026-08-15, and it is NOT the old one. The 2026-07-26 origins fired on a bare
 # structure break; this one is his rule and needs momentum to have developed the new way, out of a
 # trending market, while the turn is still unconfirmed (vix1_choch). The old 'choch4' stays deleted.
-_CTX   = {"trend4": "4HR-BACKED TREND", "choch": "CHANGE OF CHARACTER"}
-_SHORT = {"trend4": "4HR-backed trend", "choch": "change of character"}
+_CTX   = {"trend4": "4HR-BACKED TREND", "choch": "CHANGE OF CHARACTER", "breakout": "BREAKOUT FROM A RANGE"}
+_SHORT = {"trend4": "4HR-backed trend", "choch": "change of character", "breakout": "breakout from a range"}
 
 
 def _origin_reason(origin: str, bullish: bool, mlabel: str, side: str) -> str:
@@ -42,9 +42,11 @@ def _origin_reason(origin: str, bullish: bool, mlabel: str, side: str) -> str:
         return (f"4HR-BACKED TREND ({side}) — 1HR trend unclear, but the 1HR {mlabel} aligns with a "
                 f"clear 4HR {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend")
     if origin == "choch":
-        return (f"CHANGE OF CHARACTER ({side}) — price closed through the level protecting the old "
-                f"trend and the {mlabel} developed {'up' if bullish else 'down'} after it; taken "
-                f"without waiting for a pullback, which applies again once this trend confirms")
+        return (f"CHANGE OF CHARACTER ({side}) — price closed through the level protecting the old trend; the "
+                f"{mlabel} {'up' if bullish else 'down'} traded with no swings needed (his 23 Nov rule)")
+    if origin == "breakout":
+        return (f"BREAKOUT ({side}) from a ranging band — the {mlabel} {'up' if bullish else 'down'} closed outside "
+                f"his two lines (his 23 Nov rule)")
     return (f"1HR clear {'up (HH+HL)' if bullish else 'down (LH+LL)'} trend + {mlabel} "
             f"from the 1st ({side})")
 
@@ -52,13 +54,14 @@ def _origin_reason(origin: str, bullish: bool, mlabel: str, side: str) -> str:
 # THE CARD'S CHECKLIST (his ask, 20 Nov 2026: *"just write the reason for qualifying the signal and tick it with
 # green, no explanation"*). One name per check that REFUSES on that route — so a signal that exists passed every one
 # of them, and every tick is true. Where each lives:
-#   Momentum candle + Stomach rule   vix1_momentum.qualifies_for_trade (via momentum_run / vix1_choch)
-#   Not ranging                      vix1_chop.not_tradeable (before both routes, vix1_bias)
+#   Momentum candle + Stomach rule   vix1_momentum.qualifies_for_trade / the first candle by standard (vix1_breakout.pick)
+#   Breakout from a ranging band     vix1_breakout.find (his 23 Nov rule: out of a ranging market's band)
+#   Not ranging                      vix1_chop.not_tradeable (trend route, vix1_bias)
 #   Market state: TREND              regime.tradeable                 } the trend route's veto list,
 #   Ran and pulled back              vix1_tradeable.trend_reproven    } vix1_bias.detect_bias
-#   Pullback ended                   vix1_pullback_end.refusal        (both routes)
-#   Pullback count                   vix1_retracement.entry_timing    (trend route; the change-of-character route waives it)
-#   Break candle rule                vix1_break_candle.refusal        (both routes; his 19 Nov rule)
+#   Pullback ended                   vix1_pullback_end.refusal        (trend + change-of-character routes)
+#   Pullback count                   vix1_retracement.entry_timing    (trend route only)
+#   Break candle rule                vix1_break_candle.refusal        (trend route; his 19 Nov rule)
 #   Market awake                     vix1_tradeable.market_awake
 #   No liquidity void                vix1_void.not_filling
 #   News clear · Spacing             vix1.analyze (news calendar known + 10/10 window; vix1_spacing)
@@ -68,8 +71,10 @@ _TICKS = {
     "trend":  ["Momentum candle", "Stomach rule", "Not ranging", "Market state: TREND", "Ran and pulled back",
                "Pullback ended", "Pullback count", "Break candle rule", "Market awake", "No liquidity void",
                "News clear", "Spacing", "1M entry"],
-    "choch":  ["Change of character", "Momentum candle", "Stomach rule", "Not ranging", "Pullback ended",
-               "Break candle rule", "News clear", "Spacing", "1M entry"],
+    "choch":  ["Change of character", "Momentum candle", "Stomach rule", "Pullback ended", "No liquidity void",
+               "News clear", "Spacing", "1M entry"],
+    "breakout": ["Breakout from a ranging band", "Momentum candle", "Stomach rule", "No liquidity void",
+                 "News clear", "Spacing", "1M entry"],
     # HIS TRADEABLE MARK (`vix1_marked`, origin "marked"): his press overrides the setup checks, so they are NOT
     # ticked — only what still runs after the mark (vix1.analyze: news, spacing, then the entry).
     "marked": ["Your Tradeable mark", "News clear", "Spacing", "1M entry"],

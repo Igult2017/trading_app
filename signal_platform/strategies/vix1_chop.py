@@ -98,6 +98,20 @@ def _to_body(h1: list[Candle], level: float, upper: bool) -> float:
     return level                             # the candle is out of view — leave the line alone
 
 
+def body_lines(h1: list[Candle], a: float, b: float, stretched: float | None = None) -> tuple[float, float] | None:
+    """(bottom, top) of HIS band drawn on the bodies, from two wick-level lines — the same drawing `box_state` uses,
+    shared with the breakout rule (`vix1_breakout`, 23 Nov 2026) so the band is one band. None if the bodies met.
+
+    A LINE STRETCHED BY A FAILED BREAKOUT KEEPS ITS WICK (his rule, 23 Nov 2026): the next breakout on that side
+    counts only *"if it goes past where the previous breakout got"* — where it got is its extreme, not its body."""
+    low, high = (a, b) if a <= b else (b, a)
+    keep_high = stretched is not None and abs(stretched - high) < _SAME
+    keep_low = stretched is not None and abs(stretched - low) < _SAME
+    high = high if keep_high else _to_body(h1, high, True)
+    low = low if keep_low else _to_body(h1, low, False)
+    return (low, high) if high > low else None
+
+
 def box_state(h1: list[Candle], tstate) -> State:
     """Is price still inside the box the last move made?
 
@@ -109,10 +123,10 @@ def box_state(h1: list[Candle], tstate) -> State:
     ceiling, floor = tstate.bos_price, tstate.protected
     if ceiling is None or floor is None:
         return State()                       # no move on record yet — cannot say, so never refuse
-    low, high = (floor, ceiling) if floor <= ceiling else (ceiling, floor)
-    high, low = _to_body(h1, high, True), _to_body(h1, low, False)
-    if high <= low:
+    lines = body_lines(h1, floor, ceiling, getattr(tstate, "stretched", None))
+    if lines is None:
         return State()                       # the bodies met — nothing to measure, so never refuse
+    low, high = lines
     return State(True, low <= h1[-1].close <= high, high, low)
 
 

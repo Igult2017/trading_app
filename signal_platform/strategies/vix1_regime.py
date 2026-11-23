@@ -89,6 +89,17 @@ class Regime:
         return self.kind == TREND
 
 
+def ranging(highs: list[float], lows: list[float]) -> bool:
+    """IS THE MARKET RANGING, by his rule — the last two highs and the last two lows NOT stepping the same way
+    ("a ranging market does not make HH and HL or LL and LH"). The ONE place `classify` and the breakout rule
+    (`vix1_trend`'s failed-breakout memory, `vix1_breakout`, 23 Nov 2026) read it, so they cannot disagree.
+    Fewer than two of either = not enough to say = NOT ranging (nothing new is switched on by a guess)."""
+    if len(highs) < 2 or len(lows) < 2:
+        return False
+    dh, dl = highs[-1] - highs[-2], lows[-1] - lows[-2]
+    return not ((dh > 0 and dl > 0) or (dh < 0 and dl < 0))
+
+
 def classify(turns, atr_value: float) -> Regime:
     """Read the last two confirmed highs and lows and name the regime.
 
@@ -108,10 +119,9 @@ def classify(turns, atr_value: float) -> Regime:
     #    out, not a trend. There is deliberately NO size test here: how big the move is, is the
     #    momentum candle's question, and that is asked separately (and without ATR) in
     #    `vix1_momentum`. Asking it twice is what refused his trending market as chop.
-    if dh > 0 and dl > 0:
-        return Regime(TREND, "higher high and higher low — the trend is progressing")
-    if dh < 0 and dl < 0:
-        return Regime(TREND, "lower high and lower low — the trend is progressing")
+    if not ranging([h.price for h in highs], [lo.price for lo in lows]):
+        return Regime(TREND, ("higher high and higher low" if dh > 0 else "lower high and lower low")
+                      + " — the trend is progressing")
 
     # 2. THE HIGHS AND LOWS DISAGREE, so this is not a trend by his rule. The only thing left is to
     #    NAME it for the card — bounded (a range) or not (chop). BOTH REFUSE, so this choice cannot

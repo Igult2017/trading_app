@@ -142,9 +142,10 @@ s.check("a void it cannot read allows rather than refuses",
 
 # ── 5. BRANCH C STAYS OFF ───────────────────────────────────────────────────────────────────────
 print()
-print("THE CHANGE-OF-CHARACTER EXEMPTION — still off (OPEN.md B31)")
+print("BRANCH C — still off (OPEN.md B31)")
 s.check("branch C is switched OFF", vix1_void._BRANCH_C, False)
-s.check("...so no pending turn is exempted, whatever level it is asked about",
-        vix1_void.break_of_a_fill(sep[:600], True, sep[599].close, "EUR/USD"), False)
+# `break_of_a_fill` (the void exception to the change-of-character wait) was DELETED 23 Nov 2026: his new rule
+# removed that wait altogether, so there is nothing left for it to exempt.
+s.check("...and the old exception is gone with the wait it exempted", hasattr(vix1_void, "break_of_a_fill"), False)
 
 s.done()

@@ -1,218 +1,60 @@
 """
-VIX.1 — THE CHANGE-OF-CHARACTER ROUTE. The one place a pullback was not asked for.
+VIX.1 — THE CHANGE-OF-CHARACTER ROUTE: a break AGAINST a trend, traded on momentum, no swings needed.
 
-⚠ SINCE 2026-09-14 IT TRADES NOTHING BY DEFAULT. A turn DOWN has had to prove itself since 2026-08-25;
-he extended that to a turn UP ("enable pullback to uptrend the same way we have a pullback after
-first trend run in the downtrend"). Every pending turn now waits for his proof — run, pull back, turn
-back — and is then traded by the normal route. The route below is SWITCHED OFF (`_EXEMPT_UP_TURNS`),
-not deleted, and `test_choch.py` keeps it working with the switch on.
+HIS RULES, 23 Nov 2026 (they replace the 14 Sep switch-off, the 29 Sep candle count and the 20 Sep void-only
+exception — all of which made a change of character wait for swings that arrive after the momentum has died):
 
-HIS RULE, settled 2026-08-15 over three corrections, quoted so it cannot drift:
+    "There is a rule that when the first candle that causes CHOCH is a qualifying momentum candle we take trade
+     if not we wait."
+    "in a CHOCH we dont need those swings because by the time we get the swings the momentum has died."
+    "that first candle that caused CHOCH or breakout must qualify by standard not by memory or margin of error"
+    "I clearly said the first candle." — candles after it qualify the normal way.
+    "We wait for a momentum candle. It can come before pullback or after a pullback."
 
-    "When the break happens, we only trade if the candle is a momentum candle so we mark its close
-     and take a trade. However, if the break is not a momentum candle or arising from a choppy or a
-     ranging market we don't trade."
+So, while a turn is proposed (`TrendState.pending`):
+    the breaking candle is a momentum candle BY STANDARD (2.5x on its own, no memory, no margin) and passes the
+    stomach rule -> trade it now;
+    otherwise the newest closed candle after the break that qualifies the NORMAL way (`qualifies_for_trade`) ->
+    trade it. The same choice as a breakout from a ranging band (`vix1_breakout.pick`) — one rule, one function.
 
-    "the momentum candle might not be the one that caused the structure change, meaning we might not
-     have a pullback due to high volume, so when we find a momentum candle in that event even if
-     there is no pullback we take a trade."
+THIS ROUTE IS FOR A BREAK OUT OF A TREND. A break out of a RANGING market is a breakout from his band and belongs to
+`vix1_breakout` (the trend engine marks it, `TrendState.breakout`), so the old refusal "out of a RANGE or CHOP we
+don't trade" (his 15 Aug answer) is gone from here: that case is now traded — by the breakout rule.
 
-    "A CHOCH can occur and then we end up with no volume or momentum, so a CHOCH is not a
-     qualification for momentum — we are only trading if or when momentum develops in it along the
-     way. So after the breakout has happened for a while we can start using the pullback rule."
+HISTORY (git holds the code): first built 15 Aug on his EUR/USD 28 Jul 17:00 BUY; a turn down lost the shortcut
+25 Aug, a turn up 14 Sep; a void-break exception 20 Sep; a 3-candle wait 29 Sep, replaced by the break-candle rule
+19 Nov. The chaotic-move check has never been asked here (his option A, 17 Nov) and is information-only since 18 Nov.
 
-WHY THIS EXISTS. The normal route (`vix1_bias`) refuses at the exact moment he wants to trade, twice
-over. Replayed on his own chart — EUR/USD 28 Jul 2026, real cTrader bars:
-
-    17:00 chart  the 13.6-pip 89%-body candle closes through 1.13732   -> "trend is changing"  REFUSED
-    18:00-19:00  still changing                                        -> REFUSED
-    20:00-05:00  trend now UP, candle recognised                       -> "the leg says pullback" x10h
-    06:00        the candle is older than LOOKBACK                     -> gone
-
-Removing either refusal alone changes nothing, which is why this is a route and not a patch.
-
-WHERE THE WINDOW ENDS, AND WHY IT NEEDS NO TUNED NUMBER. His own definition closes it:
-
-    "a pullback ends when CHOCH begins. So until a move is considered CHOCH it is still a pullback
-     no matter how deep."
-
-    "the exemption ends when we have the first pullback after CHOCH so that we dont trade in
-     pullbacks again."
-
-So the window runs from the break to the FIRST PULLBACK after it — and a pullback is only knowable
-once its turning point is CONFIRMED, so that is the test: a confirmed swing AGAINST the new direction
-sitting after the break bar. Both edges come from his own rules; nothing here is calibrated.
-
-    MEASURED: 12 months, both pairs, this ends the window on exactly the same bar as waiting for the
-    new direction to CONFIRM — 0 setups and 0 open-hours differ. That is not a coincidence worth
-    relying on, and it is why the test is written out rather than left implicit: after an up-turn
-    price has just closed ABOVE the old lower high, so the first confirmed high after the break is
-    almost always a HIGHER high — which is itself what confirms the trend. The two collapse together
-    TODAY. Change `vix1_trend`'s confirm rule and they would come apart silently, with this route
-    quietly trading pullbacks again — the exact thing he asked to prevent.
-
-The span is a median 4h (EUR/USD) / 5h (GBP/USD), 97% of episodes inside 24h. His own chart was 3h.
-
-    KNOWN TAIL, reported to him before this shipped: 2% of EUR/USD episodes stay unconfirmed past
-    72h, the worst 104h, and the exemption stays open that whole time. He was asked and chose NO CAP
-    rather than a number he had not given. Do not add one without him.
-
-THIS IS A REVERSAL ENTRY, and that re-opens "only trade pro trend" (2026-07-25/26). Deliberate, his
-call, made with the frequency in front of him: 29 episodes on EUR/USD and 15 on GBP/USD over 12
-months — 2.4 and 1.2 a month. His two filters (momentum required, not out of chop/range) refuse
-roughly two-thirds of all changes of character.
-
-NOTHING IS RE-DETECTED HERE. The break, its price and its bar come from `vix1_trend.TrendState`; the
-candle from `vix1_momentum`; the market kind from `vix1_regime`. This file only asks the questions.
+NOTHING IS RE-DETECTED HERE. The break, its price and its bar come from `vix1_trend.TrendState`.
 """
 from core.types import Candle
 from shared.candle_math import atr
-from strategies import vix1_regime
-from strategies import vix1_retracement
-from strategies import vix1_break_candle
-from strategies.vix1_momentum import momentum_run
+from strategies import vix1_breakout, vix1_regime
 from strategies.vix1_state import Bias, market_state
 from strategies.vix1_swings import structure_turns
 from strategies.vix1_trend import TrendState
 
-# Bars of history required BEFORE the break to judge what kind of market it came out of. Below this
-# the regime cannot be read and we refuse rather than guess: "we don't know" and "it was trending"
-# are opposite answers, and only one of them may trade.
-_MIN_BEFORE = 60
-
 ORIGIN = "choch"
 
-# MAY A TURN UP SKIP THE PULLBACK RULE? — OFF since 2026-09-14, his instruction:
-#
-#     "enable pullback to uptrend the same way we have a pullback after first trend run in the
-#      downtrend."
-#
-# That reverses his scope of 2026-08-25 ("we do this only for CHOCH when trend is changing from
-# uptrend to downtrend but not for downtrend to uptrend") — deliberately, and it is his call. A turn
-# DOWN has never had the exemption and this switch cannot give it one. SWITCHED OFF, NOT DELETED:
-# the route below is unchanged and still tested with the switch on, so restoring it is one line.
-_EXEMPT_UP_TURNS = False
 
-
-def exempts(bullish: bool, void_break: bool = False) -> bool:
-    """May a pending turn THIS WAY be traded without its pullback? The ONE place this is decided —
-    `vix1_preclose` asks it too, so the notification and the entry can never disagree.
-
-    `void_break` IS THE ONLY WAY BACK IN, and it is scoped on purpose. His ruling, 2026-09-20:
-    *"you switch it on only for the liquidity void case not all. What I switched off last time
-    remains switched off until I say switch it on."*
-
-    So `_EXEMPT_UP_TURNS` stays False and every ordinary pending turn still has to prove itself the
-    way he ruled on 2026-09-14 — run, pull back, turn back. The single exception is the case he
-    described on 2026-09-20: price was FILLING a liquidity void and broke the level protecting the
-    move that made it. `vix1_void.break_of_a_fill` is the one function that answers that, and both
-    callers ask it, so the exemption cannot mean one thing to the entry and another to the heads-up.
-
-    IT DEFAULTS TO FALSE. A caller that does not know about voids gets exactly today's behaviour.
-    """
-    return void_break or (bullish and _EXEMPT_UP_TURNS)
-
-
-def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState,
-                turns, n: int, symbol: str, void_break: bool = False,
-                ignore_count: bool = False) -> tuple[Bias | None, str]:
-    """His change-of-character route. Returns (Bias or None, the reason either way).
-
-    `window` is the trend window (the tail of `h1`); `tstate` and `turns` were already computed from
-    it by the caller, so nothing here re-reads structure. The reason is returned rather than logged
-    so the caller keeps one log line per scan.
-    """
-    # 1. A TURN IS PROPOSED AND NOT YET CONFIRMED. Outside this span there is no exemption to grant:
-    #    before it there is no break, after it the normal route owns the decision.
+def choch_entry(window: list[Candle], h1: list[Candle], tstate: TrendState, n: int,
+                symbol: str) -> tuple[Bias | None, str]:
+    """His change-of-character route. Returns (Bias or None, the reason either way). `window` is the trend window
+    (the tail of `h1`); `tstate` was computed from it by the caller."""
     if tstate.pending == 0 or tstate.choch_index is None:
         return None, "no change of character is pending"
-
+    if tstate.breakout:
+        return None, "a breakout from a ranging band — the breakout rule decides it"
     bullish = tstate.pending == 1
     way = "up" if bullish else "down"
-    ci = tstate.choch_index                      # indexes into `window`
     broke = tstate.choch_price
-
-    # 1a. WHEN MAY IT TRADE? ONE TIMING RULE, HIS, AND IT OWNS BOTH QUESTIONS THIS USED TO ASK.
-    #
-    # WHAT THIS REPLACES. Two separate gates sat here:
-    #   * a flat refusal unless the turn was exempt — which, with the shortcut switched off, meant
-    #     NO change of character could ever be traded on this route, either way;
-    #   * "the first pullback after the break closes the window", which handed the turn back to the
-    #     normal route — and that route cannot trade it either, because it waits for a second swing
-    #     to confirm the new trend.
-    # Between them a change of character was refused here and unreachable there. Measured on
-    # XAU/USD, 28 Sep 2026: six momentum candles qualified across 22 hours and not one could be
-    # taken while price ran ~$200.
-    #
-    # HIS RULE, 2026-09-29, which makes the two one question:
-    #
-    #     "in a breakout, after the price has come out of the band, we count the first 2 candles and
-    #      fire signal when the 3rd candle closes if it is a momentum candle and we haven't had a
-    #      pullback yet."
-    #     "in a CHOCH, we wait for a pullback to take a trade but the band issue has proven to us
-    #      that sometimes price can move for a very long time without a pullback. so that 3 candle
-    #      rule also applies in a CHOCH scenario if we have not had a pullback."
-    #
-    # So: no pullback yet -> wait until the 3rd candle counting the break as the 1st; a pullback of
-    # 1-3 candles -> its first momentum candle trades; a longer one -> the 3rd candle after it. All
-    # three live in `vix1_retracement.entry_timing`, so the CHoCH route and the trend route answer
-    # the timing question with the same code and cannot drift apart.
-    #
-    # THE PULLBACK IS COUNTED IN CANDLES, NOT READ OFF A SWING — his instruction of the same day,
-    # and the reason 1b had to go rather than be kept beside this. The swing detector misses 93% of
-    # one-candle pullbacks (measured, six instruments, `tools/pullback_vs_swings.py`), so "has it
-    # pulled back" was being answered by something that mostly cannot see one.
-    #
-    # `void_break` STILL SKIPS THE WAIT ENTIRELY — his scoped ruling of 2026-09-20 is untouched:
-    # price filling a liquidity void and breaking the level protecting the move that made it trades
-    # at once, with no count.
-    # ⚠ `ignore_count` IS THE NOTIFICATION'S QUESTION, NEVER A TRADING PATH'S — see `detect_bias`.
-    # It mutes this one refusal so `vix1_countwatch` can ask "would this trade but for the count?";
-    # every check below it still runs, which is the whole point.
-    if not exempts(bullish, void_break):
-        if not ignore_count:
-            wait = vix1_retracement.entry_timing(window, 1 if bullish else -1,
-                                                 break_time=window[ci].time)
-            if wait:
-                return None, f"change of character {way} at {broke:.5f} — {wait}"
-        # HIS 19 NOV RULE, replacing the 3-candle wait: with no pullback since the break, the BREAK candle must be
-        # a momentum candle on its own (2.5x, no margin, no memory). Not a count, so `ignore_count` does not mute it.
-        why = vix1_break_candle.refusal(window, h1, window[ci].time, bullish, symbol)
-        if why:
-            return None, f"change of character {way} at {broke:.5f} — {why}"
-
-    # 2. MOMENTUM MUST HAVE DEVELOPED THE NEW WAY — "a CHOCH is not a qualification for momentum".
-    run = momentum_run(h1, bullish, symbol)
-    if run is None:
-        return None, (f"change of character {way} at {broke:.5f}, but no momentum candle that way "
-                      f"yet — a break on its own is not a trade")
-
-    #    ...AND IT MUST NOT PREDATE THE BREAK. A big candle from before the turn is evidence for the
-    #    OLD direction; reading it as confirmation of the new one would trade the move that was just
-    #    reversed. `choch_index` is a window index, so lift it into h1 before comparing.
-    choch_h1 = ci + (len(h1) - len(window))
-    if run[0] < choch_h1:
-        return None, (f"change of character {way} at {broke:.5f}, but the freshest {way} momentum "
-                      f"candle predates the break — it belongs to the old move")
-
-    # 3. IT MUST NOT HAVE COME OUT OF CHOP OR A RANGE — his answer (a), verbatim: "if the break is
-    #    not a momentum candle or arising from a choppy or a ranging market we don't trade". Read on
-    #    the bars BEFORE the break, because the question is what the market was doing when it turned,
-    #    not what this candle has just made it look like.
-    before = window[:ci]
-    if len(before) < _MIN_BEFORE:
-        return None, (f"change of character {way} at {broke:.5f}, but too little history before it "
-                      f"to say what kind of market it came out of")
-    regime = vix1_regime.classify(structure_turns(before, n), atr(before, 14))
-    if regime.kind != vix1_regime.TREND:
-        return None, (f"change of character {way} at {broke:.5f}, but it came out of a "
-                      f"{regime.kind.upper()} market — {regime.why}")
-
-    # 4. ALL FOUR HOLD. No pullback is asked for and the confirmation wait is skipped — that is the
-    #    whole point of the route, not an oversight: "the no pullback rule in the beginning...
-    #    was meant to prevent blocking of good trades at the beginning of a CHOCH."
+    bi = tstate.choch_index + (len(h1) - len(window))          # the breaking candle, in h1
+    mc, why = vix1_breakout.pick(h1, bi, 1 if bullish else -1, symbol, what="change of character")
+    if mc is None:
+        return None, f"change of character {way} at {broke:.5f} — {why}"
+    before = window[:tstate.choch_index]
+    regime = (vix1_regime.classify(structure_turns(before, n), atr(before, 14)) if len(before) > 20
+              else vix1_regime.Regime())
     ret, eff, _ = market_state(window, tstate, symbol)
-    reason = (f"change of character {way}: price closed through {broke:.5f} and a momentum candle "
-              f"followed it out of a trending market — traded without waiting for a pullback, which "
-              f"applies again once the {way}trend confirms")
-    return Bias(bullish, run[0], ORIGIN, run[1], reason, ret, eff, regime), reason
+    reason = f"change of character {way}: price closed through {broke:.5f} — {why}; no swings needed (his rule)"
+    return Bias(bullish, mc, ORIGIN, 1, reason, ret, eff, regime), reason

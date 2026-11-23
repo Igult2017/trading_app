@@ -318,20 +318,6 @@ def direction_already_confirmed(h1: list[Candle], mc_idx: int, direction_since: 
                    for j in range(max(0, direction_since), mc_idx))
 
 
-def break_of_a_fill(h1: list[Candle], turning_up: bool, broken_level: float | None,
-                    symbol: str, news: NewsContext | None = None) -> bool:
-    """Is the pending turn the break of a void price was filling? HIS BRANCH C — SWITCHED OFF.
-
-    Kept working, not deleted, so restoring it is one line once the question it got wrong is settled
-    (`OPEN.md` B31). `broken_level` is `TrendState.choch_price`, NEVER `protected`: `vix1_trend.py`
-    empties `protected` on the line that proposes a turn, which is what made the first build dead.
-    """
-    if not _BRANCH_C or not h1 or broken_level is None:
-        return False
-    st = state(h1, len(h1) - 1, not turning_up, symbol, broken_level, news)
-    return st.kind == "broken" and st.on_fill
-
-
 def not_filling(h1: list[Candle], protected: float | None, bullish: bool,
                 symbol: str, news: NewsContext | None = None) -> str | None:
     """The veto: a reason to refuse, or None to allow. Same shape as the gates it joins in
