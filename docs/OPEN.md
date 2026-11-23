@@ -5475,7 +5475,7 @@ PIX as its own program would separate that; not asked for yet.
 forbid robots — it uses a plain browser and no challenge solver; a refusal is recorded and the day skipped. Unknown
 until the first run: whether the server is let in, and whether the scraper image's Chromium starts.
 
-### G2 — Daily buy/sell levels from Barchart's options — BUILT 21 Nov (his answers given); OPEN ONLY: the host timer on the server (needs root) and the first live post
+### G2 — Daily buy/sell levels from Barchart's options — BUILT 21 Nov; host timer INSTALLED (his word, 23 Nov); switch ON 23 Nov. 23 Nov: folded into the PIX options levels (`docs/options-levels.md`). OPEN ONLY: replace `/opt/bc/run.sh` on the server ONCE (needs his permission or his hands) so it fetches the newest scraper files itself
 **21 Nov:** built and proven live from his machine (`docs/barchart.md` top). Left: install `scripts/bc/` on the server
 as root, switch "Post the options levels" on, read the first post. PIX using these levels (his answer 8) is the agreed
 NEXT step — `docs/strategies/pix.md` "What is NOT built yet".

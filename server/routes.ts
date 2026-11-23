@@ -3351,6 +3351,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { parse_mode: "HTML" }).catch(() => false);
       return res.status(202).json({ ok: false, recorded: true, blocked });
     }
+    // THE NEW SCRAPER STORES ITS TABLES AND THE ENGINE POSTS THE DEALER MAP (23 Nov 2026, docs/options-levels.md) — it
+    // says so with `mapped: true`, and nothing is posted here (the same levels would go out twice). The server's OLD copy
+    // of the scraper sends a finished message without that flag and keeps posting exactly as before.
+    if (body.mapped === true) {
+      if (runId) await bcFinishRun(runId, { ok: true, tookMs });
+      return res.json({ ok: true, posted: false });
+    }
     const { serverSwitch } = await import("./lib/engineSettings");
     const toDm = await serverSwitch("barchart_to_dm");               // the admin page's "send to my DM instead"
     const message = body.message.slice(0, 4000);
@@ -3359,6 +3366,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       : await telegramNotificationService?.sendToChannel(message, { parse_mode: "HTML" }).catch(() => false);
     if (runId) await bcFinishRun(runId, { ok: !!sent, tookMs, error: sent ? undefined : "Telegram refused the post" });
     return res.json({ ok: !!sent });
+  });
+
+  // PIX OPTIONS — each open's two tables (Investing.com's overnight table + Barchart's), STORED (his order 23 Nov 2026);
+  // the signal engine maps them and posts the day's levels. Secret-only, strict (`server/lib/optionsSnapshot.ts`).
+  app.post("/api/internal/options/snapshot", requireAdminSecret, async (req: Request, res: Response) => {
+    const { parseSnapshots, storeSnapshots } = await import("./lib/optionsSnapshot");
+    const got = parseSnapshots(req.body ?? {});
+    if (!got.ok) return res.status(400).json({ ok: false, error: got.error });
+    try {
+      const n = await storeSnapshots(pool, got.runId, got.slot, got.snaps);
+      return res.json({ ok: true, stored: n });
+    } catch (e: any) {
+      console.error("[options] snapshot not stored:", e?.message ?? e);
+      return res.status(500).json({ ok: false, error: "not stored" });
+    }
+  });
+
+  // THE SCRAPER'S OWN FILES, for the server's runner to fetch before each run (23 Nov 2026) — so a deploy reaches the
+  // scraper without anyone copying files on the server by hand (`scripts/bc/run.sh`). Secret-only; a fixed list.
+  app.get("/api/internal/options/scraper/:name", requireAdminSecret, async (req: Request, res: Response) => {
+    const allowed = ["barchart_greeks.py", "barchart_parse.py", "barchart_levels.py", "barchart_message.py",
+                     "sentry_options.py", "barchart_snapshot.py"];
+    const name = String(req.params.name ?? "");
+    if (!allowed.includes(name)) return res.status(404).json({ ok: false });
+    const path = await import("path");
+    const fs = await import("fs/promises");
+    try {
+      const text = await fs.readFile(path.join(process.cwd(), "server", "python", name), "utf-8");
+      return res.type("text/x-python").send(text);
+    } catch {
+      return res.status(404).json({ ok: false });
+    }
   });
 
   // THE SPOT PRICE FOR THE CONVERSION (strike × spot ÷ futures) — the same live FIX quotes the journal ticker reads,

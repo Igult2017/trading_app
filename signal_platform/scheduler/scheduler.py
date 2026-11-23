@@ -91,6 +91,21 @@ def build(scan_fn, monitor_fn, tracker_fn=None) -> AsyncIOScheduler:
         coalesce=True,
     )
 
+    # PIX OPTIONS DEALER MAP (his order, 23 Nov 2026) — maps each open's stored options tables (Investing.com + Barchart)
+    # by his guide and posts the day's levels to the channel. `strategies/pix_options/job.py`, docs/options-levels.md.
+    async def _pix_options_map():
+        from strategies.pix_options.job import run_once as map_once
+        await map_once()
+
+    _scheduler.add_job(
+        _pix_options_map,
+        trigger=IntervalTrigger(seconds=60),
+        id="pix_options_map",
+        name="PIX options map",
+        max_instances=1,
+        coalesce=True,
+    )
+
     # Monthly reset — the signal board carries ONE MONTH and starts fresh on the 1st (user's rule,
     # 2026-08-22: "let the signals expire at the end of every month"; it was weekly before that).
     # 00:05 rather than 00:00 UTC so it lands just after the boundary, never a hair before it.

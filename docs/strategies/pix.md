@@ -75,7 +75,7 @@ Where he gave no number or detail, the reading is MINE — each is one named con
    Not built: a STOCK data feed — the tools are market-agnostic, but a stock needs a provider with trade prints.
 2. **His management (rule 7)** and **autotrade on account 5347047** — only after he has seen the signals tested.
 3. 1H volume profile (point of control as support/resistance) — *"you will build later"*, and he wants it backtested.
-4. **Barchart options levels → PIX** (his answer 8, 21 Nov 2026 — the agreed NEXT step; the levels themselves are
+4. ~~**Barchart options levels → PIX**~~ **BUILT 23 Nov 2026 as the OPTIONS LEVELS — `docs/options-levels.md`** (Investing.com dealer map + Barchart grade, his newer order; his answer 6: NO trend rule for these). Was: **Barchart options levels → PIX** (his answer 8, 21 Nov 2026 — the agreed NEXT step; the levels themselves are
    BUILT and posted to the channel, `docs/barchart.md`). His words: *"in PX, we can find levels that align with these
    levels and watch them for any reaction before entry. We will mark these levels and when price reacts to them like
    when price gets to them and start reversing as expected we send signal. That is the whole point. However, they must
@@ -120,6 +120,14 @@ bought / sold to 3 decimals (20:57: 34.181 / 31.626; 20:58: 37.313 / 61.806 at 4
 POC 3866.77 (ranging), value area 3852.96–3873.25 inside a 3832.66–3889.04 day.
 
 ## Fix log
+
+### 2026-11-23 — the options levels (Investing.com dealer map + Barchart grade) — `docs/options-levels.md`
+His order + answers (1B 2 4A 5B 6 7, Q3 = A): each open's Investing.com overnight table (the Sentry panel) and Barchart's
+are STORED; the engine maps them by his dealer-mapping guide, grades with Barchart, posts the day's levels to the
+channel; PIX watches them on closed 1M candles and signals a respected level once (stop = PIX's own sizes, 3R) to his
+DM. PIX now scans EUR/USD + GBP/USD for this path ONLY (`zone_instruments` keeps the zone logic on BTC/USD + XAU/USD)
+and fetches 600 1M bars, handing the zone logic exactly its old 90. Code `strategies/pix_options/`. Tests: `tests/pix/
+test_options.py` 32, `pg_options_e2e.py` 9 (real Postgres), independence test widened to the new folder (22).
 | date | what |
 |---|---|
 | 2026-11-17 | Created (as OVP) as an exact, independent copy of BX-S/D, switched off, pairs set to BTC/USD and XAU/USD. |

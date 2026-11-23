@@ -29,7 +29,8 @@ def check(name, got, want):
 # Any other `shared.*` module, or any other strategy's file, is strategy logic shared with someone else → FAIL.
 PLUMBING = {"core.base_strategy", "core.types", "core.strategy_context", "core", "storage", "shared.pip",
             "notifications", "charting", "data.tick_listeners"}
-STDLIB = {"__future__", "dataclasses", "statistics", "logging", "re", "time", "functools", "httpx"}   # httpx: the web library
+STDLIB = {"__future__", "dataclasses", "statistics", "logging", "re", "time", "functools", "httpx",
+          "asyncio", "json", "datetime", "html"}   # the last four: standard library, used by the options levels (23 Nov)   # httpx: the web library
 IMPORT = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import\s+([\w, ]+)|import\s+([\w.]+))", re.M)
 PACKAGES = {"strategies", "data", "shared"}     # `from strategies import x` imports the MODULE strategies.x
 
@@ -46,7 +47,8 @@ def outside(text):
     return [m for m in mods if not (m.startswith("strategies.pix") or m in PLUMBING or m in STDLIB)]
 
 
-pix_files = sorted((ROOT / "strategies").glob("pix*.py"))
+# The options levels live in their own folder (23 Nov 2026) — held to the same rule.
+pix_files = sorted((ROOT / "strategies").glob("pix*.py")) + sorted((ROOT / "strategies" / "pix_options").glob("*.py"))
 offenders = {f.name: outside(f.read_text(encoding="utf-8")) for f in pix_files}
 offenders = {k: v for k, v in offenders.items() if v}
 check(f"no PIX file ({len(pix_files)}) imports shared logic or another strategy", offenders, {})
@@ -70,7 +72,10 @@ from data.instrument_filter import get_open_instruments  # noqa: E402
 from datetime import datetime, timezone  # noqa: E402
 check("PIX is switched on and the registry hands it to the scanner",
       "pix" in [x.id for x in strategy_registry.get_enabled()], True)
-check("PIX trades only his two instruments", PIXStrategy.allowed_instruments, ["BTC/USD", "XAU/USD"])
+check("PIX's ZONE logic trades only his two instruments", PIXStrategy.zone_instruments, ("BTC/USD", "XAU/USD"))
+# EUR/USD and GBP/USD were added 23 Nov 2026 for the OPTIONS levels only (his answer 1B, docs/options-levels.md).
+check("…and EUR/USD + GBP/USD are scanned for the options levels alone",
+      PIXStrategy.allowed_instruments, ["BTC/USD", "XAU/USD", "EUR/USD", "GBP/USD"])
 check("both are on the platform's scan list", all(x in INSTRUMENTS for x in PIXStrategy.allowed_instruments), True)
 check("its ENTRIES pass the channel allowlist", "pix" in [x.strip() for x in settings.dm_only_exempt.split(",")], True)
 check("...but NOT everything (heads-ups stay in the DM)", "pix" in settings.channel_all.split(","), False)

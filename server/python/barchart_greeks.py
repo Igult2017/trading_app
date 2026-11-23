@@ -30,6 +30,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import barchart_levels as L                                                    # noqa: E402
 import barchart_message as M                                                   # noqa: E402
+import sentry_options as S                                                     # noqa: E402
+from barchart_snapshot import snapshot                                        # noqa: E402
 from barchart_parse import is_blocked, parse_options                          # noqa: E402
 
 BASE = "https://www.barchart.com"
@@ -139,6 +141,22 @@ def main() -> int:
     # A FRESH BROWSER PER MARKET (21 Nov 2026): in one session the 4th page came back with no menus at all (the euro's
     # weekly page), while the same page opened fresh drew everything — Barchart gives one visit only a few full pages.
     # Each market needs two (its options page, then its weekday's page), so each gets its own visit.
+    # INVESTING.COM FIRST (23 Nov 2026): its overnight table, three markets, one visit (`sentry_options`). A failure here
+    # never stops Barchart — the engine then says the table could not be read.
+    sentry: list[dict] = []
+
+    def read_sentry(page):
+        try:
+            sentry.extend(S.read_all(page))
+        except Exception as e:                                                # noqa: BLE001
+            print(f"sentry: {type(e).__name__}: {e}", file=sys.stderr)
+        return page
+
+    try:
+        StealthyFetcher.fetch(S.PANEL, headless=True, network_idle=True, page_action=read_sentry, timeout=120_000)
+    except Exception as e:                                                    # noqa: BLE001
+        print(f"sentry visit: {type(e).__name__}: {e}", file=sys.stderr)
+
     out["markets"] = []
     for name, root, sym, digits in MARKETS:
         if "error" in out:
@@ -154,6 +172,13 @@ def main() -> int:
         StealthyFetcher.fetch(f"{BASE}/futures/quotes/{root}*0/volatility-greeks", headless=True,
                               solve_cloudflare=True, network_idle=True, page_action=act, timeout=120_000)
     took = round(time.time() - started, 1)
+    # STORE BOTH TABLES (his order 23 Nov 2026) — whatever Barchart did; the engine maps and posts the dealer map.
+    stored = _app("/api/internal/options/snapshot", snapshot(run_id, slot, sentry, out["markets"], _app))         if (sentry or out["markets"]) else None
+    if stored and stored.get("ok"):
+        _app("/api/internal/barchart/levels", {"ok": True, "mapped": True, "runId": run_id, "slot": slot,
+                                               "tookS": took})
+        print(f"stored {stored.get('stored')} tables; investing {len(sentry)}, barchart {len(out['markets'])}")
+        return 0
     if "error" in out or len(out["markets"]) != len(MARKETS):
         e = out.get("error") or RuntimeError("the page never ran")
         _app("/api/internal/barchart/levels", {"ok": False, "runId": run_id, "slot": slot, "tookS": took,

@@ -482,6 +482,44 @@ ALTER TABLE copy_jobs ADD COLUMN IF NOT EXISTS master_ms   BIGINT;
 ALTER TABLE copy_jobs ADD COLUMN IF NOT EXISTS follower_ms BIGINT;
 ALTER TABLE copy_jobs ADD COLUMN IF NOT EXISTS delay_ms    INTEGER;
 
+-- ── PIX OPTIONS LEVELS (23 Nov 2026, docs/options-levels.md) ─────────────────────────────────────────────────────────
+-- His order: "you scrape data from both platforms and store in the database" (Investing.com's overnight options table —
+-- the Sentry panel it embeds — and Barchart's). One row per source × market × run; the engine maps a run once
+-- (`mapped_at`) and keeps the day's levels in options_levels with what happened to each.
+CREATE TABLE IF NOT EXISTS options_snapshots (
+  id        VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id    VARCHAR NOT NULL,
+  slot      TEXT,
+  source    TEXT NOT NULL,
+  market    TEXT NOT NULL,
+  taken_at  TIMESTAMPTZ DEFAULT NOW(),
+  expiry    TEXT,
+  spot      DOUBLE PRECISION,
+  futures   DOUBLE PRECISION,
+  rows      JSONB NOT NULL,
+  picks     JSONB,
+  mapped_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_options_snapshots_unmapped ON options_snapshots (mapped_at, run_id);
+CREATE TABLE IF NOT EXISTS options_levels (
+  id         VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id     VARCHAR NOT NULL,
+  slot       TEXT,
+  market     TEXT NOT NULL,
+  mapped_at  TIMESTAMPTZ NOT NULL,
+  label      TEXT,
+  side       TEXT,
+  level      DOUBLE PRECISION NOT NULL,
+  grade      TEXT,
+  qualified  BOOLEAN,
+  sweep      BOOLEAN,
+  detail     JSONB,
+  status     TEXT NOT NULL DEFAULT 'watching',
+  status_at  TIMESTAMPTZ,
+  signal_id  VARCHAR
+);
+CREATE INDEX IF NOT EXISTS idx_options_levels_market_status ON options_levels (market, status);
+
 -- ── copy_engine_heartbeat ─────────────────────────────────────────────────────
 -- Single row the Python copy engine UPSERTs every load cycle (~60s); the API reads
 -- it (GET /api/copy/engine-status) to report whether the engine is actually alive.

@@ -136,6 +136,42 @@ export const strategyState = pgTable("strategy_state", {
   updatedAt:  timestamp("updated_at").defaultNow(),
 });
 
+/** PIX options levels (23 Nov 2026, docs/options-levels.md): the raw tables of each run — Investing.com's overnight
+ *  table (the Sentry panel) and Barchart's — stored on his order; the engine maps each run once (`mappedAt`). */
+export const optionsSnapshots = pgTable("options_snapshots", {
+  id:       varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId:    varchar("run_id").notNull(),
+  slot:     text("slot"),
+  source:   text("source").notNull(),
+  market:   text("market").notNull(),
+  takenAt:  timestamp("taken_at", { withTimezone: true }).defaultNow(),
+  expiry:   text("expiry"),
+  spot:     doublePrecision("spot"),
+  futures:  doublePrecision("futures"),
+  rows:     jsonb("rows").notNull(),
+  picks:    jsonb("picks"),
+  mappedAt: timestamp("mapped_at", { withTimezone: true }),
+});
+
+/** The day's dealer map per market and what happened to each level (watching / signalled / broken / replaced). */
+export const optionsLevels = pgTable("options_levels", {
+  id:        varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  runId:     varchar("run_id").notNull(),
+  slot:      text("slot"),
+  market:    text("market").notNull(),
+  mappedAt:  timestamp("mapped_at", { withTimezone: true }).notNull(),
+  label:     text("label"),
+  side:      text("side"),
+  level:     doublePrecision("level").notNull(),
+  grade:     text("grade"),
+  qualified: boolean("qualified"),
+  sweep:     boolean("sweep"),
+  detail:    jsonb("detail"),
+  status:    text("status").notNull().default("watching"),
+  statusAt:  timestamp("status_at", { withTimezone: true }),
+  signalId:  varchar("signal_id"),
+});
+
 /** Follower account configuration for a specific master. */
 export const copyFollowers = pgTable("copy_followers", {
   id:              varchar("id").primaryKey().default(sql`gen_random_uuid()`),

@@ -51,6 +51,11 @@ EVERY /level message goes to HIS DM only, wherever /level was typed (his ruling)
 different feature and post to the CHANNEL (`server/services/priceAlertChecker.ts`, OPEN C16).
 Tests: `server/services/levelWatchPress.test.ts` (19), `signal_platform/tests/test_level_watch.py` (20).
 
+### "PIX options levels" — the dealer map (Investing.com) + Barchart grade, the channel map and the PIX DM signals (23 Nov 2026)
+`docs/options-levels.md`. Reader `server/python/sentry_options.py` (+ `barchart_snapshot.py`) in the Barchart container run;
+stored via `/api/internal/options/snapshot` (`server/lib/optionsSnapshot.ts`) in `options_snapshots`; mapped by
+`signal_platform/strategies/pix_options/` into `options_levels`; watched from `strategies/pix.py`.
+
 ### "1H CVD divergence" alerts — his cTrader indicator, live, to the PIX-bot DM (23 Nov 2026)
 `docs/alerts/cvd-divergence.md`. Not a strategy; places nothing; OFF until he matches it with his chart (switch
 `cvd_divergence_alerts`). Code `signal_platform/alerts/cvd_divergence/`; tests `signal_platform/tests/cvd_divergence/`.

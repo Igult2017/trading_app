@@ -25,6 +25,8 @@ from data import tick_listeners
 from strategies import pix_btcflow, pix_tickflow
 from strategies.pix_flow import absorbed, confirm
 from strategies.pix_skeleton import Plan, range_plan, zone_plan
+from strategies.pix_candles import closed_only
+from strategies.pix_options import signals as pix_options_signals
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +76,9 @@ class PIXStrategy(BaseStrategy):
     # 500 4H / 1H bars give the "big gap" test its 100 earlier gaps with room to spare; 300 5M bars cover the
     # support/resistance search (200) plus its pivots; 30 days for the daily range.
     # 90 1M bars = the 1M order-flow approach (12) + a visit of up to an hour (the 5M tap window).
-    candle_counts       = {TF.H4: 500, TF.H1: 500, TF.M5: 300, TF.M1: 90, TF.D1: 30}
+    # 600 1M bars (23 Nov 2026): the OPTIONS levels are watched from the morning map onward (up to ~10 hours); the zone
+    # logic below is still handed exactly its 90 (`m1[-90:]`), so nothing it decides changes.
+    candle_counts       = {TF.H4: 500, TF.H1: 500, TF.M5: 300, TF.M1: 600, TF.D1: 30}
     # THE LIVE BID/ASK. The platform fills `context.quote` / `context.spread` ONLY for a strategy that asks
     # (`strategy_runner`: `quote_for(...) if deps.needs_spread`). Without it PIX judged "would this stop order fill
     # at once?" on a closed 1M close up to ~2 minutes old and put no spread on a sell's stop — found live, 18 Nov.
@@ -85,17 +89,24 @@ class PIXStrategy(BaseStrategy):
 
     allowed_sessions    = [Session.LONDON, Session.NEW_YORK, Session.ASIAN]
     allowed_trends      = [Trend.ANY]
-    allowed_instruments = ["BTC/USD", "XAU/USD"]          # his instruction: "It will trade BTCUSD and XAUUSD"
+    allowed_instruments = ["BTC/USD", "XAU/USD", "EUR/USD", "GBP/USD"]
+    # The ZONE logic trades only his two (18 Nov: "It will trade BTCUSD and XAUUSD"); EUR/USD and GBP/USD are here ONLY
+    # for the options levels (his answer 1B, 23 Nov 2026 — `strategies/pix_options/`).
+    zone_instruments    = ("BTC/USD", "XAU/USD")
     news_stance         = NewsStance.NEWS_AGNOSTIC
     news_impact_filter  = [NewsImpact.HIGH]
 
     async def analyze(self, context: StrategyContext) -> StrategyResult:
         c = context.candles
-        h4, h1, m5, m1, d1 = c.get(TF.H4), c.get(TF.H1), c.get(TF.M5), c.get(TF.M1), c.get(TF.D1)
+        h4, h1, m5, m1_all, d1 = c.get(TF.H4), c.get(TF.H1), c.get(TF.M5), c.get(TF.M1), c.get(TF.D1)
+        m1 = m1_all[-90:]                                   # the zone logic's window, unchanged (see candle_counts)
         sym = context.symbol
+        options = await self._options(context, m1_all)
+        if sym not in self.zone_instruments:
+            return StrategyResult(signals=options) if options else StrategyResult.empty()
         if len(h4) < 100 or len(m5) < 30 or not m1:
             self._log(sym, "AWAIT_DATA", f"H4={len(h4)} M5={len(m5)} M1={len(m1)} — need 100 / 30 / 1+")
-            return StrategyResult.empty()
+            return StrategyResult(signals=options) if options else StrategyResult.empty()
         # CURRENT price only — never a level. The live quote when there is one: the feed serves CLOSED bars, so the
         # last 1M close can be ~2 minutes old, and "would this stop order fill at once?" needs price NOW.
         if context.quote:
@@ -110,17 +121,32 @@ class PIXStrategy(BaseStrategy):
             plan, why_range = range_plan(h4, m5, m1, price, spread, flow=check, h1=h1)
         if plan is None:
             self._log(sym, "SCANNING", f"{why_zone}; {why_range}")
-            return StrategyResult.empty()
+            return StrategyResult(signals=options) if options else StrategyResult.empty()
         key = f"{sym}_pix_{plan.path}_{plan.tf}_{plan.level_at}_{plan.pullback_at}"   # one signal per proven pullback
         delivery_ledger.cleanup(_STATE_TTL)
         if delivery_ledger.is_delivered(key):
-            return StrategyResult.empty()
+            return StrategyResult(signals=options) if options else StrategyResult.empty()
         digits = price_digits(sym)
         self._log(sym, "SIGNAL", f"{plan.direction.upper()} {plan.path} {plan.tf} entry {plan.entry:.{digits}f} "
                   f"SL {plan.sl:.{digits}f} TP {plan.tp:.{digits}f} RR {plan.rr}")
         sig = build_signal(sym, plan, digits, self.id, self.name)
         sig.dedup_key = key
-        return StrategyResult(signals=[sig])
+        return StrategyResult(signals=options + [sig])
+
+    async def _options(self, context: StrategyContext, m1_all: list) -> list:
+        """The day's OPTIONS levels for this market (`strategies/pix_options`), on CLOSED 1M candles. Never raises: a
+        failure here must not stop the zone logic."""
+        if context.symbol not in pix_options_signals.MARKETS:
+            return []
+        if context.quote:
+            spread = max(0.0, context.quote[1] - context.quote[0])
+        else:
+            spread = context.spread or 0.0
+        try:
+            return await pix_options_signals.check(context.symbol, closed_only(m1_all), spread, self.id, self.name)
+        except Exception:
+            log.exception("[pix-options] %s: the options check failed this minute", context.symbol)
+            return []
 
     def _log(self, sym: str, stage: str, detail: str) -> None:
         """Print on a change AND restate an unchanged stage every heartbeat (`core.stage_tracker`), recorded durably."""

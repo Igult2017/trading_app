@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # run.sh — ask the app whether a Barchart options fetch is due, and if so run one (19 Nov 2026).
 #
-# ⚠ NOT INSTALLED, NOT ENABLED — his order: "After creating it just disable it first, i will tell you what to do with
-# it." It is switched off TWICE: this timer is not installed on the host, AND the app refuses every claim until
-# BARCHART_ENABLED=true (server/scrapers/bcLimits.ts). Installing the timer alone still runs nothing.
+# Installed and switched on (his word 23 Nov 2026: "Barchart had been built and is working"; the admin switch
+# "Post the options levels" was turned on the same day). The app still decides every run (server/scrapers/bcLimits.ts).
 #
 # SAME SHAPE AS scripts/mfb/run.sh, which it copies: the host only asks; the app decides (six slots a day — Asia,
 # London, New York open + 5 and + 20 min); the browser runs in a container REMOVED ON EXIT, capped, killed if it
@@ -41,6 +40,17 @@ run_id="$(printf '%s' "$claim" | sed -n 's/.*"runId":"\([^"]*\)".*/\1/p')"
 slot="$(printf '%s' "$claim" | sed -n 's/.*"slot":"\([^"]*\)".*/\1/p')"
 if [ -z "$run_id" ]; then log "claim refused: $claim"; exit 0; fi
 log "claimed $slot run $run_id"
+
+# THE NEWEST SCRAPER FILES FROM THE APP, every run (23 Nov 2026) — so a deploy reaches this scraper without anyone
+# copying files here by hand. Each file is swapped in only when it downloaded whole; a failed download keeps the copy
+# already here, so a run never starts with a half file.
+for f in barchart_greeks.py barchart_parse.py barchart_levels.py barchart_message.py barchart_snapshot.py          sentry_options.py; do
+  if curl -fsS --max-time 30 -H "x-admin-secret: $SECRET" "$APP/api/internal/options/scraper/$f" -o "$DIR/$f.new"      && [ -s "$DIR/$f.new" ]; then
+    mv -f "$DIR/$f.new" "$DIR/$f"
+  else
+    rm -f "$DIR/$f.new"; log "could not fetch $f — using the copy already here"
+  fi
+done
 
 # Three markets, each its own browser visit (Barchart allows a visit only a few full pages) — up to ~4 min each on a
 # slow machine; 900 s here is the outer kill.

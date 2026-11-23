@@ -15,14 +15,17 @@
 > gets its own visit (~3-4 min each here).
 > **Switches on the admin page** (Autotrade → Options levels): "Post the options levels" (`barchart_enabled`, falls back
 > to `BARCHART_ENABLED`, else OFF) and "Send the levels to my DM instead of the channel" (`barchart_to_dm`).
-> **On the server** the host timer must be installed as root (`scripts/bc/run.sh` header) — the app alone runs nothing.
+> **On the server: INSTALLED and working** (his word, 23 Nov 2026); "Post the options levels" switched ON 23 Nov. **Since
+> 23 Nov the run also reads Investing.com and STORES both tables — his newer order; Barchart's own post is replaced by the
+> PIX dealer map: `docs/options-levels.md`.** `run.sh` now fetches the newest scraper files from the app each run (the
+> server's own copy of `run.sh` must be replaced once for that to start).
 
 His order: *"create a scraper using the approach we are using to scrape data from myfxbook but for barchart Greeks and
 volatility futures. It only scrapes six time the whole day. Twice at an interval of 15 minutes at NY LN and Asia open.
 Five minutes after the open of each market. After creating it just disable it first, i will tell you what to do with
 it."* Page: https://www.barchart.com/futures/quotes/GC*0/volatility-greeks?futuresOptionsView=merged
 
-## State: OFF, twice over
+## State (19 Nov history below — superseded: installed + ON since 23 Nov)
 1. The app refuses every fetch until **`BARCHART_ENABLED=true`** (default off — `server/scrapers/bcLimits.ts`).
 2. The host timer (`scripts/bc/bc.timer`) is **not installed** on the server.
 Nothing reads the stored data yet — that is his next instruction.
