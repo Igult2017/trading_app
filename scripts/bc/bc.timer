@@ -1,5 +1,5 @@
-# Wakes the Barchart runner every 5 minutes; it only ASKS the app, which says "due" six times a day at most.
-# ⚠ NOT INSTALLED (his "disable it first"). See run.sh for the install steps.
+# Wakes the options runner (Investing.com + Barchart) every 5 minutes; it only ASKS the app, which says "due" at most
+# three times a day. Installed on the server 23 Nov 2026 with his permission; stop it: systemctl disable --now bc.timer
 [Unit]
 Description=Ask the app whether a Barchart options fetch is due
 

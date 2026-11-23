@@ -110,6 +110,13 @@ def _app(path: str, payload: dict | None = None):
     app, secret = os.getenv("BC_APP"), os.getenv("BC_SECRET")
     if not (app and secret):
         return None
+    # THE DRY RUN (his order 23 Nov 2026: "Test both scrapers to ensure they collect the right data even before you save
+    # the data to database"): BC_DRY=<file> — every POST is written to that file instead of sent; nothing is saved or
+    # posted. GETs (the live spot price) still read the app, read-only.
+    if payload is not None and os.getenv("BC_DRY"):
+        with open(os.getenv("BC_DRY"), "a", encoding="utf-8") as f:
+            f.write(json.dumps({"path": path, "payload": payload}, default=str) + "\n")
+        return {"ok": True, "dry": True, "stored": 0}
     req = urllib.request.Request(app + path, method="POST" if payload is not None else "GET",
                                  data=None if payload is None else json.dumps(payload).encode("utf-8"),
                                  headers={"Content-Type": "application/json", "x-admin-secret": secret})

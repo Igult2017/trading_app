@@ -8,7 +8,9 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/opt/bc/run.sh
-TimeoutStartSec=420
+# Just over run.sh's own 1200 s kill (Investing.com + Barchart's three markets with pauses). It was 420 s — every full
+# run would have been killed half-way (found 23 Nov 2026, before the first install).
+TimeoutStartSec=1300
 WorkingDirectory=/opt/bc
 StandardOutput=append:/var/log/bc.log
 StandardError=append:/var/log/bc.log
