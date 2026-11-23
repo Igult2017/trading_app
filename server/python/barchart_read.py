@@ -10,17 +10,15 @@ from __future__ import annotations
 import json
 
 import barchart_levels as L
+import popups
 from barchart_parse import is_blocked, parse_options
 
 BASE = "https://www.barchart.com"
 FIELDS = ("strikePrice,optionType,lastPrice,optImpliedVolatility,delta,gamma,theta,vega,impliedVolatilitySkew,"
           "tradeTime")
-CLOSE_POPUPS = """() => { for (const el of document.querySelectorAll('button, a')) {
-    const t = (el.textContent || '').trim().toLowerCase();
-    if (['accept', 'accept all', 'i agree', 'close', 'no thanks', 'not now', 'dismiss', '×', 'x'].includes(t)) {
-      try { el.click(); } catch (e) {} } }
-  for (const el of document.querySelectorAll('[class*="modal"], [class*="overlay"], [id*="modal"], [class*="popup"]'))
-    { try { el.remove(); } catch (e) {} } }"""
+# PATIENT (his ask, 23 Nov 2026: "dont time a scraper out so fast because sometimes the pages take time to load").
+LOAD_MS = 180_000           # a page load (was 90 s)
+MENU_MS = 90_000            # the page drawing its menus (was 45 s), with one reload
 MENUS = """() => Object.fromEntries([...document.querySelectorAll('select')].map((s, i) =>
     [i + ':' + (s.className || s.name || ''), [...s.options].map(o => [o.textContent.trim(), o.value])]))"""
 FETCH = """async ([code, fut, fields]) => {
@@ -41,17 +39,19 @@ def _settle(page, text: str) -> None:
     the next step reports exactly what is missing, and a block page is caught by `is_blocked`."""
     # ONE RELOAD IF IT NEVER APPEARS (21 Nov 2026): the euro's weekly page came back with NO menus on a second visit in
     # the same session, yet drew all of them when opened on its own — a late draw, not a dead link.
+    popups.install(page)                       # ads / cookie boxes closed every second while we are on this page
     for attempt in (1, 2):
         try:
             page.wait_for_function(
                 "t => [...document.querySelectorAll('select option')].some(o => o.textContent.includes(t))",
-                arg=text, timeout=45_000)
+                arg=text, timeout=MENU_MS)
             break
         except Exception:                                                       # noqa: BLE001
             if attempt == 1:
-                page.reload(timeout=90_000, wait_until="domcontentloaded")
+                page.reload(timeout=LOAD_MS, wait_until="domcontentloaded")
+                popups.install(page)
     page.wait_for_timeout(1500)
-    page.evaluate(CLOSE_POPUPS)
+    popups.sweep(page)                         # and once more right before reading
 
 
 def _fetch(page, root: str, code: str, fut_symbol: str, used) -> dict:
@@ -65,7 +65,7 @@ def _fetch(page, root: str, code: str, fut_symbol: str, used) -> dict:
 
 def read_market(page, root: str, expiry) -> dict:
     """One market's chosen-expiry table + its futures price, read inside the open page."""
-    page.goto(f"{BASE}/futures/quotes/{root}*0/volatility-greeks", timeout=90_000, wait_until="domcontentloaded")
+    page.goto(f"{BASE}/futures/quotes/{root}*0/volatility-greeks", timeout=LOAD_MS, wait_until="domcontentloaded")
     _settle(page, "Weekly Options")
     if is_blocked(page.title(), page.content()):
         raise PermissionError(f"blocked by Barchart on {root} (title {page.title()!r})")
@@ -78,7 +78,7 @@ def read_market(page, root: str, expiry) -> dict:
     link = next((v for t, v in kinds if t.startswith(L.WEEKDAYS[weekday])), None)
     if not link:
         raise RuntimeError(f"{root}: no '{L.WEEKDAYS[weekday]} Weekly Options' on the page")
-    page.goto(BASE + link, timeout=90_000, wait_until="domcontentloaded")
+    page.goto(BASE + link, timeout=LOAD_MS, wait_until="domcontentloaded")
     _settle(page, "Week ")
     weeks = _menu(page.evaluate(MENUS), "Week ")
     chosen = L.choose_week(weeks, weekday, expiry)

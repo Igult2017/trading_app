@@ -28,11 +28,13 @@ def market_block(market: str, m: dict, spot: float, expiry: str) -> list[str]:
     if m["status"] != "mapped":
         return out + [f"<i>{escape(m['note'])}</i>"]
     rows = sorted(m["levels"], key=lambda x: -x["strike"])
-    above = [x for x in rows if x["strike"] > m["atm"]]
-    below = [x for x in rows if x["strike"] < m["atm"]]
+    mid = m["atm"] if m.get("atm") is not None else spot          # a Barchart-only map has no ATM strike
+    above = [x for x in rows if x["strike"] > mid]
+    below = [x for x in rows if x["strike"] < mid]
     for lv in above + [None] + below:
         if lv is None:
-            out.append(f"⚪ {_p(market, m['atm'])} — at the money, ignored (the guide never trades it)")
+            out.append(f"⚪ {_p(market, m['atm'])} — at the money, ignored (the guide never trades it)"
+                       if m.get("atm") is not None else f"⚪ {_p(market, spot)} — our price now")
             continue
         icon = ("🔴 SELL" if lv["side"] == "sell" else "🟢 BUY") if lv["qualified"] else "❌ not watched"
         how = " · buy only after a sweep below + close back above" if lv.get("sweep") and lv["qualified"] else ""

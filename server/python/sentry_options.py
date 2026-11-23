@@ -16,6 +16,8 @@ from __future__ import annotations
 import random
 import re
 
+import popups
+
 PANEL = "https://widget2.sentryd.com/widget/#/15490A29-95E3-4296-999E-28D0B35E0D12/XAU-USD/4"
 MARKETS = ("XAU/USD", "EUR/USD", "GBP/USD")
 _NUM = r"(-?\d+(?:\.\d+)?)"
@@ -35,9 +37,14 @@ def parse_panel(text: str) -> dict:
     return {"market": head.group(1) if head else None, "expiry": head.group(2) if head else None, "rows": rows}
 
 
+LOAD_MS = 180_000           # patient (his ask 23 Nov 2026: "sometimes the pages take time to load") — was 90 s
+SHOW_MS = 90_000            # the panel drawing a market's table — was 30 s
+CLICK_MS = 30_000           # a click target appearing — was 15 s
+
+
 def _wait_for(page, market: str) -> None:
     page.wait_for_function("m => document.body.innerText.includes(m + ' Options expiring')", arg=market,
-                           timeout=30_000)
+                           timeout=SHOW_MS)
     _pause(page)
 
 
@@ -47,18 +54,20 @@ def _pause(page) -> None:
     page.wait_for_timeout(random.randint(2000, 5000))
 
 
-def read_all(page) -> list[dict]:
-    """Every market's overnight table, read from the open panel. A market that does not show is left out (the engine
-    then says "could not be read" for it) — never guessed."""
+def read_all(page, markets=MARKETS) -> list[dict]:
+    """The overnight table of each of `markets`, read from the open panel. A market that does not show is left out (the
+    run tries it again later — `barchart_greeks`) — never guessed."""
     out = []
-    page.goto(PANEL, timeout=90_000, wait_until="domcontentloaded")
+    page.goto(PANEL, timeout=LOAD_MS, wait_until="domcontentloaded")
+    popups.install(page)                       # ads / popups closed every second while we are on the panel
     _wait_for(page, "XAU/USD")
-    for market in MARKETS:
+    for market in markets:
         try:
-            page.locator(f"text={market}").first.click(timeout=15_000)
+            page.locator(f"text={market}").first.click(timeout=CLICK_MS)
             _wait_for(page, market)
-            page.locator("text=O/N").first.click(timeout=15_000)          # overnight — clicked again after each switch
+            page.locator("text=O/N").first.click(timeout=CLICK_MS)        # overnight — clicked again after each switch
             _pause(page)
+            popups.sweep(page)                 # once more right before reading
             got = parse_panel(page.evaluate("() => document.body.innerText"))
             if got["market"] == market and len(got["rows"]) >= 3:
                 out.append(got)

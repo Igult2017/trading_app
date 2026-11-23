@@ -140,6 +140,38 @@ check("the 'not respected' notice says so, why, and that the level is closed",
 check("notices carry nothing Telegram's HTML would choke on (< > &)", any(ch in t_reach + t_broke for ch in "<>&"),
       False)
 
+# ── THE CARD: EVERY OPTIONS METRIC FAILED IS ON IT (his ask, 23 Nov 2026) — rendered by the REAL Telegram card ──────────
+from notifications.telegram_cards import format_signal_confirmed  # noqa: E402
+LV_B = {"level": 3575.7, "label": "Active Dealer Support", "side": "buy", "sweep": False, "grade": "B", "run_id": "r",
+        "detail": {"why": ["call price 55.88 > put price 21.08 — buyers' side", "IV 47.65% is MODERATE against its "
+                           "neighbours — a clean bounce can hold"], "speed": "fast, aggressive reaction expected",
+                   "barchart": {"side": "buy", "strike": 3565.0, "spot": 3575.54,
+                                "fails": ["Theta -14.76 — should be high (≤ -20.27)",
+                                          "IV skew -10.23% — should be positive"]}}}
+PLAN = {"entry": 3580.0, "sl": 3570.0, "tp": 3610.0, "rr": 3.0, "note": "stop 0.5× the 1M average range"}
+card = format_signal_confirmed(SG.build("XAU/USD", LV_B, PLAN, "pix", "PIX"))
+check("the Telegram card names the level and grade", "Active Dealer Support 3575.70 — grade B" in card, True)
+check("…EVERY Barchart metric failed, with its value and what it should be",
+      ("❌ Barchart Theta -14.76 — should be high (≤ -20.27)" in card,
+       "❌ Barchart IV skew -10.23% — should be positive" in card), (True, True))
+check("…what Barchart's strike DID pass (IV, Delta, Gamma, Vega)",
+      "passes: IV, Delta, Gamma, Vega" in card, True)
+check("…the Investing.com qualifications and the 3R target", ("Investing.com: call price 55.88" in card,
+                                                               "Target 3R" in card), (True, True))
+LV_C = dict(LV_B, grade="C", detail=dict(LV_B["detail"], barchart=None))
+check("no Barchart strike → the card says so with ❌",
+      "❌ Barchart: no strike backs this level" in format_signal_confirmed(SG.build("XAU/USD", LV_C, PLAN, "pix", "PIX")),
+      True)
+
+# ── INVESTING.COM FAILED ITS 3 TRIES → BARCHART'S FULL QUALIFIERS ONLY (his order, 23 Nov 2026) ────────────────────────
+bo = G.barchart_only([pk("buy", 3550.0), pk("sell", 3640.0, ["Vega high"]), pk("sell", 3700.0), pk("buy", 3700.0)],
+                     3584.4)
+check("Investing.com missing: only Barchart's FULL qualifiers on the right side of price are mapped",
+      [(x["side"], x["strike"], x["label"]) for x in bo["levels"]],
+      [("buy", 3550.0, "Barchart level"), ("sell", 3700.0, "Barchart level")])
+check("…and a market where nothing fully qualifies is NOT mapped (rules never relaxed)",
+      G.barchart_only([pk("buy", 3550.0, ["Theta low"])], 3584.4)["status"], "no data")
+
 # ── WIRED INTO PIX: the options check is CALLED, and EUR/USD never reaches the zone logic ─────────────────────────────
 import asyncio  # noqa: E402
 import strategies.pix as PX  # noqa: E402

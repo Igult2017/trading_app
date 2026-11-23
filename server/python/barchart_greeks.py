@@ -72,52 +72,79 @@ def section(name: str, sym: str, digits: int, got: dict, expiry) -> list[str]:
     return M.format_market(name, got["contract"], got["futures"], spot, digits, sides[0], sides[1], note)
 
 
+TRIES = 3                   # his order 23 Nov 2026
+GAP_S = 300                 # five minutes between tries
+VISIT_MS = 300_000          # one browser visit (was 120 s — his "dont time a scraper out so fast")
+
+
+def _read_sentry(fetcher, markets: list[str]) -> list[dict]:
+    """Investing.com's overnight tables for `markets`, one visit. Never raises — a failure returns what was read."""
+    got: list[dict] = []
+
+    def act(page):
+        try:
+            got.extend(S.read_all(page, markets))
+        except Exception as e:                                                # noqa: BLE001
+            print(f"sentry: {type(e).__name__}: {e}", file=sys.stderr)
+        return page
+    try:
+        fetcher.fetch(S.PANEL, headless=True, network_idle=True, page_action=act, timeout=VISIT_MS)
+    except Exception as e:                                                    # noqa: BLE001
+        print(f"sentry visit: {type(e).__name__}: {e}", file=sys.stderr)
+    return got
+
+
+def _read_barchart(fetcher, root: str, expiry, out: dict):
+    """One Barchart market in a FRESH browser (21 Nov 2026: one visit gets only a few full pages). The table, or None
+    — and the failure is kept in `out["error"]` for the record. Never raises."""
+    box: dict = {}
+
+    def act(page):
+        try:
+            box["got"] = read_market(page, root, expiry)
+        except Exception as e:                                                # noqa: BLE001
+            box["error"] = e
+        return page
+    try:
+        fetcher.fetch(f"{BASE}/futures/quotes/{root}*0/volatility-greeks", headless=True, solve_cloudflare=True,
+                      network_idle=True, page_action=act, timeout=VISIT_MS)
+    except Exception as e:                                                    # noqa: BLE001
+        box["error"] = e
+    if "error" in box:
+        out["error"] = box["error"]
+        print(f"barchart {root}: {type(box['error']).__name__}: {box['error']}", file=sys.stderr)
+    return box.get("got")
+
+
 def main() -> int:
     from scrapling.fetchers import StealthyFetcher                           # only the container has it
     run_id, slot = os.getenv("BC_RUN_ID") or None, os.getenv("BC_SLOT") or "ln"
     now, started = datetime.now(timezone.utc), time.time()
     expiry, out = M.expiry_for(slot, now), {}
 
-    # A FRESH BROWSER PER MARKET (21 Nov 2026): in one session the 4th page came back with no menus at all (the euro's
-    # weekly page), while the same page opened fresh drew everything — Barchart gives one visit only a few full pages.
-    # Each market needs two (its options page, then its weekday's page), so each gets its own visit.
-    # INVESTING.COM FIRST (23 Nov 2026): its overnight table, three markets, one visit (`sentry_options`). A failure here
-    # never stops Barchart — the engine then says the table could not be read.
+    # THREE TRIES, FIVE MINUTES APART, PER SCRAPER (his order 23 Nov 2026: "each scraper should try atleast 3 times at an
+    # interval of 5 minutes. After that if it still fails we use data provided by the scraper that dint fail"). A retry
+    # re-reads ONLY the markets still missing; whatever is missing after the last try is left out, and the run stores
+    # what it has (the engine maps from the source that worked). This replaces the 21 Nov "a refusal = the day skipped".
     sentry: list[dict] = []
-
-    def read_sentry(page):
-        try:
-            sentry.extend(S.read_all(page))
-        except Exception as e:                                                # noqa: BLE001
-            print(f"sentry: {type(e).__name__}: {e}", file=sys.stderr)
-        return page
-
-    try:
-        StealthyFetcher.fetch(S.PANEL, headless=True, network_idle=True, page_action=read_sentry, timeout=120_000)
-    except Exception as e:                                                    # noqa: BLE001
-        print(f"sentry visit: {type(e).__name__}: {e}", file=sys.stderr)
-
     out["markets"] = []
-    for name, root, sym, digits in MARKETS:
-        if "error" in out:
+    for attempt in range(1, TRIES + 1):
+        miss_s = [m for m in S.MARKETS if m not in {t["market"] for t in sentry}]
+        miss_b = [mk for mk in MARKETS if mk[2] not in {sym for _, sym, _, _ in out["markets"]}]
+        if not miss_s and not miss_b:
             break
-
-        def act(page, root=root, name=name, sym=sym, digits=digits):
-            try:
-                out["markets"].append((name, sym, digits, read_market(page, root, expiry)))
-            except Exception as e:                                            # noqa: BLE001
-                out["error"] = e
-            return page
-
-        if out["markets"]:
-            time.sleep(random.uniform(10, 25))      # a person's gap between markets, never the same (23 Nov 2026)
-        try:
-            StealthyFetcher.fetch(f"{BASE}/futures/quotes/{root}*0/volatility-greeks", headless=True,
-                                  solve_cloudflare=True, network_idle=True, page_action=act, timeout=120_000)
-        except Exception as e:                                                # noqa: BLE001
-            # A visit that fails outright (a timeout) must not lose what was already read — Investing.com's tables
-            # and the markets before it are still stored below (23 Nov 2026 re-audit).
-            out["error"] = e
+        if attempt > 1:
+            print(f"try {attempt}: Investing.com missing {miss_s}, Barchart missing {[m[2] for m in miss_b]} — "
+                  f"waiting {GAP_S // 60} min", file=sys.stderr)
+            time.sleep(GAP_S)
+        if miss_s:
+            sentry.extend(_read_sentry(StealthyFetcher, miss_s))
+        for i, (name, root, sym, digits) in enumerate(miss_b):
+            if i:
+                time.sleep(random.uniform(10, 25))  # a person's gap between markets, never the same (23 Nov 2026)
+            got = _read_barchart(StealthyFetcher, root, expiry, out)
+            if got is not None:
+                out["markets"].append((name, sym, digits, got))
     took = round(time.time() - started, 1)
     # STORE BOTH TABLES (his order 23 Nov 2026) — whatever Barchart did; the engine maps and posts the dealer map.
     stored = None

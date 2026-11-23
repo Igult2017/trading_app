@@ -53,12 +53,33 @@ def grade(m: dict, strikes: list[float], picks: list[dict] | None, live: float) 
             continue
         if atm is not None and abs(p["spot"] - atm) <= _window(strikes, atm, p["spot"]):
             continue                                            # next to the ATM strike, which the guide ignores
-        if (p["side"] == "buy" and p["spot"] >= live) or (p["side"] == "sell" and p["spot"] <= live):
+        if not _right_side(p, live):
             continue                                            # a buy level must be below price, a sell above
-        m["levels"].append({"label": "Barchart level", "side": p["side"], "strike": p["spot"], "iv": None,
-                            "iv_class": "", "delta": None, "speed": "", "sweep": False, "qualified": True,
-                            "why": [f"Barchart: every measure qualifies — strike {p['strike']:g} is {p['spot']:g} on "
-                                    f"your chart; Investing.com has no level here"],
-                            "why_not": [], "grade": "B", "barchart": p})
+        m["levels"].append(_barchart_level(p, "Investing.com has no level here"))
     m["barchart_note"] = ""
     return m
+
+
+def _right_side(p: dict, live: float) -> bool:
+    return (p["side"] == "buy" and p["spot"] < live) or (p["side"] == "sell" and p["spot"] > live)
+
+
+def _barchart_level(p: dict, why: str) -> dict:
+    return {"label": "Barchart level", "side": p["side"], "strike": p["spot"], "iv": None, "iv_class": "",
+            "delta": None, "speed": "", "sweep": False, "qualified": True,
+            "why": [f"Barchart: every measure qualifies — strike {p['strike']:g} is {p['spot']:g} on your chart; {why}"],
+            "why_not": [], "grade": "B", "barchart": p}
+
+
+def barchart_only(picks: list[dict] | None, live: float) -> dict:
+    """INVESTING.COM COULD NOT BE READ after its 3 tries (his order 23 Nov 2026: "we use data provided by the scraper
+    that dint fail for dealer mapping"): the market is mapped from Barchart's FULL qualifiers only — "we only map what
+    has qualified" — each on the right side of price. Nothing qualifies → nothing mapped, said."""
+    levels = [_barchart_level(p, "Investing.com could not be read") for p in (picks or [])
+              if not p["fails"] and live and _right_side(p, live)]
+    note = "Investing.com could not be read after 3 tries — mapped from Barchart's full qualifiers only"
+    if not levels:
+        return {"status": "no data", "atm": None, "levels": [], "barchart_note": "",
+                "note": "Investing.com could not be read after 3 tries and no Barchart strike fully qualifies — "
+                        "nothing mapped"}
+    return {"status": "mapped", "atm": None, "levels": levels, "note": note, "barchart_note": ""}

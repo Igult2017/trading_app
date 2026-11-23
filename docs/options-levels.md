@@ -94,6 +94,27 @@ price gets to the mapped levels. When price doesnt respect the levels you also n
   the Sydney open too (the guide says not in the Asian session; he chose "like Barchart"), and a 1M close back instead
   of "sell/buy on the first touch" (his 4A).
 
+## His second follow-up, 23 Nov 2026 — tries, waits, popups, the card
+*"Whatever doesnt qualify we dont map, we only map what has qualified … each scraper should try atleast 3 times at an
+interval of 5 minutes. After that if it still fails we use data provided by the scraper that dint fail … dont time a
+scraper out so fast … we should have something to click those ads when they pop up. In the signal card, make sure you
+mention all the options metrics a signal has failed."*
+- **Rules never relaxed:** what does not qualify is never mapped, for any market (GBP/USD included).
+- **3 tries, 5 min apart, per scraper** (`barchart_greeks.main`, TRIES/GAP_S); a retry re-reads only the markets still
+  missing; refusals are retried too (replaces the 21 Nov "skip the day"). `barchart_retry_test.py` (one try only → 4 fail).
+- **The other source maps:** Investing.com missing after 3 tries → that market from Barchart's FULL qualifiers only
+  (`grade.barchart_only`); nothing fully qualifies → not mapped. Barchart missing → the Investing.com map, all grade C.
+- **Patient waits:** page load 180 s, menus 90 s (+1 reload), panel 90 s, clicks 30 s, browser visit 300 s; whole run
+  5400 s, systemd 5500 s.
+- **Ads and popups** (`server/python/popups.py`): a watcher inside every page, every second, plus a sweep before each
+  read — clicks close/accept/dismiss/× INSIDE popup boxes only, removes ad frames, sticky ad bars and full-screen layers,
+  re-allows scrolling; never touches a box holding the table or menus. `popups_test.py` in a real browser (an ad that
+  appears 2 s later is removed too; the data and its own "x" button untouched).
+- **The signal card:** Telegram shows ONLY a signal's checklist (`notifications/telegram_cards.py`) — the options card
+  had none, so it showed no reasons. Now its checklist: the level + grade, how it was respected, Investing.com's passed
+  rules, what Barchart's strike passed and **❌ every metric it failed** (value + what it should be), or ❌ no Barchart
+  strike; the stop rule; 3R; the opposite active dealer zone. Proven on the REAL card formatter (`test_options.py`).
+
 ## Proof
 `signal_platform/tests/pix/test_options.py` 38 (today's real gold table; rules broken on purpose — caught; PIX really
 calls it; EUR/USD never reaches the zone logic; the notices) · `pg_options_e2e.py` 17 on a real Postgres (store → map →

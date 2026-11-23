@@ -35,13 +35,19 @@ def build(run: dict) -> tuple[list[tuple[str, dict, dict]], list[list[str]]]:
     by = {(s["source"], s["market"]): s for s in run["snaps"]}
     maps, blocks = [], []
     for market in MARKETS:
-        inv = by.get(("investing", market))
+        inv, bc = by.get(("investing", market)), by.get(("barchart", market))
         if inv is None:
-            blocks.append([f"<b>{market}</b>", "<i>Investing.com's table could not be read this open — not mapped</i>"])
+            if bc is None:
+                blocks.append([f"<b>{market}</b>", "<i>Neither Investing.com nor Barchart could be read this open "
+                                                   "(3 tries each) — not mapped</i>"])
+                continue
+            # Investing.com failed its 3 tries → Barchart's FULL qualifiers only (his order, 23 Nov 2026).
+            m = G.barchart_only(_j(bc.get("picks")), bc.get("spot"))
+            maps.append((market, m, bc))
+            blocks.append(MSG.market_block(market, m, bc.get("spot") or 0.0, bc.get("expiry") or ""))
             continue
         rows, spot = _j(inv["rows"]) or [], inv["spot"]
         m = MP.map_market(rows, spot)
-        bc = by.get(("barchart", market))
         if m["status"] == "mapped":
             G.grade(m, sorted(r["strike"] for r in rows), _j(bc["picks"]) if bc and bc.get("picks") is not None
                     else None, spot)

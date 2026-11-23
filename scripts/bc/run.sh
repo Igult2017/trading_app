@@ -17,7 +17,7 @@
 # Stop it: systemctl disable --now bc.timer
 set -uo pipefail
 FILES="barchart_greeks.py barchart_read.py barchart_parse.py barchart_levels.py barchart_message.py barchart_snapshot.py
-       sentry_options.py"
+       sentry_options.py popups.py"
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
@@ -57,9 +57,9 @@ for f in $FILES; do
 done
 
 # Investing.com's panel first (~1 min), then Barchart's three markets, each its own browser visit (Barchart allows a
-# visit only a few full pages) — up to ~4 min each on a slow machine, with a 10-25 s pause between them; 1200 s here is
-# the outer kill (was 900 before Investing.com was added, 23 Nov 2026).
-timeout 1200 docker run --rm \
+# visit only a few full pages) — up to ~4 min each on a slow machine, 10-25 s apart — and up to THREE tries of each,
+# five minutes apart (his order 23 Nov 2026), with patient page waits. 5400 s (90 min) here is the outer kill.
+timeout 5400 docker run --rm \
   --name "bc-$slot" \
   --memory=1g --cpus=1 \
   -e "BC_APP=$APP" \

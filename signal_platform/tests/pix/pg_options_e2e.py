@@ -100,8 +100,8 @@ try:
     check("   3552.0 Active Dealer Support graded A (Barchart full qualifier at 3550)", lv[3552.0],
           ("Active Dealer Support", "A", "watching"))
     check("   the map posted as one message per market (3)", len(sent), 3)
-    check("   gold mapped; the pairs say their table could not be read",
-          ("3618.60" in sent[0], "could not be read" in sent[1] and "could not be read" in sent[2]), (True, True))
+    check("   gold mapped; the pairs (neither source stored) say they are not mapped",
+          ("3618.60" in sent[0], "not mapped" in sent[1] and "not mapped" in sent[2]), (True, True))
     with engine.connect() as c:
         raw = c.execute(text("SELECT count(*) FROM options_snapshots WHERE run_id = 'run-1'")).scalar()
     check("   the run's raw tables are DELETED once mapped (his rule)", raw, 0)
