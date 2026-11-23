@@ -52,9 +52,10 @@ for f in barchart_greeks.py barchart_parse.py barchart_levels.py barchart_messag
   fi
 done
 
-# Three markets, each its own browser visit (Barchart allows a visit only a few full pages) — up to ~4 min each on a
-# slow machine; 900 s here is the outer kill.
-timeout 900 docker run --rm \
+# Investing.com's panel first (~1 min), then Barchart's three markets, each its own browser visit (Barchart allows a
+# visit only a few full pages) — up to ~4 min each on a slow machine, with a 10-25 s pause between them; 1200 s here is
+# the outer kill (was 900 before Investing.com was added, 23 Nov 2026).
+timeout 1200 docker run --rm \
   --name "bc-$slot" \
   --memory=1g --cpus=1 \
   -e "BC_APP=$APP" \

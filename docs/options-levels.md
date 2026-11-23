@@ -67,8 +67,27 @@ The host timer runs `/opt/bc/run.sh`, which runs `/opt/bc/*.py` — copies made 
 secret-only, fixed list), but the copy of `run.sh` ON THE SERVER must be replaced ONCE for that to start. Until then the
 old run keeps posting Barchart's own message exactly as before (the `/levels` route posts unless told `mapped: true`).
 
+## Re-audit, 23 Nov 2026 (his follow-up) — what changed
+His words: *"reaudit the two scrapers and ensure they cannot cause the platform to crash and also they do their work by
+minimizing the chances of getting blocked. Also the data scraped … is only for dealer mapping and calculations and after
+that they will be automatically be gotten rid of … reread the guide again and verify … ensure that signals are sent when
+price gets to the mapped levels. When price doesnt respect the levels you also need to notify me."*
+- **Scraped data deleted after use:** a run's raw tables are DELETED the moment it is mapped (`options_repo.delete_run`);
+  a run stuck unmapped is deleted after 24 h; finished levels after 7 days (`purge`, each minute). `mapped_at` dropped.
+- **His DM notices:** 📍 price REACHED a level (once — the level becomes `touched`, still watched); the signal when it is
+  RESPECTED (the card also names the opposite active dealer zone — the guide's target — beside the 3R target); ❌ NOT
+  RESPECTED when a 1M candle closes through it (a sweep trap trading below is not "not respected" — that is the sweep).
+- **Crash-proof:** the map job guards the whole minute; a run failing to map 3 times is dropped and his DM told; a
+  Barchart visit that fails outright no longer loses the Investing.com tables already read; container cap 1200 s.
+- **Fewer chances of a block:** random 2-5 s pauses between clicks on the panel, 10-25 s between Barchart's markets;
+  still one visit per open, no retry after a refusal.
+- **Guide re-read line by line — the map follows it.** Two places where HIS answers replaced the guide, kept: mapping at
+  the Sydney open too (the guide says not in the Asian session; he chose "like Barchart"), and a 1M close back instead
+  of "sell/buy on the first touch" (his 4A).
+
 ## Proof
-`signal_platform/tests/pix/test_options.py` 32 (today's real gold table; rules broken on purpose — caught; PIX really
-calls it; EUR/USD never reaches the zone logic) · `pg_options_e2e.py` 9 on a real Postgres (store → map → post once →
-signal once → replaced at the next open) · `server/python/sentry_options_test.py` 6 (the panel text captured live) ·
+`signal_platform/tests/pix/test_options.py` 38 (today's real gold table; rules broken on purpose — caught; PIX really
+calls it; EUR/USD never reaches the zone logic; the notices) · `pg_options_e2e.py` 17 on a real Postgres (store → map →
+raw rows deleted → post once → reached notice once → signal once with the opposite zone → not-respected notice once →
+replaced at the next open → a failing run dropped after 3 tries → housekeeping; deletion removed on purpose → 4 fail) · `server/python/sentry_options_test.py` 6 (the panel text captured live) ·
 `server/services/__tests__/optionsSnapshot.check.ts` 8 (strict input, all-or-nothing storing). No backtest.

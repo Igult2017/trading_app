@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import sys
 import time
 import urllib.parse
@@ -169,11 +170,20 @@ def main() -> int:
                 out["error"] = e
             return page
 
-        StealthyFetcher.fetch(f"{BASE}/futures/quotes/{root}*0/volatility-greeks", headless=True,
-                              solve_cloudflare=True, network_idle=True, page_action=act, timeout=120_000)
+        if out["markets"]:
+            time.sleep(random.uniform(10, 25))      # a person's gap between markets, never the same (23 Nov 2026)
+        try:
+            StealthyFetcher.fetch(f"{BASE}/futures/quotes/{root}*0/volatility-greeks", headless=True,
+                                  solve_cloudflare=True, network_idle=True, page_action=act, timeout=120_000)
+        except Exception as e:                                                # noqa: BLE001
+            # A visit that fails outright (a timeout) must not lose what was already read — Investing.com's tables
+            # and the markets before it are still stored below (23 Nov 2026 re-audit).
+            out["error"] = e
     took = round(time.time() - started, 1)
     # STORE BOTH TABLES (his order 23 Nov 2026) — whatever Barchart did; the engine maps and posts the dealer map.
-    stored = _app("/api/internal/options/snapshot", snapshot(run_id, slot, sentry, out["markets"], _app))         if (sentry or out["markets"]) else None
+    stored = None
+    if sentry or out["markets"]:
+        stored = _app("/api/internal/options/snapshot", snapshot(run_id, slot, sentry, out["markets"], _app))
     if stored and stored.get("ok"):
         _app("/api/internal/barchart/levels", {"ok": True, "mapped": True, "runId": run_id, "slot": slot,
                                                "tookS": took})

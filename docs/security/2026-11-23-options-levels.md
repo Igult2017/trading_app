@@ -23,3 +23,12 @@ did not change (stated, not skipped silently).
 
 **Findings:** none High/Critical. Note: the server's copy of `run.sh` must be replaced once (needs his permission —
 my own login to the server was refused by the safety check, correctly).
+
+## Re-audit (his follow-up, 23 Nov 2026)
+- **Cannot crash the platform:** both scrapers run only in a throwaway server container (1 GB, 1 CPU, killed at 1200 s),
+  never in the app. The app's only contact is a secret-only route with strict checks. Engine: the map job guards its
+  whole minute; a never-mappable run is dropped after 3 tries (no forever-loop); PIX's options check is wrapped.
+- **Fewer chances of a block:** random human pauses (2-5 s clicks, 10-25 s between Barchart markets); one visit per
+  open; no retry after a refusal; the same disguised browser as MyFXBook.
+- **Data minimisation:** scraped tables are deleted as soon as they are mapped; leftovers after 24 h; finished levels
+  after 7 days. Findings: none High/Critical.

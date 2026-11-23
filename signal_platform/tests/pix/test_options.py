@@ -124,6 +124,22 @@ check("SWEEP TRAP: below, then a close back above 3462.5 → BUY at 3466, stop u
 BUY = {"side": "buy", "strike": 3552.0, "sweep": False}
 check("a normal BUY level: a close below → broken", W.judge(BUY, [c(0, 3560, 3550, 3549)])[0], "broken")
 
+# ── PRICE REACHED A LEVEL / NOT RESPECTED — his notices (23 Nov 2026) ─────────────────────────────────────────────────
+from strategies.pix_options import signals as SG  # noqa: E402
+check("REACHED: the first candle whose high reaches the sell level (the 2nd)", W.touched(SELL, seq).time, seq[1].time)
+check("REACHED: nothing while price stays away", W.touched(SELL, seq[:1]), None)
+check("SWEEP TRAP: a touch from above is NOT 'reached' — only trading below it is",
+      (W.touched(SWEEP, [c(0, 3470, 3462.5, 3466)]), W.touched(SWEEP, sw).time), (None, sw[1].time))
+LV = {"level": 3618.6, "label": "Active Dealer Resistance", "side": "sell", "sweep": False}
+t_reach = SG.notice("touched", "XAU/USD", LV)
+t_broke = SG.notice("broken", "XAU/USD", LV, "a 1M candle closed above 3618.6 — broken, not respected")
+check("the 'reached' notice names the market, the level and what is awaited",
+      all(x in t_reach for x in ("XAUUSD reached", "Active Dealer Resistance 3618.60", "SELL", "close back below")), True)
+check("the 'not respected' notice says so, why, and that the level is closed",
+      all(x in t_broke for x in ("did NOT respect", "3618.60", "closed above", "no trade")), True)
+check("notices carry nothing Telegram's HTML would choke on (< > &)", any(ch in t_reach + t_broke for ch in "<>&"),
+      False)
+
 # ── WIRED INTO PIX: the options check is CALLED, and EUR/USD never reaches the zone logic ─────────────────────────────
 import asyncio  # noqa: E402
 import strategies.pix as PX  # noqa: E402

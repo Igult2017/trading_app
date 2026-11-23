@@ -13,6 +13,7 @@ Pure part (tested on the text captured live 23 Nov): `parse_panel`. Browser part
 """
 from __future__ import annotations
 
+import random
 import re
 
 PANEL = "https://widget2.sentryd.com/widget/#/15490A29-95E3-4296-999E-28D0B35E0D12/XAU-USD/4"
@@ -37,7 +38,13 @@ def parse_panel(text: str) -> dict:
 def _wait_for(page, market: str) -> None:
     page.wait_for_function("m => document.body.innerText.includes(m + ' Options expiring')", arg=market,
                            timeout=30_000)
-    page.wait_for_timeout(1500)
+    _pause(page)
+
+
+def _pause(page) -> None:
+    """A person's pause between clicks — 2 to 5 seconds, never the same twice (his ask 23 Nov 2026: do the work while
+    minimising the chance of being blocked; machine-regular timing is one of the easiest things to spot)."""
+    page.wait_for_timeout(random.randint(2000, 5000))
 
 
 def read_all(page) -> list[dict]:
@@ -51,7 +58,7 @@ def read_all(page) -> list[dict]:
             page.locator(f"text={market}").first.click(timeout=15_000)
             _wait_for(page, market)
             page.locator("text=O/N").first.click(timeout=15_000)          # overnight — clicked again after each switch
-            page.wait_for_timeout(1500)
+            _pause(page)
             got = parse_panel(page.evaluate("() => document.body.innerText"))
             if got["market"] == market and len(got["rows"]) >= 3:
                 out.append(got)

@@ -44,6 +44,16 @@ def _plan(level: dict, visit: list, confirm, history: list, spread: float) -> di
             "touch_at": visit[0].time, "note": note}
 
 
+def touched(level: dict, m1: list):
+    """The first closed 1M candle that REACHED the level (for a sweep trap: traded below it), or None — the "price
+    reached a level" notice (his ask, 23 Nov 2026: "ensure that signals are sent when price gets to the mapped levels")."""
+    L, sell, sweep = level["strike"], level["side"] == "sell", level.get("sweep", False)
+    for x in m1:
+        if (x.high >= L) if sell else (x.low < L if sweep else x.low <= L):
+            return x
+    return None
+
+
 def judge(level: dict, m1: list, spread: float = 0.0) -> tuple[str, dict | str]:
     """("signal", plan) | ("broken", why) | ("waiting", why). `m1` = closed 1M candles since the map, oldest first."""
     L, sell, sweep = level["strike"], level["side"] == "sell", level.get("sweep", False)

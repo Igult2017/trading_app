@@ -484,8 +484,9 @@ ALTER TABLE copy_jobs ADD COLUMN IF NOT EXISTS delay_ms    INTEGER;
 
 -- ── PIX OPTIONS LEVELS (23 Nov 2026, docs/options-levels.md) ─────────────────────────────────────────────────────────
 -- His order: "you scrape data from both platforms and store in the database" (Investing.com's overnight options table —
--- the Sentry panel it embeds — and Barchart's). One row per source × market × run; the engine maps a run once
--- (`mapped_at`) and keeps the day's levels in options_levels with what happened to each.
+-- the Sentry panel it embeds — and Barchart's). One row per source × market × run; the engine maps a run, then DELETES
+-- its rows (his rule 23 Nov: scraped data is only for mapping and calculations), and keeps the day's levels in
+-- options_levels with what happened to each.
 CREATE TABLE IF NOT EXISTS options_snapshots (
   id        VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id    VARCHAR NOT NULL,
@@ -497,10 +498,12 @@ CREATE TABLE IF NOT EXISTS options_snapshots (
   spot      DOUBLE PRECISION,
   futures   DOUBLE PRECISION,
   rows      JSONB NOT NULL,
-  picks     JSONB,
-  mapped_at TIMESTAMPTZ
+  picks     JSONB
 );
-CREATE INDEX IF NOT EXISTS idx_options_snapshots_unmapped ON options_snapshots (mapped_at, run_id);
+-- `mapped_at` and its index existed for one deploy (23 Nov): rows are now deleted once mapped, so neither is needed.
+DROP INDEX IF EXISTS idx_options_snapshots_unmapped;
+ALTER TABLE options_snapshots DROP COLUMN IF EXISTS mapped_at;
+CREATE INDEX IF NOT EXISTS idx_options_snapshots_taken ON options_snapshots (taken_at);
 CREATE TABLE IF NOT EXISTS options_levels (
   id         VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
   run_id     VARCHAR NOT NULL,

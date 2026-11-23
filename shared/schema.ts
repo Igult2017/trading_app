@@ -137,7 +137,7 @@ export const strategyState = pgTable("strategy_state", {
 });
 
 /** PIX options levels (23 Nov 2026, docs/options-levels.md): the raw tables of each run — Investing.com's overnight
- *  table (the Sentry panel) and Barchart's — stored on his order; the engine maps each run once (`mappedAt`). */
+ *  table (the Sentry panel) and Barchart's — stored on his order; the engine maps a run, then deletes its rows. */
 export const optionsSnapshots = pgTable("options_snapshots", {
   id:       varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   runId:    varchar("run_id").notNull(),
@@ -150,7 +150,6 @@ export const optionsSnapshots = pgTable("options_snapshots", {
   futures:  doublePrecision("futures"),
   rows:     jsonb("rows").notNull(),
   picks:    jsonb("picks"),
-  mappedAt: timestamp("mapped_at", { withTimezone: true }),
 });
 
 /** The day's dealer map per market and what happened to each level (watching / signalled / broken / replaced). */
