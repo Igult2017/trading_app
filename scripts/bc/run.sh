@@ -59,9 +59,12 @@ done
 # Investing.com's panel first (~1 min), then Barchart's three markets, each its own browser visit (Barchart allows a
 # visit only a few full pages) — up to ~4 min each on a slow machine, 10-25 s apart — and up to THREE tries of each,
 # five minutes apart (his order 23 Nov 2026), with patient page waits. 5400 s (90 min) here is the outer kill.
+# MEMORY (first live London run, 23 Nov 2026): with 1 GB and Docker's default 64 MB of shared memory, Barchart's
+# EUR/USD and GBP/USD pages crashed the browser 9 times of 9 ("Page crashed"). Proven on the server the same day: the
+# same read crashed at 1 GB and read cleanly (90 and 114 rows) with --memory=2g --shm-size=1g.
 timeout 5400 docker run --rm \
   --name "bc-$slot" \
-  --memory=1g --cpus=1 \
+  --memory=2g --shm-size=1g --cpus=1 \
   -e "BC_APP=$APP" \
   -e "BC_SECRET=$SECRET" -e "BC_RUN_ID=$run_id" -e "BC_SLOT=$slot" \
   --entrypoint /app/.venv/bin/python -w /tmp -v /opt/bc:/opt/bc:ro \

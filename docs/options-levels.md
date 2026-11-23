@@ -115,6 +115,11 @@ mention all the options metrics a signal has failed."*
   spot check refused it, but the reader must not lose rows. Also found: the panel's GBP/USD data is UNRELIABLE between
   browser sessions — one session all 7 strikes and sane prices, the next only 3 rows with negative put prices. Such a
   table is refused, retried 5 min later (3 tries), then GBP maps from Barchart's full qualifiers or not at all.
+- **First live run, London 23 Nov 08:10 UTC — ran by itself end to end** (stored 08:28:52, map posted 08:29:01, raw
+  tables deleted, PIX watching; two EUR/USD levels later "not respected"). **But Barchart EUR/USD and GBP/USD crashed
+  the browser 9 times of 9** — the container had 1 GB and Docker's default 64 MB of shared memory. Proven on the server
+  the same morning: the same read crashed at 1 GB and read cleanly with `--memory=2g --shm-size=1g` (EUR/USD 90 rows,
+  GBP/USD 114 rows). `run.sh` changed and copied to the server.
 - **The signal card:** Telegram shows ONLY a signal's checklist (`notifications/telegram_cards.py`) — the options card
   had none, so it showed no reasons. Now its checklist: the level + grade, how it was respected, Investing.com's passed
   rules, what Barchart's strike passed and **❌ every metric it failed** (value + what it should be), or ❌ no Barchart
