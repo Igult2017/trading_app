@@ -15,10 +15,13 @@
 > gets its own visit (~3-4 min each here).
 > **Switches on the admin page** (Autotrade → Options levels): "Post the options levels" (`barchart_enabled`, falls back
 > to `BARCHART_ENABLED`, else OFF) and "Send the levels to my DM instead of the channel" (`barchart_to_dm`).
-> **On the server: INSTALLED and working** (his word, 23 Nov 2026); "Post the options levels" switched ON 23 Nov. **Since
-> 23 Nov the run also reads Investing.com and STORES both tables — his newer order; Barchart's own post is replaced by the
-> PIX dealer map: `docs/options-levels.md`.** `run.sh` now fetches the newest scraper files from the app each run (the
-> server's own copy of `run.sh` must be replaced once for that to start).
+> **On the server: FIRST INSTALLED 23 Nov 2026 05:31 UTC, by me, with his permission** — before that it had NEVER been
+> installed (no `/opt/bc`, no timer; the 21 Nov proof run was from his machine; my note that it was "installed, his word"
+> was wrong and is corrected here). "Post the options levels" switched ON 23 Nov. **The run also reads Investing.com and
+> stores both tables until mapped — Barchart's own post is replaced by the PIX dealer map: `docs/options-levels.md`.**
+> `run.sh` fetches the newest scraper files from the app each run (verified from the server). Stop it:
+> `systemctl disable --now bc.timer`. **23 Nov dry run fix:** when the MONTHLY options expire on the target day (gold's
+> December monthly, Tue 24 Nov) the monthly table is read — the weekday's weekly menu skips that date (`barchart_read.py`).
 
 His order: *"create a scraper using the approach we are using to scrape data from myfxbook but for barchart Greeks and
 volatility futures. It only scrapes six time the whole day. Twice at an interval of 15 minutes at NY LN and Asia open.

@@ -61,11 +61,20 @@ can pass Telegram's limit), top to bottom like his picture.
 - PIX scans EUR/USD + GBP/USD for THIS only; its zone logic stays BTC/USD + XAU/USD, handed exactly its old 90 1M bars
   (PIX now fetches 600 so the levels can be watched for up to ~10 hours after the map).
 
-## ⚠ The server's copy of the scraper
-The host timer runs `/opt/bc/run.sh`, which runs `/opt/bc/*.py` — copies made at install, NOT the app's files. Since
-23 Nov `run.sh` fetches the newest scraper files from the app before each run (`GET /api/internal/options/scraper/:name`,
-secret-only, fixed list), but the copy of `run.sh` ON THE SERVER must be replaced ONCE for that to start. Until then the
-old run keeps posting Barchart's own message exactly as before (the `/levels` route posts unless told `mapped: true`).
+## The server's copy of the scraper
+The host timer runs `/opt/bc/run.sh`, which runs `/opt/bc/*.py`. **Installed 23 Nov 2026 05:31 UTC** (with his permission —
+it had never been installed). Before each run `run.sh` fetches the newest scraper files from the app
+(`GET /api/internal/options/scraper/:name`, secret-only, fixed list) — verified from the server: the fetched copies match
+the installed ones byte for byte. So a deploy reaches the scraper; only `run.sh`, `bc.timer` and `bc.service` themselves
+need copying by hand if they ever change. Stop it: `systemctl disable --now bc.timer`.
+
+## The dry run that proved it before install (23 Nov 2026, his order)
+`BC_DRY=<file>` runs the real scraper against the live pages and writes what it WOULD send — nothing saved or posted. Run
+twice from this machine: Investing.com O/N (expiring 24 Nov) for all three markets; Barchart Tuesday 24 Nov for all three
+— after fixing gold, whose 24 Nov expiry is the December MONTHLY (the first run had fallen back to the 1 Dec weekly).
+Barchart's judging re-checked independently on all 120 near-the-money strikes: 0 disagreements. Maps checked by hand.
+GBP/USD: the panel's put prices are NEGATIVE in every unit (USD pips, GBP pips, GBP %) — the panel's own fault — so GBP's
+map is "data error, not mapped" while that lasts (his decision asked).
 
 ## Re-audit, 23 Nov 2026 (his follow-up) — what changed
 His words: *"reaudit the two scrapers and ensure they cannot cause the platform to crash and also they do their work by

@@ -21,8 +21,9 @@ signal card: `telegram_formatter._h`).
 **Secrets:** diff scanned — none. ZAP not re-run: the new routes are secret-only machine routes; the public surface
 did not change (stated, not skipped silently).
 
-**Findings:** none High/Critical. Note: the server's copy of `run.sh` must be replaced once (needs his permission —
-my own login to the server was refused by the safety check, correctly).
+**Findings:** none High/Critical. The scraper was installed on the server 23 Nov 05:31 UTC with his explicit permission
+(my earlier login attempt without it was refused by the safety check, correctly). Files root-owned, `run.sh` 755, the
+`.py` files 644; the admin secret is read from the app container at run time, never written to disk.
 
 ## Re-audit (his follow-up, 23 Nov 2026)
 - **Cannot crash the platform:** both scrapers run only in a throwaway server container (1 GB, 1 CPU, killed at 1200 s),
