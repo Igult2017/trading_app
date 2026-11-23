@@ -31,6 +31,12 @@ def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
     # editorial flourish; the user: *"use real full green candles not green candles with white
     # inside."* Hollow bodies also lose almost all their colour once Telegram scales the card down,
     # which is the opposite of what a glanceable card needs.
+    bars(ax, candles)
+    _rest(ax, candles, n, entry, stop, target, digits, bands, buy, arrow, marks)
+
+
+def bars(ax, candles: list[Candle]) -> None:
+    """The candles alone, at x = 0 … n-1 — shared with the options map (`charting/levels_map.py`, 23 Nov 2026)."""
     width = 0.62
     for i, c in enumerate(candles):
         up = c.close >= c.open
@@ -44,6 +50,8 @@ def draw(ax, candles: list[Candle], entry: float, stop: float, target: float,
             ax.add_patch(Rectangle((i - width / 2, lo), width, h, facecolor=col,
                                    edgecolor=col, linewidth=0.8, zorder=4))
 
+
+def _rest(ax, candles, n, entry, stop, target, digits, bands, buy, arrow, marks) -> None:
     extra: list[tuple] = []             # band labels join the level labels in one column
     full = ann.span(n)
     right = n - 0.4                     # every line and band stops here

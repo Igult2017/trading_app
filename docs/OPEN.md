@@ -5476,7 +5476,7 @@ PIX as its own program would separate that; not asked for yet.
 forbid robots — it uses a plain browser and no challenge solver; a refusal is recorded and the day skipped. Unknown
 until the first run: whether the server is let in, and whether the scraper image's Chromium starts.
 
-### G2 — Daily buy/sell levels from Barchart's options — BUILT 21 Nov; folded into the PIX options levels 23 Nov (`docs/options-levels.md`); host timer FIRST INSTALLED 23 Nov 05:31 UTC with his permission (it had never been installed); switch ON. OPEN ONLY: read the first live run (London 23 Nov 08:10 UTC) and his answer on GBP/USD (the Investing.com panel's put prices are negative — GBP not mapped while that lasts)
+### G2 — Daily buy/sell levels from Barchart's options — BUILT 21 Nov; folded into the PIX options levels 23 Nov (`docs/options-levels.md`); host timer FIRST INSTALLED 23 Nov 05:31 UTC with his permission (it had never been installed); switch ON. **23 Nov, his third follow-up — DONE:** a table with negative prices / IV 0 is refused and retried (the GBP/USD map had gone out from one — my doc wrongly said it was refused); only qualified levels mapped and posted; DM only for respected levels; the map posted as a chart with the text under it; the options and MyFXBook scrapers never run at once. OPEN ONLY: the next live run's memory peak (`/var/log/bc.log` "memory peak") to judge the 2 GB cap; the first chart map seen in the channel
 **21 Nov:** built and proven live from his machine (`docs/barchart.md` top). Left: install `scripts/bc/` on the server
 as root, switch "Post the options levels" on, read the first post. PIX using these levels (his answer 8) is the agreed
 NEXT step — `docs/strategies/pix.md` "What is NOT built yet".

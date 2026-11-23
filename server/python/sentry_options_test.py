@@ -58,11 +58,28 @@ class Page:
 
 
 check("the half-drawn GBP table really is 3 rows (the dry run's fault reproduced)", len(parse_panel(HALF)["rows"]), 3)
-got = SO._settled_table(Page([HALF, GBP, GBP]), "GBP/USD")
-check("half-drawn, then two identical full reads → the full 7-row table", got and len(got["rows"]), 7)
+CLEAN = (GBP.replace("-0.0004", "0.0004").replace("-0.0011", "0.0011").replace("-0.0014", "0.0014")
+         .replace("-0.0017", "0.0017").replace("-0.0013", "0.0013"))
+HALF_CLEAN = HALF.replace("-0.0017", "0.0017").replace("-0.0013", "0.0013")
+check("the clean copy really has no negative price", SO.bad_rows(parse_panel(CLEAN)["rows"]), [])
+got = SO._settled_table(Page([HALF_CLEAN, CLEAN, CLEAN]), "GBP/USD")
+check("half-drawn, then two full sane reads → the full 7-row table", got and len(got["rows"]), 7)
+
+# ── A TABLE WITH IMPOSSIBLE NUMBERS IS A FAILED READ (his word 23 Nov 2026: "You said it had negatives and you went ahead
+# and mapped it") ──────────────────────────────────────────────────────────────────────────────────────────────────────
+check("the live GBP table: 6 strikes with a negative put price", len(SO.bad_rows(parse_panel(GBP)["rows"])), 6)
+check("…so it is REFUSED (the run tries again in 5 minutes) — never stored, never mapped",
+      SO._settled_table(Page([GBP] * 6), "GBP/USD"), None)
+ZERO_IV = CLEAN.replace("9.45%", "0.00%")
+check("an IV of 0 on one strike → refused too", SO._settled_table(Page([ZERO_IV] * 6), "GBP/USD"), None)
+real_bad = SO.bad_rows
+SO.bad_rows = lambda rows: []
+check("TEETH: without the check the negative table is taken (the 23 Nov GBP map)",
+      bool(SO._settled_table(Page([GBP] * 6), "GBP/USD")), True)
+SO.bad_rows = real_bad
 check("a table that never settles on 7 rows → nothing (the next try takes it)",
       SO._settled_table(Page([HALF] * 6), "GBP/USD"), None)
 check("the right number of rows but for ANOTHER market (switch not done) → nothing",
-      SO._settled_table(Page([GBP] * 6), "EUR/USD"), None)
+      SO._settled_table(Page([CLEAN] * 6), "EUR/USD"), None)
 print(f"\n{'ALL PASS' if not BAD else f'{len(BAD)} FAILED'}")
 sys.exit(1 if BAD else 0)

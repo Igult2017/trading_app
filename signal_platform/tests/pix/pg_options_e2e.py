@@ -73,6 +73,10 @@ try:
         return True
     D._send_text = fake_send
 
+    async def no_candles(market):
+        return []                      # no broker here: the map goes out as text — the chart is proved in test_options
+    J._candles = no_candles
+
     gold = [[-0.10, 4.921, 3462.5, 127.11, 0.90, 51.82], [-0.25, 14.15, 3524.6, 74.21, 0.75, 49.13],
             [-0.35, 21.50, 3552.0, 54.27, 0.65, 47.57], [-0.50, 35.03, 3586.1, 33.60, 0.50, 45.91],
             [-0.66, 53.34, 3618.6, 19.45, 0.34, 44.75], [-0.76, 69.94, 3642.5, 12.24, 0.24, 44.00],
@@ -99,14 +103,13 @@ try:
     check("1. six levels saved, ATM 3586.1 not among them", (len(lv), 3586.1 in lv), (6, False))
     check("   3552.0 Active Dealer Support graded A (Barchart full qualifier at 3550)", lv[3552.0],
           ("Active Dealer Support", "A", "watching"))
-    check("   the map posted as one message per market (3)", len(sent), 3)
-    check("   gold mapped; the pairs (neither source stored) say they are not mapped",
-          ("3618.60" in sent[0], "not mapped" in sent[1] and "not mapped" in sent[2]), (True, True))
+    check("   ONE post — gold; the pairs (nothing stored) are not posted at all (his word: only what qualified)",
+          (len(sent), "3618.60" in sent[0], "not mapped" in sent[0]), (1, True, False))
     with engine.connect() as c:
         raw = c.execute(text("SELECT count(*) FROM options_snapshots WHERE run_id = 'run-1'")).scalar()
     check("   the run's raw tables are DELETED once mapped (his rule)", raw, 0)
     loop.run_until_complete(J.run_once())
-    check("2. the next minute: nothing re-posted", len(sent), 3)
+    check("2. the next minute: nothing re-posted", len(sent), 1)
 
     dm = []
 
@@ -116,12 +119,14 @@ try:
     base = int(t0.timestamp()) + 600
     m1 = [Candle(base + 60 * i, o, h, l, c, 1, "M1") for i, (o, h, l, c) in
           enumerate([(3605, 3610, 3600, 3605), (3612, 3620, 3605, 3615), (3615, 3619, 3608, 3612)])]
-    first = loop.run_until_complete(S.check("XAU/USD", m1[:2], 0.3, "pix", "PIX", send=to_dm))
-    check("3. price REACHES 3618.6 → a 'reached' notice to his DM, no signal yet",
-          (first, len(dm), "reached the Active Dealer Resistance 3618.60" in (dm or [""])[0]), ([], 1, True))
-    loop.run_until_complete(S.check("XAU/USD", m1[:2], 0.3, "pix", "PIX", send=to_dm))
-    check("   the next minute: no second 'reached' notice", len(dm), 1)
-    sigs = loop.run_until_complete(S.check("XAU/USD", m1, 0.3, "pix", "PIX", send=to_dm))
+    from notifications import copy_dm
+    copy_dm.send = to_dm               # anything PIX options sent to his DM would land here
+    first = loop.run_until_complete(S.check("XAU/USD", m1[:2], 0.3, "pix", "PIX"))
+    with engine.connect() as c:
+        st = c.execute(text("SELECT status FROM options_levels WHERE level = 3618.6")).scalar()
+    check("3. price REACHES 3618.6 → NOTHING to his DM (only respected levels are reported), recorded as touched",
+          (first, len(dm), st), ([], 0, "touched"))
+    sigs = loop.run_until_complete(S.check("XAU/USD", m1, 0.3, "pix", "PIX"))
     check("   then a close back below → ONE SELL signal at 3612",
           [(s.direction.value, s.entry_price, s.label) for s in sigs], [("sell", 3612, "PIX-OPTIONS")])
     check("   the card names the opposite active dealer zone 3552.00 (the guide's target)",
@@ -129,14 +134,17 @@ try:
     with engine.connect() as c:
         st = c.execute(text("SELECT status FROM options_levels WHERE level = 3618.6")).scalar()
     check("   the level is marked signalled", st, "signalled")
-    again = loop.run_until_complete(S.check("XAU/USD", m1, 0.3, "pix", "PIX", send=to_dm))
+    again = loop.run_until_complete(S.check("XAU/USD", m1, 0.3, "pix", "PIX"))
     check("4. the next minute / after a restart: no second signal", again, [])
     drop = m1 + [Candle(base + 60 * 9, 3560, 3561, 3548, 3549, 1, "M1")]     # closes BELOW the 3552.0 buy level
-    loop.run_until_complete(S.check("XAU/USD", drop, 0.3, "pix", "PIX", send=to_dm))
-    check("   a 1M close THROUGH 3552.0 → a 'did NOT respect' notice, once",
-          [m for m in dm if "did NOT respect" in m and "3552.00" in m].__len__(), 1)
-    loop.run_until_complete(S.check("XAU/USD", drop, 0.3, "pix", "PIX", send=to_dm))
-    check("   …and never twice", [m for m in dm if "did NOT respect" in m].__len__(), 1)
+    loop.run_until_complete(S.check("XAU/USD", drop, 0.3, "pix", "PIX"))
+    with engine.connect() as c:
+        st = c.execute(text("SELECT status FROM options_levels WHERE level = 3552.0")).scalar()
+    check("   a 1M close THROUGH 3552.0 → NOTHING to his DM, the level marked broken (never signals later)",
+          (len(dm), st), (0, "broken"))
+    later = drop + [Candle(base + 60 * 10, 3549, 3556, 3548, 3555, 1, "M1")]   # back above it afterwards
+    check("   …and a close back above it later is NOT a signal (the level is finished)",
+          loop.run_until_complete(S.check("XAU/USD", later, 0.3, "pix", "PIX")), [])
 
     store("run-2", datetime(2026, 11, 23, 13, 10, tzinfo=timezone.utc))
     loop.run_until_complete(J.run_once())
@@ -147,7 +155,6 @@ try:
           (old, new), (["broken", "replaced", "signalled"], 6))
 
     # 6. A run that can never be mapped is dropped after 3 tries and he is told — never a forever-loop.
-    from notifications import copy_dm
     told = []
 
     async def tell(msg, *a, **k):

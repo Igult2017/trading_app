@@ -2,7 +2,7 @@
 
 For each level of this market still `watching` (`options_levels`): the CLOSED 1M candles since the map was made go to
 `watch.judge`. RESPECTED → one PIX signal (saved, monitored, shown on the Assets page; PIX's cards go to his PIX DM —
-his answer 7); BROKEN → the level is marked broken. Either way the level is done for this session (the guide's
+his answer 7); BROKEN → the level is marked broken, nothing sent. Either way the level is done for this session (the guide's
 single-touch rule) — the database row says so, so a restart cannot send it twice.
 """
 from __future__ import annotations
@@ -80,28 +80,13 @@ def build(symbol: str, lv: dict, plan: dict, strategy_id: str, strategy_name: st
     )
 
 
-def notice(kind: str, symbol: str, lv: dict, detail: str = "") -> str:
-    """His DM notices (23 Nov 2026): "ensure that signals are sent when price gets to the mapped levels. When price doesnt
-    respect the levels you also need to notify me." Plain text — the DM is HTML, so nothing here uses < > &."""
-    digits = price_digits(symbol)
-    name, lvl = symbol.replace("/", ""), f"{lv['level']:.{digits}f}"
-    sell = lv["side"] == "sell"
-    if kind == "touched":
-        wait = ("waiting for a 1M close back ABOVE it after the sweep" if lv.get("sweep") else
-                f"watching the 1M for a close back {'below' if sell else 'above'} it")
-        return f"📍 {name} reached the {lv['label']} {lvl} ({'SELL' if sell else 'BUY'} level) — {wait}."
-    return (f"❌ {name} did NOT respect the {lv['label']} {lvl} — {detail}. Level closed for this session, "
-            f"no trade.")
-
-
-async def check(symbol: str, m1: list, spread: float, strategy_id: str, strategy_name: str,
-                send=None) -> list[Signal]:
-    """For each level of `symbol` still watched: REACHED → a notice (once); RESPECTED → a signal; NOT RESPECTED (a 1M
-    close through it) → a notice. Every step is recorded on the level, so a restart repeats nothing."""
+async def check(symbol: str, m1: list, spread: float, strategy_id: str, strategy_name: str) -> list[Signal]:
+    """For each level of `symbol` still watched: RESPECTED → a signal. That is the ONLY message (his word, 23 Nov 2026:
+    *"Only report the respected levels because if you report zones that have not been respected that is a lot of
+    messages in DM"*) — the "📍 reached" and "❌ not respected" notices built earlier that day are gone. Reaching and
+    breaking are still RECORDED on the level (touched / broken), silently: a broken level never signals later, and a
+    restart repeats nothing."""
     from storage import options_repo as R
-    if send is None:
-        from notifications import copy_dm
-        send = copy_dm.send
     loop = asyncio.get_running_loop()
     out = []
     for lv in await loop.run_in_executor(None, R.watching, symbol):
@@ -111,7 +96,6 @@ async def check(symbol: str, m1: list, spread: float, strategy_id: str, strategy
         kind, got = W.judge(level, candles, spread)
         if kind == "broken":
             await loop.run_in_executor(None, R.set_status, lv["id"], "broken")
-            await send(notice("broken", symbol, lv, got))
             log.info("[pix-options] %s %s %s NOT respected: %s", symbol, lv["label"], lv["level"], got)
         elif kind == "signal":
             sig = build(symbol, lv, got, strategy_id, strategy_name)
@@ -127,5 +111,4 @@ async def check(symbol: str, m1: list, spread: float, strategy_id: str, strategy
             out.append(sig)
         elif lv.get("status") == "watching" and W.touched(level, candles) is not None:
             await loop.run_in_executor(None, R.set_status, lv["id"], "touched")
-            await send(notice("touched", symbol, lv))
     return out

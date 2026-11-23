@@ -72,7 +72,8 @@ def read_all(page, markets=MARKETS) -> list[dict]:
             if got is not None:
                 out.append(got)
             else:
-                print(f"sentry {market}: the table never settled on {ROWS} rows — left for the next try")
+                print(f"sentry {market}: no full, sane table ({ROWS} rows, no negative price, no IV 0) — left for "
+                      f"the next try")
         except Exception as e:                                          # noqa: BLE001 — one market never stops the rest
             print(f"sentry {market}: {type(e).__name__}: {e}")
     return out
@@ -81,15 +82,25 @@ def read_all(page, markets=MARKETS) -> list[dict]:
 ROWS = 7                    # the panel ALWAYS shows 7 strikes (deltas 0.10 … 0.90) — checked on gold, EUR, GBP
 
 
+def bad_rows(rows: list[dict]) -> list[float]:
+    """Strikes whose numbers cannot be real: a negative option price, or an IV of 0 or less (his guide: "Ignore any strike
+    showing 0 IV"). A table with ANY of them is a FAILED read (his word, 23 Nov 2026: *"dont map options of pairs that
+    have failed like GBPUSD … You said it had negatives and you went ahead and mapped it"*) — refused, so the run tries
+    again 5 minutes later; never stored, never mapped."""
+    return [r["strike"] for r in rows
+            if r["put_price"] < 0 or r["call_price"] < 0 or r["iv"] <= 0]
+
+
 def _settled_table(page, market: str, reads: int = 5) -> dict | None:
     """THE TABLE ONLY WHEN IT IS FULLY DRAWN (23 Nov 2026 dry run: GBP/USD was read while its rows were still redrawing
-    after the switch — 3 strikes of 7). Two reads in a row, 2-5 s apart, must both be for `market` with all 7 strikes;
+    after the switch — 3 strikes of 7). Two reads in a row, 2-5 s apart, must both be for `market` with all 7 strikes
+    and no impossible number (`bad_rows`);
     the newer is kept. NOT "identical": the panel re-prices live every few seconds and its strikes move with the price
     (measured the same morning — an exact-match rule refused gold and GBP). Up to `reads` reads, else None."""
     full_before = False
     for _ in range(reads):
         got = parse_panel(page.evaluate("() => document.body.innerText"))
-        full = got["market"] == market and len(got["rows"]) == ROWS
+        full = got["market"] == market and len(got["rows"]) == ROWS and not bad_rows(got["rows"])
         if full and full_before:
             return got
         full_before = full

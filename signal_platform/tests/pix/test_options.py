@@ -63,9 +63,12 @@ check("a SELL strike with HIGH IV: not qualified (breakout expected)", (mh[3642.
       ("HIGH", False))
 err = [dict(r) for r in GOLD]
 err[4]["iv"], err[5]["put_price"] = 0.0, -0.0004
-me = {x["strike"]: x for x in MP.map_market(err, 3584.4)["levels"]}
-check("IV 0 and a negative price: data errors, not qualified",
-      (me[3618.6]["qualified"], me[3642.5]["qualified"], "data error" in me[3642.5]["why_not"][0]), (False, False, True))
+me = MP.map_market(err, 3584.4)
+check("IV 0 or a negative price ANYWHERE in the table → the whole market is NOT mapped (his word 23 Nov: GBP had "
+      "negatives and was mapped anyway)", (me["status"], me["levels"], "3618.6" in me["note"]), ("data error", [], True))
+neg = [dict(r) for r in GOLD]
+neg[0]["put_price"] = -0.0004                             # one bad strike far from price — still the whole table fails
+check("…even ONE bad strike far from price", MP.map_market(neg, 3584.4)["status"], "data error")
 check("our price beyond the table: spot mismatch, nothing mapped",
       (MP.map_market(GOLD, 3700.0)["status"], MP.map_market(GOLD, 3700.0)["levels"]), ("spot mismatch", []))
 
@@ -130,15 +133,9 @@ check("REACHED: the first candle whose high reaches the sell level (the 2nd)", W
 check("REACHED: nothing while price stays away", W.touched(SELL, seq[:1]), None)
 check("SWEEP TRAP: a touch from above is NOT 'reached' — only trading below it is",
       (W.touched(SWEEP, [c(0, 3470, 3462.5, 3466)]), W.touched(SWEEP, sw).time), (None, sw[1].time))
-LV = {"level": 3618.6, "label": "Active Dealer Resistance", "side": "sell", "sweep": False}
-t_reach = SG.notice("touched", "XAU/USD", LV)
-t_broke = SG.notice("broken", "XAU/USD", LV, "a 1M candle closed above 3618.6 — broken, not respected")
-check("the 'reached' notice names the market, the level and what is awaited",
-      all(x in t_reach for x in ("XAUUSD reached", "Active Dealer Resistance 3618.60", "SELL", "close back below")), True)
-check("the 'not respected' notice says so, why, and that the level is closed",
-      all(x in t_broke for x in ("did NOT respect", "3618.60", "closed above", "no trade")), True)
-check("notices carry nothing Telegram's HTML would choke on (< > &)", any(ch in t_reach + t_broke for ch in "<>&"),
-      False)
+import inspect  # noqa: E402
+check("ONLY RESPECTED LEVELS reach his DM (his word 23 Nov): no 'reached' / 'not respected' notice exists any more",
+      (hasattr(SG, "notice"), "send" in inspect.signature(SG.check).parameters), (False, False))
 
 # ── THE CARD: EVERY OPTIONS METRIC FAILED IS ON IT (his ask, 23 Nov 2026) — rendered by the REAL Telegram card ──────────
 from notifications.telegram_cards import format_signal_confirmed  # noqa: E402
@@ -209,12 +206,92 @@ asyncio.new_event_loop().run_until_complete(PX.PIXStrategy().analyze(ctx("BTC/US
 check("BTC/USD: no options check (not an options market)", calls, [])
 PX.pix_options_signals.check, PX.zone_plan = real_check, real_zone
 
+# ── THE MAP POST: ONLY WHAT QUALIFIED, AS A CHART WITH THE TEXT UNDER IT (his word, 23 Nov 2026) ─────────────────────
+import json  # noqa: E402
+from datetime import datetime, timezone  # noqa: E402
+from strategies.pix_options import job as J, message as MSG  # noqa: E402
+from charting import levels_map  # noqa: E402
+GBP_BAD = [row(-0.09, -0.0004, 1.3020, 0.01708, 0.91, 10.14), row(-0.24, -0.0011, 1.3065, 0.01190, 0.76, 9.68),
+           row(-0.34, -0.0014, 1.3085, 0.00960, 0.66, 9.45), row(-0.49, -0.0017, 1.3110, 0.00680, 0.51, 9.22),
+           row(-0.65, -0.0017, 1.3134, 0.00445, 0.35, 9.09), row(-0.75, -0.0013, 1.3152, 0.00304, 0.25, 9.04),
+           row(-0.90, 0.00064, 1.3191, 0.00114, 0.10, 9.07)]               # the live 23 Nov GBP/USD table
+EUR_NONE = [row(-0.1, 0.002, 1.090, 0.001, 0.9, 7.0), row(-0.3, 0.002, 1.095, 0.001, 0.7, 7.1),
+            row(-0.5, 0.002, 1.0993, 0.0019, 0.5, 7.2), row(-0.7, 0.001, 1.104, 0.002, 0.3, 7.3),
+            row(-0.9, 0.001, 1.108, 0.002, 0.1, 7.4)]                       # every side the wrong way round: none qualify
+RUN = {"run_id": "r1", "slot": "ln", "taken_at": datetime(2026, 11, 23, 8, 28, tzinfo=timezone.utc), "snaps": [
+    {"source": "investing", "market": "XAU/USD", "rows": json.dumps(GOLD), "spot": 3584.4, "expiry": "2026-11-24"},
+    {"source": "investing", "market": "GBP/USD", "rows": json.dumps(GBP_BAD), "spot": 1.3112, "expiry": "2026-11-24"},
+    {"source": "investing", "market": "EUR/USD", "rows": json.dumps(EUR_NONE), "spot": 1.0995, "expiry": "2026-11-24"}]}
+posts = J.build(RUN)
+check("one post per market WITH qualified levels: gold only — GBP (negative prices) and EUR (nothing qualified) are "
+      "not posted at all", [x["market"] for x in posts], ["XAU/USD"])
+check("…every level saved and posted qualified", all(lv["qualified"] for lv in posts[0]["map"]["levels"]), True)
+m_mix = MP.map_market(hi, 3584.4)                          # 3642.5 does NOT qualify (HIGH IV sell)
+blk = "\n".join(MSG.market_block("XAU/USD", m_mix, 3584.4, "2026-11-24"))
+check("a level that did not qualify is NOT in the text", ("3642.5" in blk, "not watched" in blk, "✗" in blk),
+      (False, False, False))
+check("…while the qualified ones are", "3618.6" in blk, True)
+check("a market with nothing qualified → no text at all", MSG.market_block("EUR/USD", MP.map_market(EUR_NONE, 1.0995),
+                                                                          1.0995, ""), [])
+full = MSG.text("ln", RUN["taken_at"], posts[0]["block"])
+cap, rest = MSG.split(full)
+check("the text under the picture fits Telegram's caption, cut on a whole line; the rest follows",
+      (len(cap) <= 1000, (cap + "\n" + rest) == full if rest else cap == full), (True, True))
+candles = [Candle(time=1_795_000_000 + 1800 * i, open=3580 + (i % 7), high=3590 + (i % 7), low=3570 + (i % 5),
+                  close=3582 + (i % 6), volume=1, timeframe="M30") for i in range(96)]
+png = levels_map.render(MSG.title("XAU/USD", "ln", RUN["taken_at"]), candles,
+                        [{"price": lv["strike"], "name": lv["label"], "side": lv["side"], "dashed": lv["sweep"]}
+                         for lv in posts[0]["map"]["levels"]], 3584.4, 2)
+check("the chart is drawn (a PNG on disk)", bool(png) and Path(png).exists() and Path(png).stat().st_size > 20_000, True)
+import tempfile  # noqa: E402
+KEEP = Path(tempfile.gettempdir()) / "pix_options_map_sample.png"        # outside the repo, for a look by eye
+if png:
+    import shutil
+    shutil.copy(png, KEEP)
+sent = []
+
+
+async def s_photo(path, caption):
+    sent.append(("photo", Path(path).exists(), caption))
+    return True
+
+
+async def s_text(t):
+    sent.append(("text", t))
+    return True
+
+
+async def some_candles(market):
+    return candles
+
+
+async def no_candles(market):
+    return []
+
+p0 = dict(posts[0], when=RUN["taken_at"], slot="ln")
+asyncio.new_event_loop().run_until_complete(J.post(p0, s_text, s_photo, some_candles))
+check("posted as a PHOTO with the text as its caption (then any rest as a message)",
+      (sent[0][0], sent[0][1], sent[0][2] == cap, [x[0] for x in sent[1:]]), ("photo", True, True, ["text"] if rest else []))
+sent.clear()
+asyncio.new_event_loop().run_until_complete(J.post(p0, s_text, s_photo, no_candles))
+check("no candles → the TEXT alone (the map is never lost)", [x[0] for x in sent], ["text"])
+
 # ── TEETH ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 real = MP.iv_class
 MP.iv_class = lambda rows, i: "LOW"
 check("TEETH: without the IV rule the HIGH-IV sell would qualify",
       {x["strike"]: x["qualified"] for x in MP.map_market(hi, 3584.4)["levels"]}[3642.5], True)
 MP.iv_class = real
+real_q = MSG.qualified
+MSG.qualified = lambda m: m.get("levels", [])
+check("TEETH: without the qualified-only rule EUR/USD (nothing qualified) would be posted",
+      "EUR/USD" in [x["market"] for x in J.build(RUN)], True)
+MSG.qualified = real_q
+real_bad = MP._bad
+MP._bad = lambda r: ""
+check("TEETH: without the bad-number check the 23 Nov GBP table would map", MP.map_market(GBP_BAD, 1.3112)["status"],
+      "mapped")
+MP._bad = real_bad
 
 print(f"\n{'ALL PASS' if not BAD else f'{len(BAD)} FAILED: {BAD}'} ({N[0]} checks)")
 sys.exit(1 if BAD else 0)

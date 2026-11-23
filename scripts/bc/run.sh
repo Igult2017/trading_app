@@ -31,6 +31,19 @@ if [ -z "$SECRET" ]; then
   [ -n "$cid" ] && SECRET="$(docker exec "$cid" printenv ADMIN_SECRET 2>/dev/null || true)"
 fi
 log() { echo "[bc $(date -u '+%H:%M:%S')] $*"; }
+
+# NEVER BOTH SCRAPERS AT ONCE (23 Nov 2026, his question "can we afford the 2GB"): the server has 2 cores and no swap; the
+# options run (2 GB cap, 1 core) and the MyFXBook run (1.5 GB cap, 1 core) overlapped on 23 Nov 08:10-08:13, leaving the
+# app almost no processor. Each waits while the other's container runs — up to 20 minutes, then goes ahead anyway.
+wait_for_other() {   # $1 = the other scraper's container name prefix
+  local i=0
+  while docker ps --format '{{.Names}}' | grep -q "^$1"; do
+    [ "$i" -eq 0 ] && log "the other scraper ($1*) is running — waiting for it to finish (never both at once)"
+    i=$((i + 1))
+    if [ "$i" -ge 120 ]; then log "it is still running after 20 min — going ahead"; break; fi
+    sleep 10
+  done
+}
 if [ -z "$SECRET" ]; then log "no SECRET set — refusing to run"; exit 1; fi
 
 due_json="$(curl -fsS --max-time 20 -H "x-admin-secret: $SECRET" "$APP/api/internal/barchart/due" || true)"
@@ -62,6 +75,13 @@ done
 # MEMORY (first live London run, 23 Nov 2026): with 1 GB and Docker's default 64 MB of shared memory, Barchart's
 # EUR/USD and GBP/USD pages crashed the browser 9 times of 9 ("Page crashed"). Proven on the server the same day: the
 # same read crashed at 1 GB and read cleanly (90 and 114 rows) with --memory=2g --shm-size=1g.
+wait_for_other "mfb-"
+# ITS REAL MEMORY USE, measured (23 Nov 2026): the 2 GB is a ceiling; what it actually takes is sampled every 5 s and the
+# peak written to the log, so the cap is judged on numbers.
+: > /tmp/bc-mem
+( sleep 5; while docker ps --format '{{.Names}}' | grep -q "^bc-$slot$"; do
+    docker stats --no-stream --format '{{.MemUsage}}' "bc-$slot" 2>/dev/null | cut -d/ -f1 | tr -d ' ' >> /tmp/bc-mem
+    sleep 5; done ) &
 timeout 5400 docker run --rm \
   --name "bc-$slot" \
   --memory=2g --shm-size=1g --cpus=1 \
@@ -77,4 +97,4 @@ if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
     "$APP/api/internal/barchart/levels" >/dev/null || true
 fi
 docker rm -f "bc-$slot" >/dev/null 2>&1 || true
-log "done (exit $rc)"
+log "done (exit $rc) — memory peak $(sort -h /tmp/bc-mem | tail -1) of the 2 GB cap"

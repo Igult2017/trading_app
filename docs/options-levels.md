@@ -38,7 +38,8 @@ STORED; Barchart posted its own channel message — now its findings appear insi
 3. **Buy zones** below it, outward: Active Dealer Support · Stabilization Support · Sweep Trap Zone. **Dynamic IV Shift**:
    the 2nd buy strike with the highest IV of the three becomes the Sweep Trap; the lowest becomes Stabilization.
 4. **IV vs the strikes directly above and below**: above both = HIGH, below both = LOW, between = MODERATE. IV 0 or a
-   negative option price = a data error, not qualified (the GBP/USD panel showed negative put prices on 23 Nov).
+   negative option price ANYWHERE in the table = the whole table failed: refused by the reader and retried, and never
+   mapped by the engine (`sentry_options.bad_rows`, `mapping.map_market` "data error") — his word 23 Nov, see the end.
 5. **Qualified** — sell: put price > call price and IV not HIGH (high IV = breakout above; the guide gives sells no sweep
    rule, none invented). Buy: call price > put price; a HIGH-IV buy strike or the Sweep Trap is traded the sweep way.
    **Speed** from delta: past ±0.50 fast, else calm.
@@ -47,8 +48,11 @@ STORED; Barchart posted its own channel message — now its findings appear insi
    strike backs it — **A** full qualifier, **B** near miss, **C** none. A Barchart full qualifier backing nothing →
    its own "Barchart level" (B), unless next to the ATM or on the wrong side of price. No Barchart data → all C, said.
 8. **Lock**: a new open's map replaces the previous one (old levels still watched → `replaced`).
-Saved in **`options_levels`**; posted to the **channel**, one message per market (`message.py` — three markets of reasons
-can pass Telegram's limit), top to bottom like his picture.
+**Only QUALIFIED levels** are saved (**`options_levels`**), drawn and posted; a market with none is not posted at all, and
+if nothing qualifies anywhere nothing is posted. Posted to the **channel** as a **chart per market** — the last ~2 days of
+30-minute candles with each level drawn as a labelled line, like his `Option 2 .png` (`charting/levels_map.py`) — with
+the explanation as the text UNDER it (`message.py`; over 1,000 characters the rest follows as a message). No candles or a
+drawing failure → the text alone.
 
 ## The signal (PIX, `watch.py` + `signals.py`, from `strategies/pix.py`)
 - **Respected**: a closed 1M candle touches the level, then a LATER 1M candle closes back (below a sell, above a buy).
@@ -102,6 +106,8 @@ mention all the options metrics a signal has failed."*
 - **Rules never relaxed:** what does not qualify is never mapped, for any market (GBP/USD included).
 - **3 tries, 5 min apart, per scraper** (`barchart_greeks.main`, TRIES/GAP_S); a retry re-reads only the markets still
   missing; refusals are retried too (replaces the 21 Nov "skip the day"). `barchart_retry_test.py` (one try only → 4 fail).
+  ⚠ (corrected 23 Nov, later) the next bullets said a table with negative prices was "refused, retried". It was NOT —
+  nothing checked for them, and the GBP/USD map went out from such a table. Fixed: see the last section.
 - **The other source maps:** Investing.com missing after 3 tries → that market from Barchart's FULL qualifiers only
   (`grade.barchart_only`); nothing fully qualifies → not mapped. Barchart missing → the Investing.com map, all grade C.
 - **Patient waits:** page load 180 s, menus 90 s (+1 reload), panel 90 s, clicks 30 s, browser visit 300 s; whole run
@@ -125,8 +131,30 @@ mention all the options metrics a signal has failed."*
   rules, what Barchart's strike passed and **❌ every metric it failed** (value + what it should be), or ❌ no Barchart
   strike; the stop rule; 3R; the opposite active dealer zone. Proven on the REAL card formatter (`test_options.py`).
 
+## His third follow-up, 23 Nov 2026 — only what qualified, only respected levels in DM, the map as a chart
+*"I told you to dont map options of pairs that have failed like GBPUSD and you still did … only map what qualifies and if
+nothing does dont … Only report the respected levels because if you report zones that have not been respected that is
+alot of messages in DM. I also thought you were doing mapping visually like done on the sample card i sent. A chart
+marked and text explaining bellow it."*
+- **A table with impossible numbers is a FAILED read.** Found: the reader only counted rows (`_settled_table`), so the
+  GBP/USD table with negative put prices was stored and mapped, its bad strikes listed as "not watched". Now any negative
+  price or IV 0 → refused (`sentry_options.bad_rows`) and retried 5 minutes later (3 tries); still bad → that market from
+  Barchart's full qualifiers (his "use the scraper that didn't fail"), else nothing. The engine refuses it too.
+- **Only qualified levels** mapped, saved, drawn and posted; the "❌ not watched" lines and the "not mapped" blocks are
+  gone (this replaces his earlier "include what has not qualified").
+- **DM: only respected levels** (the signal). The "📍 reached" and "❌ not respected" notices are removed; reaching and
+  breaking are still recorded silently (`touched` / `broken`), so a broken level never signals later.
+- **The map is a chart** with the text under it (above).
+- **Memory (his "can we afford the 2GB"):** server 8 GB, 2 cores, no swap; 5.2 GB free at 12:15 UTC. The 2 GB is a cap,
+  not reserved. The options and MyFXBook scrapers overlapped on 23 Nov 08:10-08:13 (worst case 3.5 GB, and the app left
+  almost no processor), so now each waits while the other runs (up to 20 min — `scripts/bc/run.sh`, `scripts/mfb/run.sh`),
+  and the options run logs its real memory peak ("memory peak … of the 2 GB cap" in `/var/log/bc.log`).
+
 ## Proof
-`signal_platform/tests/pix/test_options.py` 38 (today's real gold table; rules broken on purpose — caught; PIX really
+`signal_platform/tests/pix/test_options.py` 55 (since the third follow-up: bad table → nothing; only qualified posted;
+the chart drawn and posted with the text under it; text alone without candles; each rule removed on purpose → caught) ·
+`pg_options_e2e.py` 15 (no DM on reach / break) · `sentry_options_test.py` 13 (the live negative GBP table refused) ·
+earlier: `test_options.py` 38 (today's real gold table; rules broken on purpose — caught; PIX really
 calls it; EUR/USD never reaches the zone logic; the notices) · `pg_options_e2e.py` 17 on a real Postgres (store → map →
 raw rows deleted → post once → reached notice once → signal once with the opposite zone → not-respected notice once →
 replaced at the next open → a failing run dropped after 3 tries → housekeeping; deletion removed on purpose → 4 fail) · `server/python/sentry_options_test.py` 6 (the panel text captured live) ·

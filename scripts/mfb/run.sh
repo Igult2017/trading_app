@@ -45,6 +45,19 @@ fi
 
 log() { echo "[mfb $(date -u '+%H:%M:%S')] $*"; }
 
+# NEVER BOTH SCRAPERS AT ONCE (23 Nov 2026, his question "can we afford the 2GB"): the server has 2 cores and no swap; the
+# options run (2 GB cap, 1 core) and the MyFXBook run (1.5 GB cap, 1 core) overlapped on 23 Nov 08:10-08:13, leaving the
+# app almost no processor. Each waits while the other's container runs — up to 20 minutes, then goes ahead anyway.
+wait_for_other() {   # $1 = the other scraper's container name prefix
+  local i=0
+  while docker ps --format '{{.Names}}' | grep -q "^$1"; do
+    [ "$i" -eq 0 ] && log "the other scraper ($1*) is running — waiting for it to finish (never both at once)"
+    i=$((i + 1))
+    if [ "$i" -ge 120 ]; then log "it is still running after 20 min — going ahead"; break; fi
+    sleep 10
+  done
+}
+
 if [ -z "$SECRET" ]; then log "no SECRET set — refusing to run"; exit 1; fi
 
 # ── 1. IS IT DUE? The app decides; we only carry out the answer. ──────────────────────────────
@@ -66,6 +79,7 @@ log "claimed $kind run $run_id"
 # ── 3. FETCH. One container, capped, removed on exit, and killed from outside if it overruns. ──
 # `--rm` removes it, `timeout` is the belt to the script's own braces: the Python caps itself at
 # 600s, and 780 here is longer than that so a normal slow run is never cut off mid-solve.
+wait_for_other "bc-"
 timeout 780 docker run --rm \
   --name "mfb-$kind" \
   --memory=1.5g --cpus=1 \

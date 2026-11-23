@@ -28,9 +28,10 @@ def check(name, got, want):
 # base and types, the delivery ledger, the stage log, observability, price decimals, the card titles and colours.
 # Any other `shared.*` module, or any other strategy's file, is strategy logic shared with someone else → FAIL.
 PLUMBING = {"core.base_strategy", "core.types", "core.strategy_context", "core", "storage", "shared.pip",
-            "notifications", "charting", "data.tick_listeners"}
+            "notifications", "charting", "data.tick_listeners",
+            "data.candle_fetcher"}   # the platform's candle FEED (23 Nov: the options map's chart) — prices, no strategy logic
 STDLIB = {"__future__", "dataclasses", "statistics", "logging", "re", "time", "functools", "httpx",
-          "asyncio", "json", "datetime", "html"}   # the last four: standard library, used by the options levels (23 Nov)   # httpx: the web library
+          "asyncio", "json", "datetime", "html", "os"}   # the last four: standard library, used by the options levels (23 Nov)   # httpx: the web library
 IMPORT = re.compile(r"^\s*(?:from\s+([\w.]+)\s+import\s+([\w, ]+)|import\s+([\w.]+))", re.M)
 PACKAGES = {"strategies", "data", "shared"}     # `from strategies import x` imports the MODULE strategies.x
 

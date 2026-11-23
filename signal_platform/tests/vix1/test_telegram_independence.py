@@ -152,7 +152,9 @@ async def _timed_poll():
 elapsed = asyncio.run(_timed_poll())
 kinds = [k for k, _ in order]
 s.check("the stop is STILL moved while Telegram hangs", "amend" in kinds, True)
-s.check(f"...and the whole poll stays quick (took {elapsed:.2f}s)", elapsed < 1.0, True)
+# 5 s, not 1 s (23 Nov 2026): the poll takes 0.01-0.03 s alone but took 2.34 s once while the WHOLE suite loaded the
+# machine — a false failure. The fault this guards is the 30 s hung send above; 5 s still catches it six times over.
+s.check(f"...and the whole poll stays quick (took {elapsed:.2f}s)", elapsed < 5.0, True)
 
 # THE ORDER MATTERS, and this is the check that catches a future reordering: the amend must be
 # attempted BEFORE anything is sent, so a slow send can never sit in front of it.

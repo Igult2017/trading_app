@@ -88,6 +88,13 @@ def map_market(rows: list[dict], live: float) -> dict:
     rows = sorted((r for r in rows if r.get("strike")), key=lambda r: r["strike"])
     if len(rows) < 3 or not live:
         return {"status": "no data", "atm": None, "levels": [], "note": "the options table or our price is missing"}
+    bad = [r["strike"] for r in rows if _bad(r)]
+    if bad:
+        # A TABLE WITH ANY IMPOSSIBLE NUMBER IS NOT MAPPED AT ALL (his word, 23 Nov 2026: "You said it had negatives and
+        # you went ahead and mapped it"). The scraper already refuses such a table (`sentry_options.bad_rows`); this is
+        # the second lock, so one stored by any other road still maps nothing.
+        return {"status": "data error", "atm": None, "levels": [],
+                "note": f"impossible numbers in the table (strikes {', '.join(f'{b:g}' for b in bad)}) — not mapped"}
     a = min(range(len(rows)), key=lambda k: abs(rows[k]["strike"] - live))
     lo = rows[a - 1]["strike"] if a > 0 else None
     hi = rows[a + 1]["strike"] if a + 1 < len(rows) else None
